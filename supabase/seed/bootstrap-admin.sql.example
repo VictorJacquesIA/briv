@@ -1,0 +1,27 @@
+-- Bootstrap manual do primeiro usuário adm_geral.
+-- NÃO é uma migration (não roda automaticamente) — é um roteiro para colar
+-- no SQL Editor do Supabase Studio, uma única vez, depois de:
+--   1. Aplicar a migration supabase/migrations/202607090001_role_consolidation.sql
+--   2. Criar o usuário real em Authentication > Users no Supabase Studio
+--      (defina um e-mail e uma senha temporária que você vai trocar depois)
+--
+-- Substitua os placeholders abaixo antes de rodar.
+
+-- Se ainda não existir nenhum cliente cadastrado, crie um primeiro:
+-- insert into public.clientes (razao_social, nome_fantasia)
+-- values ('<RAZAO_SOCIAL>', '<NOME_FANTASIA>')
+-- returning id;
+
+with target as (
+  select id from auth.users where email = '<EMAIL_DO_ADMIN>'
+)
+insert into public.profiles (id, nome, role, cliente_id, ativo)
+select target.id, '<NOME_DO_ADMIN>', 'adm_geral', '<CLIENTE_ID>', true
+from target
+on conflict (id) do update set
+  role = 'adm_geral',
+  cliente_id = excluded.cliente_id,
+  ativo = true;
+
+-- Confirme o resultado:
+-- select id, nome, role, cliente_id, ativo from public.profiles where role = 'adm_geral';
