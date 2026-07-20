@@ -44,11 +44,21 @@ export type PermissionKey =
   | "estoque.view"
   | "estoque.entrada.create"
   | "estoque.saida.create"
-  | "estoque.requisicao.confirm";
+  | "estoque.requisicao.confirm"
+  | "ferramentas.view"
+  | "ferramentas.create"
+  | "ferramentas.saida.create"
+  | "ferramentas.entrada.create"
+  | "cacamba.view"
+  | "cacamba.create"
+  | "cacamba.confirm"
+  | "desmobilizacao.view"
+  | "desmobilizacao.create"
+  | "desmobilizacao.confirm";
 
 export const ROLE_LABELS: Record<AppRole, string> = {
-  adm_geral: "ADM Geral",
-  compras: "Compras",
+  adm_geral: "Administrador",
+  compras: "Administrativo",
   gestor_obra: "Gestor de Obra",
   almox: "Almoxarife",
 };
@@ -92,6 +102,16 @@ export const PERMISSION_KEYS: PermissionKey[] = [
   "estoque.entrada.create",
   "estoque.saida.create",
   "estoque.requisicao.confirm",
+  "ferramentas.view",
+  "ferramentas.create",
+  "ferramentas.saida.create",
+  "ferramentas.entrada.create",
+  "cacamba.view",
+  "cacamba.create",
+  "cacamba.confirm",
+  "desmobilizacao.view",
+  "desmobilizacao.create",
+  "desmobilizacao.confirm",
 ];
 
 export const PERMISSION_LABELS: Record<PermissionKey, string> = {
@@ -133,6 +153,16 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   "estoque.entrada.create": "Registrar entradas manuais de estoque",
   "estoque.saida.create": "Registrar saídas manuais de estoque",
   "estoque.requisicao.confirm": "Confirmar separação e baixa de requisições",
+  "ferramentas.view": "Ver ferramentas da empresa",
+  "ferramentas.create": "Cadastrar ferramentas",
+  "ferramentas.saida.create": "Emprestar ferramenta pra uma obra",
+  "ferramentas.entrada.create": "Registrar devolução de ferramenta",
+  "cacamba.view": "Ver solicitações de caçamba de entulho",
+  "cacamba.create": "Solicitar caçamba, troca ou devolução",
+  "cacamba.confirm": "Confirmar entrega, troca ou devolução de caçamba",
+  "desmobilizacao.view": "Ver solicitações de desmobilização",
+  "desmobilizacao.create": "Solicitar desmobilização",
+  "desmobilizacao.confirm": "Confirmar desmobilização",
 };
 
 export const DEFAULT_COMPRAS_PERMISSIONS: Record<PermissionKey, boolean> = {
@@ -174,6 +204,16 @@ export const DEFAULT_COMPRAS_PERMISSIONS: Record<PermissionKey, boolean> = {
   "estoque.entrada.create": true,
   "estoque.saida.create": true,
   "estoque.requisicao.confirm": false,
+  "ferramentas.view": true,
+  "ferramentas.create": true,
+  "ferramentas.saida.create": true,
+  "ferramentas.entrada.create": true,
+  "cacamba.view": true,
+  "cacamba.create": true,
+  "cacamba.confirm": true,
+  "desmobilizacao.view": true,
+  "desmobilizacao.create": true,
+  "desmobilizacao.confirm": true,
 };
 
 export const DEFAULT_GESTOR_PERMISSIONS: Record<PermissionKey, boolean> = {
@@ -215,6 +255,16 @@ export const DEFAULT_GESTOR_PERMISSIONS: Record<PermissionKey, boolean> = {
   "estoque.entrada.create": false,
   "estoque.saida.create": false,
   "estoque.requisicao.confirm": false,
+  "ferramentas.view": false,
+  "ferramentas.create": false,
+  "ferramentas.saida.create": false,
+  "ferramentas.entrada.create": false,
+  "cacamba.view": true,
+  "cacamba.create": true,
+  "cacamba.confirm": false,
+  "desmobilizacao.view": true,
+  "desmobilizacao.create": true,
+  "desmobilizacao.confirm": false,
 };
 
 export const DEFAULT_ALMOX_PERMISSIONS: Record<PermissionKey, boolean> = {
@@ -256,6 +306,16 @@ export const DEFAULT_ALMOX_PERMISSIONS: Record<PermissionKey, boolean> = {
   "estoque.entrada.create": true,
   "estoque.saida.create": true,
   "estoque.requisicao.confirm": true,
+  "ferramentas.view": true,
+  "ferramentas.create": true,
+  "ferramentas.saida.create": true,
+  "ferramentas.entrada.create": true,
+  "cacamba.view": false,
+  "cacamba.create": false,
+  "cacamba.confirm": false,
+  "desmobilizacao.view": false,
+  "desmobilizacao.create": false,
+  "desmobilizacao.confirm": false,
 };
 
 export function defaultPermissionsForRole(

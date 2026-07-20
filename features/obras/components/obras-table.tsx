@@ -16,7 +16,6 @@ type ObraRow = {
     razao_social?: string | null;
     nome_fantasia?: string | null;
   } | null;
-  responsavel?: { nome?: string | null } | null;
 };
 
 const columns: ColumnDef<ObraRow>[] = [
@@ -41,11 +40,6 @@ const columns: ColumnDef<ObraRow>[] = [
     accessorKey: "fase",
     header: "Fase",
     cell: ({ row }) => FASE_LABELS[row.original.fase] ?? row.original.fase,
-  },
-  {
-    accessorKey: "responsavel",
-    header: "Responsável",
-    cell: ({ row }) => row.original.responsavel?.nome ?? "-",
   },
   {
     accessorKey: "ativo",

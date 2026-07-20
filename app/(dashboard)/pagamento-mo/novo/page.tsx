@@ -10,7 +10,10 @@ import {
 } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/services/profiles-service";
-import { listColaboradores } from "@/services/pagamento-mo-service";
+import {
+  listColaboradores,
+  listContratos,
+} from "@/services/pagamento-mo-service";
 
 export default async function NovoLancamentoMoPage() {
   const currentProfile = await getCurrentProfile();
@@ -39,6 +42,7 @@ export default async function NovoLancamentoMoPage() {
     colaboradores,
     { data: orcamentoItens },
     linkedObraIds,
+    contratosAbertos,
   ] = await Promise.all([
     supabase.from("obras").select("id,nome").eq("ativo", true).order("nome"),
     listColaboradores(),
@@ -50,6 +54,7 @@ export default async function NovoLancamentoMoPage() {
     isGestor
       ? getLinkedObrasForUser(currentProfile.id)
       : Promise.resolve<string[]>([]),
+    listContratos({ status: "aberto" }),
   ]);
 
   let obras = obrasData ?? [];
@@ -67,6 +72,28 @@ export default async function NovoLancamentoMoPage() {
     orcamentoItensByObra[item.obra_id].push({
       id: item.id,
       descricao: item.descricao,
+    });
+  }
+
+  const contratosByObra: Record<
+    string,
+    Array<{
+      id: string;
+      descricao: string;
+      colaboradorNome: string;
+      saldoRestante: number;
+    }>
+  > = {};
+  for (const contrato of contratosAbertos as any[]) {
+    if (isGestor && !linkedObraIds.includes(contrato.obra_id)) {
+      continue;
+    }
+    contratosByObra[contrato.obra_id] ??= [];
+    contratosByObra[contrato.obra_id].push({
+      id: contrato.contrato_id,
+      descricao: contrato.descricao,
+      colaboradorNome: contrato.colaborador_nome,
+      saldoRestante: Number(contrato.saldo_restante),
     });
   }
 
@@ -98,6 +125,7 @@ export default async function NovoLancamentoMoPage() {
               obras={obras}
               colaboradores={colaboradores.filter((c: any) => c.ativo)}
               orcamentoItensByObra={orcamentoItensByObra}
+              contratosByObra={contratosByObra}
               isGestor={isGestor}
             />
           )}

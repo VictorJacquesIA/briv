@@ -43,3 +43,36 @@ export async function getColaboradorSaldo() {
 
   return data ?? [];
 }
+
+export async function listContratos(input?: {
+  obraId?: string;
+  status?: string;
+}) {
+  const supabase = (await createClient()) as any;
+  let query = supabase
+    .from("v_contrato_mo_saldo")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (input?.obraId) {
+    query = query.eq("obra_id", input.obraId);
+  }
+
+  if (input?.status) {
+    query = query.eq("status", input.status);
+  }
+
+  const { data } = await query;
+  return data ?? [];
+}
+
+export async function getContrato(id: string) {
+  const supabase = (await createClient()) as any;
+  const { data } = await supabase
+    .from("v_contrato_mo_saldo")
+    .select("*")
+    .eq("contrato_id", id)
+    .maybeSingle();
+
+  return data ?? null;
+}

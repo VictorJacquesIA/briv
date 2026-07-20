@@ -12,16 +12,24 @@ import {
 } from "@/features/pagamento-mo/actions/mo-actions";
 
 type OrcamentoItem = { id: string; descricao: string };
+type Contrato = {
+  id: string;
+  descricao: string;
+  colaboradorNome: string;
+  saldoRestante: number;
+};
 
 export function LancamentoForm({
   obras,
   colaboradores,
   orcamentoItensByObra,
+  contratosByObra,
   isGestor,
 }: {
   obras: Array<{ id: string; nome: string }>;
   colaboradores: Array<{ id: string; nome: string }>;
   orcamentoItensByObra: Record<string, OrcamentoItem[]>;
+  contratosByObra: Record<string, Contrato[]>;
   isGestor: boolean;
 }) {
   const [state, action] = useActionState(createLancamento, {});
@@ -30,6 +38,7 @@ export function LancamentoForm({
   const [usarDiarias, setUsarDiarias] = useState(false);
   const [localColaboradores, setLocalColaboradores] = useState(colaboradores);
   const [selectedColaboradorId, setSelectedColaboradorId] = useState("");
+  const [selectedContratoId, setSelectedContratoId] = useState("");
   const [showNovoPrestador, setShowNovoPrestador] = useState(false);
   const [prestadorState, prestadorAction] = useActionState(
     createColaboradorGestor,
@@ -39,15 +48,31 @@ export function LancamentoForm({
     () => orcamentoItensByObra[obraId] ?? [],
     [obraId, orcamentoItensByObra],
   );
+  const contratosDisponiveis = useMemo(
+    () => contratosByObra[obraId] ?? [],
+    [obraId, contratosByObra],
+  );
+  const contratoSelecionado = useMemo(
+    () => contratosDisponiveis.find((c) => c.id === selectedContratoId),
+    [contratosDisponiveis, selectedContratoId],
+  );
   const colaboradorLabel = "Colaborador/Prestador";
 
   // Diárias e centro de custo só existem pro tipo "solicitacao" (pagamento
   // de mão de obra); o gestor nunca define valor da diária nem centro de
-  // custo — isso fica pro compras/adm preencher na confirmação.
+  // custo — isso fica pro compras/adm preencher na confirmação. "contrato"
+  // é um tipo só de UI (sempre vira tipo='solicitacao' no banco, com
+  // contrato_id) — também nunca define centro de custo aqui, isso continua
+  // pro compras/adm preencher na confirmação do pagamento.
   const isSolicitacao = tipo === "solicitacao";
+  const isContrato = tipo === "contrato";
   const showDiariasFields = isSolicitacao && usarDiarias;
   const showCentroCustoSelect = isSolicitacao && !isGestor;
   const showCentroCustoNote = isSolicitacao && isGestor;
+
+  useEffect(() => {
+    setSelectedContratoId("");
+  }, [obraId, tipo]);
 
   useEffect(() => {
     if (prestadorState.id && prestadorState.nome) {
@@ -89,65 +114,110 @@ export function LancamentoForm({
             </select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="colaborador_id">{colaboradorLabel}</Label>
-            <select
-              id="colaborador_id"
-              name="colaborador_id"
-              className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-              required
-              value={selectedColaboradorId}
-              onChange={(event) => setSelectedColaboradorId(event.target.value)}
-            >
-              <option value="">Selecione</option>
-              {localColaboradores.map((colaborador) => (
-                <option key={colaborador.id} value={colaborador.id}>
-                  {colaborador.nome}
-                </option>
-              ))}
-            </select>
-            {isGestor ? (
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  className="text-sm text-primary underline"
-                  onClick={() => setShowNovoPrestador((prev) => !prev)}
+            {isContrato ? (
+              <>
+                <Label htmlFor="contrato_id">Contrato</Label>
+                <select
+                  id="contrato_id"
+                  name="contrato_id"
+                  className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                  required
+                  disabled={!obraId}
+                  value={selectedContratoId}
+                  onChange={(event) =>
+                    setSelectedContratoId(event.target.value)
+                  }
                 >
-                  {showNovoPrestador ? "Cancelar" : "Cadastrar novo prestador"}
-                </button>
-                {showNovoPrestador ? (
-                  <div className="space-y-2 rounded-md border p-3">
-                    <Input
-                      name="nome"
-                      placeholder="Nome do prestador"
-                      form="novo-prestador-form"
-                    />
-                    <Input
-                      name="chave_pix"
-                      placeholder="Chave Pix"
-                      form="novo-prestador-form"
-                    />
-                    <Input
-                      name="dados_bancarios"
-                      placeholder="Dados bancários"
-                      form="novo-prestador-form"
-                    />
-                    {prestadorState.message ? (
-                      <p className="text-sm text-muted-foreground">
-                        {prestadorState.message}
-                      </p>
-                    ) : null}
-                    <Button
-                      type="submit"
-                      form="novo-prestador-form"
-                      variant="outline"
-                      size="sm"
+                  <option value="">
+                    {obraId ? "Selecione" : "Selecione a obra primeiro"}
+                  </option>
+                  {contratosDisponiveis.map((contrato) => (
+                    <option key={contrato.id} value={contrato.id}>
+                      {contrato.colaboradorNome} — {contrato.descricao}
+                    </option>
+                  ))}
+                </select>
+                {obraId && contratosDisponiveis.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Nenhum contrato em aberto nesta obra.
+                  </p>
+                ) : null}
+                {contratoSelecionado ? (
+                  <p className="text-xs text-muted-foreground">
+                    Saldo restante: R${" "}
+                    {contratoSelecionado.saldoRestante.toLocaleString("pt-BR", {
+                      minimumFractionDigits: 2,
+                    })}
+                  </p>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <Label htmlFor="colaborador_id">{colaboradorLabel}</Label>
+                <select
+                  id="colaborador_id"
+                  name="colaborador_id"
+                  className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                  required
+                  value={selectedColaboradorId}
+                  onChange={(event) =>
+                    setSelectedColaboradorId(event.target.value)
+                  }
+                >
+                  <option value="">Selecione</option>
+                  {localColaboradores.map((colaborador) => (
+                    <option key={colaborador.id} value={colaborador.id}>
+                      {colaborador.nome}
+                    </option>
+                  ))}
+                </select>
+                {isGestor ? (
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      className="text-sm text-primary underline"
+                      onClick={() => setShowNovoPrestador((prev) => !prev)}
                     >
-                      Salvar prestador
-                    </Button>
+                      {showNovoPrestador
+                        ? "Cancelar"
+                        : "Cadastrar novo prestador"}
+                    </button>
+                    {showNovoPrestador ? (
+                      <div className="space-y-2 rounded-md border p-3">
+                        <Input
+                          name="nome"
+                          placeholder="Nome do prestador"
+                          form="novo-prestador-form"
+                        />
+                        <Input
+                          name="chave_pix"
+                          placeholder="Chave Pix"
+                          form="novo-prestador-form"
+                        />
+                        <Input
+                          name="dados_bancarios"
+                          placeholder="Dados bancários"
+                          form="novo-prestador-form"
+                        />
+                        {prestadorState.message ? (
+                          <p className="text-sm text-muted-foreground">
+                            {prestadorState.message}
+                          </p>
+                        ) : null}
+                        <Button
+                          type="submit"
+                          form="novo-prestador-form"
+                          variant="outline"
+                          size="sm"
+                        >
+                          Salvar prestador
+                        </Button>
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
-              </div>
-            ) : null}
+              </>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="tipo">Tipo</Label>
@@ -161,6 +231,7 @@ export function LancamentoForm({
               <option value="solicitacao">Pagamento de mão de obra</option>
               <option value="reembolso">Reembolso</option>
               <option value="vale">Adiantamento (vale)</option>
+              <option value="contrato">Pagamento de contrato</option>
             </select>
           </div>
           <div className="space-y-2 lg:col-span-2">

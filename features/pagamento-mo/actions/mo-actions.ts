@@ -22,9 +22,10 @@ export async function createLancamento(
 ): Promise<MoActionState> {
   try {
     const profile = await requireActor("pagamento_mo.create");
-    const obraId = text(formData, "obra_id");
-    const colaboradorId = text(formData, "colaborador_id");
-    const tipo = text(formData, "tipo") ?? "solicitacao";
+    const contratoId = text(formData, "contrato_id");
+    let obraId = text(formData, "obra_id");
+    let colaboradorId = text(formData, "colaborador_id");
+    let tipo = text(formData, "tipo") ?? "solicitacao";
     const orcamentoItemId = text(formData, "orcamento_item_id");
     const descricao = text(formData, "descricao");
 
@@ -32,6 +33,38 @@ export async function createLancamento(
     const qtdDiarias = money(formData.get("qtd_diarias"));
     const valorDiaria = money(formData.get("valor_diaria"));
     const usingDiarias = qtdDiarias != null;
+
+    const supabaseCheck = (await createClient()) as any;
+    let contratoSaldoRestante: number | null = null;
+
+    // Parcela de contrato: obra/colaborador/tipo vêm do contrato no banco,
+    // nunca do que o cliente mandou (evita adulteração via campos ocultos).
+    if (contratoId) {
+      const { data: contrato } = await supabaseCheck
+        .from("v_contrato_mo_saldo")
+        .select("obra_id,colaborador_id,status,saldo_restante")
+        .eq("contrato_id", contratoId)
+        .maybeSingle();
+
+      if (!contrato) {
+        return { message: "Contrato não encontrado." };
+      }
+
+      if (contrato.status === "quitado") {
+        return { message: "Este contrato já está quitado." };
+      }
+
+      if (usingDiarias) {
+        return {
+          message: "Pagamento de contrato usa valor fechado, não diárias.",
+        };
+      }
+
+      obraId = contrato.obra_id;
+      colaboradorId = contrato.colaborador_id;
+      tipo = "solicitacao";
+      contratoSaldoRestante = Number(contrato.saldo_restante);
+    }
 
     if (!obraId || !colaboradorId) {
       return { message: "Preencha obra e colaborador." };
@@ -51,6 +84,17 @@ export async function createLancamento(
 
     if (usingDiarias && valorDiaria != null && valorDiaria <= 0) {
       return { message: "O valor da diária deve ser maior que zero." };
+    }
+
+    if (
+      contratoId &&
+      valorInput != null &&
+      contratoSaldoRestante != null &&
+      valorInput > contratoSaldoRestante
+    ) {
+      return {
+        message: `Valor excede o saldo restante do contrato (R$ ${contratoSaldoRestante.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}).`,
+      };
     }
 
     const isGestor = isGestorRole(profile.role);
@@ -103,6 +147,7 @@ export async function createLancamento(
         valor_diaria: usingDiarias ? valorDiaria : null,
         descricao,
         criado_por: profile.id,
+        contrato_id: contratoId ?? null,
       })
       .select("id")
       .single();
@@ -126,11 +171,102 @@ export async function createLancamento(
       statusNovo: "pendente",
       ip: context.ip,
       userAgent: context.userAgent,
-      dados: { tipo, valor, colaborador_id: colaboradorId, obra_id: obraId },
+      dados: {
+        tipo,
+        valor,
+        colaborador_id: colaboradorId,
+        obra_id: obraId,
+        contrato_id: contratoId ?? undefined,
+      },
     });
 
     revalidatePath("/pagamento-mo");
+    if (contratoId) {
+      revalidatePath("/pagamento-mo/contratos");
+    }
     return { message: "Lançamento registrado." };
+  } catch (error) {
+    return { message: friendlyErrorMessage(error) };
+  }
+}
+
+export async function createContrato(
+  _state: MoActionState,
+  formData: FormData,
+): Promise<MoActionState> {
+  try {
+    const profile = await requireActor("pagamento_mo.create");
+    const obraId = text(formData, "obra_id");
+    const colaboradorId = text(formData, "colaborador_id");
+    const descricao = text(formData, "descricao");
+    const valorTotal = money(formData.get("valor_total"));
+
+    if (!obraId || !colaboradorId) {
+      return { message: "Preencha obra e prestador." };
+    }
+
+    if (!descricao) {
+      return { message: "Descreva o serviço contratado." };
+    }
+
+    if (valorTotal == null || valorTotal <= 0) {
+      return { message: "Informe o valor total do contrato." };
+    }
+
+    // Gestor de obra só fecha contrato na obra vinculada a ele — a RLS
+    // reforça isso, mas validar aqui dá uma mensagem clara em vez de um erro
+    // genérico do banco.
+    if (isGestorRole(profile.role)) {
+      const linkedObras = await getLinkedObrasForUser(profile.id);
+      if (!linkedObras.includes(obraId)) {
+        return {
+          message: "Você não tem permissão para fechar contrato nesta obra.",
+        };
+      }
+    }
+
+    const supabase = (await createClient()) as any;
+    const { data: contrato, error } = await supabase
+      .from("contratos_mo")
+      .insert({
+        cliente_id: profile.cliente_id,
+        obra_id: obraId,
+        colaborador_id: colaboradorId,
+        descricao,
+        valor_total: valorTotal,
+        criado_por: profile.id,
+      })
+      .select("id")
+      .single();
+
+    if (error || !contrato) {
+      return {
+        message: friendlyErrorMessage(
+          error,
+          "Não foi possível cadastrar o contrato.",
+        ),
+      };
+    }
+
+    const context = await getRequestContext();
+    await registrarHistorico({
+      clienteId: profile.cliente_id,
+      actorId: profile.id,
+      entidade: "contrato_mo",
+      entidadeId: contrato.id,
+      acao: "contrato_criado",
+      statusNovo: "aberto",
+      ip: context.ip,
+      userAgent: context.userAgent,
+      dados: {
+        obra_id: obraId,
+        colaborador_id: colaboradorId,
+        valor_total: valorTotal,
+      },
+    });
+
+    revalidatePath("/pagamento-mo/contratos");
+    return { id: contrato.id, message: "Contrato cadastrado." };
   } catch (error) {
     return { message: friendlyErrorMessage(error) };
   }

@@ -10,10 +10,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   createOrcamentoItem,
   deleteOrcamentoItem,
+  updateObraFase,
+  updateObraGestor,
 } from "@/features/obras/actions/obra-actions";
 import { hasPermission, getPermissionsForUser } from "@/lib/permissions";
 import { FASE_LABELS } from "@/lib/obras-constants";
-import { getObraDetail, getOrcamentoRealizado } from "@/services/obras-service";
+import {
+  getObraDetail,
+  getObraGestor,
+  getOrcamentoRealizado,
+  listGestoresDisponiveis,
+} from "@/services/obras-service";
 import { getCurrentProfile } from "@/services/profiles-service";
 
 export default async function ObraDetailPage({
@@ -28,12 +35,21 @@ export default async function ObraDetailPage({
     redirect("/login");
   }
 
-  const [permissions, obra, orcamento] = await Promise.all([
+  const [permissions, obra, orcamento, obraGestor] = await Promise.all([
     getPermissionsForUser(currentProfile.id),
     getObraDetail(id),
     getOrcamentoRealizado(id),
+    getObraGestor(id),
   ]);
 
+  const canManageObra = hasPermission(
+    currentProfile.role,
+    permissions,
+    "obras.edit",
+  );
+  const gestores = canManageObra
+    ? await listGestoresDisponiveis(obra.cliente_id)
+    : [];
   const canEditOrcamento = hasPermission(
     currentProfile.role,
     permissions,
@@ -99,17 +115,70 @@ export default async function ObraDetailPage({
               <CardTitle className="text-base">Dados da obra</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
+              <div>
+                <span className="text-muted-foreground">Fase:</span>{" "}
+                {canManageObra ? (
+                  <form
+                    action={updateObraFase}
+                    className="mt-1 flex items-center gap-2"
+                  >
+                    <input type="hidden" name="obra_id" value={obra.id} />
+                    <select
+                      key={obra.fase}
+                      name="fase"
+                      defaultValue={obra.fase}
+                      className="h-9 rounded-md border bg-background px-2 text-sm"
+                    >
+                      {Object.entries(FASE_LABELS).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                    <Button type="submit" size="sm" variant="outline">
+                      Salvar
+                    </Button>
+                  </form>
+                ) : (
+                  (FASE_LABELS[obra.fase] ?? obra.fase)
+                )}
+              </div>
+              <div>
+                <span className="text-muted-foreground">Gestor de obra:</span>{" "}
+                {canManageObra ? (
+                  <form
+                    action={updateObraGestor}
+                    className="mt-1 flex items-center gap-2"
+                  >
+                    <input type="hidden" name="obra_id" value={obra.id} />
+                    <select
+                      key={obraGestor?.user_id ?? "sem-gestor"}
+                      name="gestor_id"
+                      defaultValue={obraGestor?.user_id ?? ""}
+                      className="h-9 rounded-md border bg-background px-2 text-sm"
+                    >
+                      <option value="">Sem gestor</option>
+                      {gestores.map((gestor: any) => (
+                        <option key={gestor.id} value={gestor.id}>
+                          {gestor.nome}
+                        </option>
+                      ))}
+                    </select>
+                    <Button type="submit" size="sm" variant="outline">
+                      Salvar
+                    </Button>
+                  </form>
+                ) : (
+                  (obraGestor?.profile?.nome ?? "-")
+                )}
+              </div>
               <p>
                 <span className="text-muted-foreground">Código:</span>{" "}
                 {obra.codigo ?? "-"}
               </p>
               <p>
-                <span className="text-muted-foreground">Responsável:</span>{" "}
-                {obra.responsavel?.nome ?? "-"}
-              </p>
-              <p>
                 <span className="text-muted-foreground">
-                  Telefone do responsável:
+                  Telefone de contato:
                 </span>{" "}
                 {obra.telefone_responsavel ?? "-"}
               </p>

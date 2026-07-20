@@ -1,7 +1,14 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import {
+  PDFDocument,
+  PDFFont,
+  PDFImage,
+  PDFPage,
+  StandardFonts,
+  rgb,
+} from "pdf-lib";
 
 function line(value: unknown, fallback = "-") {
   return value === null || value === undefined || value === ""
@@ -14,6 +21,104 @@ function money(value: unknown) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+const TEXT_DARK = rgb(0.12, 0.16, 0.2);
+const TEXT_MUTED = rgb(0.45, 0.47, 0.5);
+const BRAND = rgb(0.29, 0.5, 0.55);
+const WARNING = rgb(0.72, 0.55, 0.08);
+
+// Content-Disposition (RFC 6266) exige ASCII no filename= simples — nomes
+// com acento (obra, item, etc.) quebrariam ou virariam um nome genérico no
+// navegador. filename* (RFC 5987, UTF-8 percent-encoded) é o que os
+// navegadores modernos realmente usam pro nome exibido/salvo.
+export function buildPdfContentDisposition(rawName: string, fallback: string) {
+  const asciiFallback =
+    rawName
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-zA-Z0-9.-]+/g, "-")
+      .replace(/-+/g, "-") || fallback;
+
+  return `inline; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(rawName)}`;
+}
+
+async function embedLogo(pdf: PDFDocument) {
+  try {
+    const logoBytes = await readFile(
+      path.join(process.cwd(), "public", "una_logo.png"),
+    );
+    return await pdf.embedPng(logoBytes);
+  } catch {
+    return null;
+  }
+}
+
+// Cabeçalho compartilhado pelos relatórios em PDF: logo em tamanho real
+// (a arte é quadrada — esticar em "width" bem maior que "height" distorce),
+// título + linhas de info à direita, e uma linha fina como divisor em vez de
+// uma barra preta sólida (mais limpo, sem competir com o conteúdo).
+function drawHeader(
+  page: PDFPage,
+  fonts: { regular: PDFFont; bold: PDFFont },
+  logo: PDFImage | null,
+  title: string,
+  infoLines: string[],
+) {
+  const marginX = 48;
+  const marginRight = 595 - 48;
+  const logoSize = 34;
+  const top = 800;
+
+  if (logo) {
+    page.drawImage(logo, {
+      x: marginX,
+      y: top - logoSize,
+      width: logoSize,
+      height: logoSize,
+    });
+  } else {
+    page.drawText("UNA", {
+      x: marginX,
+      y: top - 22,
+      size: 16,
+      font: fonts.bold,
+      color: BRAND,
+    });
+  }
+
+  const textX = marginX + logoSize + 14;
+  page.drawText(title, {
+    x: textX,
+    y: top - 12,
+    size: 15,
+    font: fonts.bold,
+    color: TEXT_DARK,
+  });
+
+  let infoY = top - 27;
+  for (const infoLine of infoLines) {
+    page.drawText(infoLine.slice(0, 90), {
+      x: textX,
+      y: infoY,
+      size: 9,
+      font: fonts.regular,
+      color: TEXT_MUTED,
+    });
+    infoY -= 12;
+  }
+
+  // A linha divisória precisa ficar abaixo do que for mais baixo: a logo ou
+  // a última linha de info (o cabeçalho às vezes tem 2 linhas, às vezes 3+).
+  const ruleY = Math.min(top - logoSize, infoY + 12) - 12;
+  page.drawLine({
+    start: { x: marginX, y: ruleY },
+    end: { x: marginRight, y: ruleY },
+    thickness: 1.2,
+    color: BRAND,
+  });
+
+  return ruleY - 22;
 }
 
 export async function generatePedidoCompraPdf(input: {
@@ -30,8 +135,7 @@ export async function generatePedidoCompraPdf(input: {
   const page = pdf.addPage([595, 842]);
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  const primary = rgb(0.56, 0.72, 0.75);
-  const paperDark = rgb(0.07, 0.07, 0.07);
+  const logo = await embedLogo(pdf);
   let y = 800;
 
   const draw = (text: string, x = 48, size = 10, font = regular) => {
@@ -40,55 +144,16 @@ export async function generatePedidoCompraPdf(input: {
       y,
       size,
       font,
-      color: rgb(0.12, 0.16, 0.2),
+      color: TEXT_DARK,
     });
     y -= size + 8;
   };
 
-  page.drawRectangle({
-    x: 40,
-    y: 752,
-    width: 515,
-    height: 58,
-    color: paperDark,
-  });
-  try {
-    const logoBytes = await readFile(
-      path.join(process.cwd(), "public", "una_logo.png"),
-    );
-    const logo = await pdf.embedPng(logoBytes);
-    page.drawImage(logo, { x: 52, y: 762, width: 90, height: 40 });
-  } catch {
-    page.drawText("UNA", {
-      x: 58,
-      y: 776,
-      size: 20,
-      font: bold,
-      color: rgb(1, 1, 1),
-    });
-  }
-  page.drawText("PEDIDO DE COMPRA", {
-    x: 165,
-    y: 790,
-    size: 18,
-    font: bold,
-    color: primary,
-  });
-  page.drawText(`Numero: ${input.pedidoNumero}`, {
-    x: 165,
-    y: 768,
-    size: 11,
-    font: bold,
-    color: rgb(1, 1, 1),
-  });
-  page.drawText(`Data: ${new Date().toLocaleDateString("pt-BR")}`, {
-    x: 420,
-    y: 768,
-    size: 10,
-    font: regular,
-  });
+  y = drawHeader(page, { regular, bold }, logo, "PEDIDO DE COMPRA", [
+    `Numero: ${input.pedidoNumero}`,
+    `Data: ${new Date().toLocaleDateString("pt-BR")}`,
+  ]);
 
-  y = 735;
   draw("Dados da empresa", 48, 12, bold);
   draw(`Cliente/NF: ${line(input.solicitacao.cliente?.razao_social)}`);
   draw(
@@ -210,14 +275,33 @@ export async function generateOrcamentoRealizadoPdf(input: {
     valor_orcado: number;
     material_realizado: number;
     mo_realizado: number;
+    tipo?: string | null;
   }>;
 }) {
   const pdf = await PDFDocument.create();
-  const page = pdf.addPage([595, 842]);
+  let page = pdf.addPage([595, 842]);
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  const primary = rgb(0.56, 0.72, 0.75);
+  const logo = await embedLogo(pdf);
   let y = 800;
+
+  const renderHeader = () => {
+    y = drawHeader(page, { regular, bold }, logo, "ORÇADO x REALIZADO", [
+      `Obra: ${line(input.obra.nome)} | Código: ${line(input.obra.codigo)}`,
+      `Gerado em: ${new Date().toLocaleString("pt-BR")}`,
+    ]);
+  };
+
+  const newPage = () => {
+    page = pdf.addPage([595, 842]);
+    renderHeader();
+  };
+
+  const ensureSpace = () => {
+    if (y < 100) {
+      newPage();
+    }
+  };
 
   const draw = (text: string, x = 48, size = 10, font = regular) => {
     page.drawText(text.slice(0, 110), {
@@ -225,81 +309,279 @@ export async function generateOrcamentoRealizadoPdf(input: {
       y,
       size,
       font,
-      color: rgb(0.12, 0.16, 0.2),
+      color: TEXT_DARK,
     });
     y -= size + 8;
   };
 
-  page.drawText("ORÇADO x REALIZADO", {
-    x: 48,
-    y,
-    size: 18,
-    font: bold,
-    color: primary,
-  });
-  y -= 26;
+  renderHeader();
+
+  // Mesma separação Insumos x Mão de Obra da tela de orçamento da obra
+  // (obra_orcamento_itens.tipo, desde a Fase de "obra_orcamento_tipo") —
+  // cada item só tem realizado no campo do seu próprio tipo.
+  const insumosItens = input.itens.filter((item) => item.tipo === "insumos");
+  const moItens = input.itens.filter((item) => item.tipo === "mao_de_obra");
+
+  const drawSection = (
+    titulo: string,
+    itens: typeof input.itens,
+    realizadoKey: "material_realizado" | "mo_realizado",
+  ) => {
+    ensureSpace();
+    y -= 8;
+    draw(titulo, 48, 12, bold);
+
+    page.drawText("Item", { x: 48, y, size: 9, font: bold });
+    page.drawText("Orçado", { x: 350, y, size: 9, font: bold });
+    page.drawText("Realizado", { x: 460, y, size: 9, font: bold });
+    y -= 18;
+
+    let totalOrcado = 0;
+    let totalRealizado = 0;
+
+    for (const item of itens) {
+      ensureSpace();
+      totalOrcado += Number(item.valor_orcado ?? 0);
+      totalRealizado += Number(item[realizadoKey] ?? 0);
+
+      page.drawText(line(item.descricao).slice(0, 55), {
+        x: 48,
+        y,
+        size: 8,
+        font: regular,
+      });
+      page.drawText(`R$ ${money(item.valor_orcado)}`, {
+        x: 350,
+        y,
+        size: 8,
+        font: regular,
+      });
+      page.drawText(`R$ ${money(item[realizadoKey])}`, {
+        x: 460,
+        y,
+        size: 8,
+        font: regular,
+      });
+      y -= 14;
+    }
+
+    if (itens.length === 0) {
+      draw("Nenhum item cadastrado.", 48, 8);
+    }
+
+    y -= 8;
+    draw(
+      `Subtotal — Orçado: R$ ${money(totalOrcado)}  |  Realizado: R$ ${money(totalRealizado)}`,
+      48,
+      9,
+      bold,
+    );
+
+    return { totalOrcado, totalRealizado };
+  };
+
+  const insumosTotals = drawSection(
+    "Insumos",
+    insumosItens,
+    "material_realizado",
+  );
+  const moTotals = drawSection("Mão de Obra", moItens, "mo_realizado");
+
+  ensureSpace();
+  y -= 8;
   draw(
-    `Obra: ${line(input.obra.nome)} | Código: ${line(input.obra.codigo)}`,
+    `Total orçado: R$ ${money(insumosTotals.totalOrcado + moTotals.totalOrcado)}  |  Total realizado: R$ ${money(insumosTotals.totalRealizado + moTotals.totalRealizado)}`,
     48,
     11,
     bold,
   );
-  draw(`Gerado em: ${new Date().toLocaleString("pt-BR")}`);
 
+  pdf.setTitle(`Orçado x Realizado - ${input.obra.nome}`);
+
+  return pdf.save();
+}
+
+export async function generateEstoqueRelatorioPdf(input: {
+  filtro: { obraNome: string | null; periodoLabel: string };
+  itens: Array<{
+    item_nome: string;
+    unidade_nome: string | null;
+    quantidade_atual: number;
+    quantidade_minima: number | null;
+  }>;
+  entradas: Array<{
+    created_at: string;
+    quantidade: number;
+    motivo?: string | null;
+    estoque_item?: { item?: { nome?: string | null } | null } | null;
+  }>;
+  saidas: Array<{
+    created_at: string;
+    quantidade: number;
+    motivo?: string | null;
+    obra?: { nome?: string | null } | null;
+    estoque_item?: { item?: { nome?: string | null } | null } | null;
+  }>;
+}) {
+  const pdf = await PDFDocument.create();
+  let page = pdf.addPage([595, 842]);
+  const regular = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const logo = await embedLogo(pdf);
+  let y = 800;
+
+  const renderHeader = () => {
+    y = drawHeader(page, { regular, bold }, logo, "RELATÓRIO DE ESTOQUE", [
+      `Período: ${input.filtro.periodoLabel}`,
+      `Obra (filtro de saídas): ${input.filtro.obraNome ?? "Todas as obras"}`,
+      `Gerado em: ${new Date().toLocaleString("pt-BR")}`,
+    ]);
+    page.drawText(
+      "Obs.: o filtro por obra aplica-se apenas à seção Saídas — entradas chegam no depósito sem obra vinculada.",
+      { x: 48, y, size: 8, font: regular, color: TEXT_MUTED },
+    );
+    y -= 16;
+  };
+
+  const newPage = () => {
+    page = pdf.addPage([595, 842]);
+    renderHeader();
+  };
+
+  const ensureSpace = () => {
+    if (y < 100) {
+      newPage();
+    }
+  };
+
+  const draw = (text: string, x = 48, size = 10, font = regular) => {
+    page.drawText(text.slice(0, 110), {
+      x,
+      y,
+      size,
+      font,
+      color: TEXT_DARK,
+    });
+    y -= size + 8;
+  };
+
+  renderHeader();
+
+  ensureSpace();
   y -= 8;
+  draw("Itens em estoque", 48, 12, bold);
   page.drawText("Item", { x: 48, y, size: 9, font: bold });
-  page.drawText("Orçado", { x: 280, y, size: 9, font: bold });
-  page.drawText("Material realizado", { x: 350, y, size: 9, font: bold });
-  page.drawText("MO realizado", { x: 470, y, size: 9, font: bold });
+  page.drawText("Unidade", { x: 340, y, size: 9, font: bold });
+  page.drawText("Qtd. atual", { x: 440, y, size: 9, font: bold });
   y -= 18;
 
-  let totalOrcado = 0;
-  let totalMaterial = 0;
-  let totalMo = 0;
-
   for (const item of input.itens) {
-    totalOrcado += Number(item.valor_orcado ?? 0);
-    totalMaterial += Number(item.material_realizado ?? 0);
-    totalMo += Number(item.mo_realizado ?? 0);
+    ensureSpace();
+    const abaixoDoMinimo =
+      item.quantidade_minima != null &&
+      Number(item.quantidade_atual) < Number(item.quantidade_minima);
+    const color = abaixoDoMinimo ? WARNING : TEXT_DARK;
 
-    page.drawText(line(item.descricao).slice(0, 40), {
+    page.drawText(line(item.item_nome).slice(0, 55), {
       x: 48,
       y,
       size: 8,
       font: regular,
+      color,
     });
-    page.drawText(`R$ ${money(item.valor_orcado)}`, {
-      x: 280,
+    page.drawText(line(item.unidade_nome), {
+      x: 340,
       y,
       size: 8,
       font: regular,
+      color,
     });
-    page.drawText(`R$ ${money(item.material_realizado)}`, {
-      x: 350,
-      y,
-      size: 8,
-      font: regular,
-    });
-    page.drawText(`R$ ${money(item.mo_realizado)}`, {
-      x: 470,
-      y,
-      size: 8,
-      font: regular,
-    });
+    page.drawText(
+      `${Number(item.quantidade_atual).toLocaleString("pt-BR")}${abaixoDoMinimo ? " (abaixo do mínimo)" : ""}`,
+      { x: 440, y, size: 8, font: regular, color },
+    );
     y -= 14;
-
-    if (y < 100) {
-      break;
-    }
   }
 
-  y -= 12;
-  draw(
-    `Total orçado: R$ ${money(totalOrcado)}  |  Total realizado: R$ ${money(totalMaterial + totalMo)}`,
-    48,
-    11,
-    bold,
+  if (input.itens.length === 0) {
+    draw("Nenhum item rastreado em estoque.", 48, 8);
+  }
+
+  const drawMovimentacoes = (
+    titulo: string,
+    linhas: typeof input.entradas | typeof input.saidas,
+    emptyMessage: string,
+    showObra: boolean,
+  ) => {
+    ensureSpace();
+    y -= 16;
+    draw(titulo, 48, 12, bold);
+
+    page.drawText("Data", { x: 48, y, size: 9, font: bold });
+    page.drawText("Item", { x: 110, y, size: 9, font: bold });
+    page.drawText("Qtd.", { x: showObra ? 280 : 350, y, size: 9, font: bold });
+    if (showObra) {
+      page.drawText("Obra", { x: 330, y, size: 9, font: bold });
+    }
+    page.drawText("Motivo", { x: 420, y, size: 9, font: bold });
+    y -= 18;
+
+    for (const linha of linhas) {
+      ensureSpace();
+      page.drawText(new Date(linha.created_at).toLocaleDateString("pt-BR"), {
+        x: 48,
+        y,
+        size: 8,
+        font: regular,
+      });
+      page.drawText(line(linha.estoque_item?.item?.nome).slice(0, 30), {
+        x: 110,
+        y,
+        size: 8,
+        font: regular,
+      });
+      page.drawText(Number(linha.quantidade).toLocaleString("pt-BR"), {
+        x: showObra ? 280 : 350,
+        y,
+        size: 8,
+        font: regular,
+      });
+      if (showObra) {
+        page.drawText(
+          line(
+            (linha as { obra?: { nome?: string | null } | null }).obra?.nome,
+          ).slice(0, 20),
+          { x: 330, y, size: 8, font: regular },
+        );
+      }
+      page.drawText(line(linha.motivo, "").slice(0, 25), {
+        x: 420,
+        y,
+        size: 8,
+        font: regular,
+      });
+      y -= 14;
+    }
+
+    if (linhas.length === 0) {
+      draw(emptyMessage, 48, 8);
+    }
+  };
+
+  drawMovimentacoes(
+    "Entradas",
+    input.entradas,
+    "Nenhuma entrada no período.",
+    false,
   );
+  drawMovimentacoes(
+    "Saídas",
+    input.saidas,
+    "Nenhuma saída no período/obra selecionados.",
+    true,
+  );
+
+  pdf.setTitle("Relatório de Estoque");
 
   return pdf.save();
 }

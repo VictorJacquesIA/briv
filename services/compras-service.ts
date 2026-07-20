@@ -56,7 +56,7 @@ export async function getPurchaseFormOptions() {
       .eq("ativo", true),
     supabase
       .from("obras")
-      .select("id,nome,cliente_id,responsavel_id")
+      .select("id,nome,cliente_id")
       .eq("ativo", true)
       .order("nome"),
     supabase

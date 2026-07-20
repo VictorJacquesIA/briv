@@ -3,7 +3,10 @@ import { NextResponse } from "next/server";
 import { hasPermission, getPermissionsForUser } from "@/lib/permissions";
 import { getCurrentProfile } from "@/services/profiles-service";
 import { getObraDetail, getOrcamentoRealizado } from "@/services/obras-service";
-import { generateOrcamentoRealizadoPdf } from "@/services/pdf-service";
+import {
+  buildPdfContentDisposition,
+  generateOrcamentoRealizadoPdf,
+} from "@/services/pdf-service";
 
 export async function GET(
   _request: Request,
@@ -34,10 +37,15 @@ export async function GET(
     itens: orcamento,
   });
 
+  const rawName = `orcado-realizado-${obra.nome}.pdf`;
+
   return new NextResponse(Buffer.from(pdfBytes), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="orcado-realizado-${obra.nome}.pdf"`,
+      "Content-Disposition": buildPdfContentDisposition(
+        rawName,
+        "orcado-realizado.pdf",
+      ),
     },
   });
 }

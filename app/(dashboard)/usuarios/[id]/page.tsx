@@ -3,6 +3,8 @@ import { notFound, redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
+import { EditAccountForm } from "@/features/usuarios/components/edit-account-form";
 import {
   defaultPermissionsForRole,
   getPermissionsForUser,
@@ -15,8 +17,13 @@ import {
   toPermissionMap,
 } from "@/lib/permissions";
 import { getCurrentProfile } from "@/services/profiles-service";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { updateObraVinculos, updateUserPermissions } from "../actions";
+import {
+  deleteUser,
+  updateObraVinculos,
+  updateUserPermissions,
+} from "../actions";
 
 export default async function EditarUsuarioPage({
   params,
@@ -48,6 +55,10 @@ export default async function EditarUsuarioPage({
   if (!targetProfile) {
     notFound();
   }
+
+  const admin = createAdminClient();
+  const { data: authUser } = await admin.auth.admin.getUserById(id);
+  const targetEmail = authUser?.user?.email ?? null;
 
   const targetRole = normalizeRole(targetProfile.role);
   const { data: permissionRows } = await supabase
@@ -97,14 +108,51 @@ export default async function EditarUsuarioPage({
         </Button>
       </div>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Conta</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EditAccountForm
+            profileId={targetProfile.id}
+            nome={targetProfile.nome ?? ""}
+            email={targetEmail}
+          />
+        </CardContent>
+      </Card>
+
+      <Card className="border-destructive/40">
+        <CardHeader>
+          <CardTitle className="text-base text-destructive">
+            Excluir usuário
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Remove o acesso e o cadastro deste usuário permanentemente. Essa
+            ação não pode ser desfeita.
+          </p>
+          <form action={deleteUser}>
+            <input type="hidden" name="profileId" value={targetProfile.id} />
+            <ConfirmSubmitButton
+              type="submit"
+              variant="destructive"
+              message={`Excluir permanentemente o usuário "${targetProfile.nome ?? "sem nome"}"? Essa ação não pode ser desfeita.`}
+            >
+              Excluir usuário
+            </ConfirmSubmitButton>
+          </form>
+        </CardContent>
+      </Card>
+
       {targetRole === "adm_geral" ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Permissões</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            Usuários com papel ADM Geral têm acesso total, sem necessidade de
-            configuração.
+            Usuários com papel Administrador têm acesso total, sem necessidade
+            de configuração.
           </CardContent>
         </Card>
       ) : (

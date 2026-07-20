@@ -6,6 +6,7 @@ import {
   Package,
   ShoppingCart,
   ShieldCheck,
+  Truck,
   Wallet,
 } from "lucide-react";
 
@@ -23,8 +24,13 @@ type NavHref =
   | "/materiais/importar"
   | "/pagamento-mo"
   | "/pagamento-mo/colaboradores"
+  | "/pagamento-mo/contratos"
   | "/estoque"
-  | "/estoque/requisicoes";
+  | "/estoque/requisicoes"
+  | "/estoque/relatorio"
+  | "/estoque/ferramentas"
+  | "/servicos/cacamba"
+  | "/servicos/desmobilizacao";
 
 type NavChild = {
   label: string;
@@ -96,6 +102,11 @@ const navigation: NavItem[] = [
         href: "/pagamento-mo/colaboradores",
         requiredPermission: "pagamento_mo.view",
       },
+      {
+        label: "Contratos (Prestação de Serviço)",
+        href: "/pagamento-mo/contratos",
+        requiredPermission: "pagamento_mo.view",
+      },
     ],
   },
   {
@@ -112,6 +123,32 @@ const navigation: NavItem[] = [
         label: "Requisições",
         href: "/estoque/requisicoes",
         requiredPermission: "estoque.view",
+      },
+      {
+        label: "Relatório",
+        href: "/estoque/relatorio",
+        requiredPermission: "estoque.view",
+      },
+      {
+        label: "Ferramentas",
+        href: "/estoque/ferramentas",
+        requiredPermission: "ferramentas.view",
+      },
+    ],
+  },
+  {
+    label: "Serviços de Obra",
+    icon: Truck,
+    children: [
+      {
+        label: "Caçamba de Entulho",
+        href: "/servicos/cacamba",
+        requiredPermission: "cacamba.view",
+      },
+      {
+        label: "Desmobilização",
+        href: "/servicos/desmobilizacao",
+        requiredPermission: "desmobilizacao.view",
       },
     ],
   },

@@ -52,7 +52,22 @@ export async function updateProfile(
         .upload(path, foto, { upsert: true, contentType: foto.type });
 
       if (uploadError) {
-        return { message: "Não foi possível enviar a foto." };
+        // O bucket "avatars" só aceita png/jpeg/webp (mesmo padrão universal
+        // pra exibir em qualquer navegador) — fotos de iPhone em HEIC (ou
+        // sem content-type reconhecido) caem aqui. Sem essa checagem, o
+        // upload falhava em silêncio com uma mensagem genérica.
+        if (uploadError.message?.toLowerCase().includes("mime type")) {
+          return {
+            message:
+              "Formato de imagem não suportado. Envie uma foto em JPG, PNG ou WebP — fotos de iPhone às vezes ficam em HEIC (ajuste em Ajustes > Câmera > Formatos > Compatibilidade máxima, ou converta antes de enviar).",
+          };
+        }
+        return {
+          message: friendlyErrorMessage(
+            uploadError,
+            "Não foi possível enviar a foto.",
+          ),
+        };
       }
 
       const {

@@ -10,15 +10,18 @@ import {
   createObra,
   type ObraActionState,
 } from "@/features/obras/actions/obra-actions";
+import { FASE_LABELS } from "@/lib/obras-constants";
 
-const FASE_OPTIONS = [
-  { value: "fase_1", label: "Fase 1" },
-  { value: "fase_2", label: "Fase 2" },
-  { value: "fase_3", label: "Fase 3" },
-  { value: "concluida", label: "Concluída" },
-];
+const FASE_OPTIONS = Object.entries(FASE_LABELS).map(([value, label]) => ({
+  value,
+  label,
+}));
 
-export function ObraForm({ responsaveis }: { responsaveis: any[] }) {
+export function ObraForm({
+  gestores,
+}: {
+  gestores: Array<{ id: string; nome: string }>;
+}) {
   const [state, action] = useActionState<ObraActionState, FormData>(
     createObra,
     {},
@@ -51,22 +54,22 @@ export function ObraForm({ responsaveis }: { responsaveis: any[] }) {
           </select>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="responsavel_id">Responsável</Label>
+          <Label htmlFor="gestor_id">Gestor de obra</Label>
           <select
-            id="responsavel_id"
-            name="responsavel_id"
+            id="gestor_id"
+            name="gestor_id"
             className="h-10 w-full rounded-md border bg-background px-3 text-sm"
           >
-            <option value="">Selecione</option>
-            {responsaveis.map((responsavel) => (
-              <option key={responsavel.id} value={responsavel.id}>
-                {responsavel.nome}
+            <option value="">Sem gestor por enquanto</option>
+            {gestores.map((gestor) => (
+              <option key={gestor.id} value={gestor.id}>
+                {gestor.nome}
               </option>
             ))}
           </select>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="telefone_responsavel">Telefone do responsável</Label>
+          <Label htmlFor="telefone_responsavel">Telefone de contato</Label>
           <Input id="telefone_responsavel" name="telefone_responsavel" />
         </div>
         <div className="space-y-2 lg:col-span-2">

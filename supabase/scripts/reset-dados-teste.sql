@@ -1,0 +1,50 @@
+-- ==========================================================================
+-- RESET DE DADOS DE TESTE — NÃO É UMA MIGRATION.
+-- Não roda automaticamente. Só existe pra ser colado manualmente no SQL
+-- Editor do Supabase Studio (ou rodado via mcp__supabase__execute_sql), UMA
+-- VEZ, quando o time decidir encerrar a fase de testes e começar a usar o
+-- sistema com dados reais da empresa.
+--
+-- O QUE ISSO FAZ: apaga TODOS os dados de negócio (obras, solicitações,
+-- pagamentos, estoque, ferramentas, caçambas, histórico, etc.) mantendo o
+-- schema (tabelas, tipos, RLS, funções) intocado — depois de rodar, o
+-- sistema fica com a estrutura pronta e nenhum dado, exatamente como recém
+-- instalado.
+--
+-- O QUE ISSO NÃO FAZ: não apaga os usuários de autenticação (auth.users) —
+-- isso é feito à parte, via API de administração do Supabase (não dá pra
+-- mexer em auth.users com segurança só em SQL cru), com o script
+-- companheiro `scripts/reset-auth-users.mjs`. Rode esse SQL primeiro (com
+-- os usuários ainda existindo é mais fácil auditar quem tinha o quê antes
+-- de apagar), depois o script de auth.
+--
+-- ORDEM RECOMENDADA PRA ZERAR TUDO:
+--   1. Rodar este arquivo (apaga dados de negócio, mas os logins continuam
+--      existindo, só sem nenhum profile vinculado).
+--   2. Rodar `node supabase/scripts/reset-auth-users.mjs` (apaga todos os
+--      usuários de autenticação).
+--   3. Seguir supabase/seed/initial_client.sql + bootstrap-admin.sql.example
+--      pra criar o cliente (empresa) real e o primeiro admin de verdade.
+-- ==========================================================================
+
+-- Praticamente toda tabela de negócio referencia clientes.id (direta ou
+-- indiretamente) — TRUNCATE ... CASCADE ignora as regras de ON DELETE
+-- declaradas (inclusive as várias RESTRICT que bloqueariam um DELETE
+-- comum) e arrasta consigo toda a árvore de tabelas dependentes: obras,
+-- solicitações, cotações, pedidos, aprovações, lançamentos/contratos de MO,
+-- colaboradores, estoque (itens/movimentações/requisições), ferramentas
+-- (+ eventos), caçambas (+ eventos), desmobilizações, orçamento de obra,
+-- fornecedores, materiais (legado) e histórico.
+truncate table public.clientes cascade;
+
+-- profiles referencia clientes com ON DELETE RESTRICT (de propósito, pra
+-- não apagar usuário sem querer) — mas TRUNCATE CASCADE não olha pra regra
+-- declarada, só pra existência do vínculo, então profiles já foi limpo
+-- junto no comando acima. Confirme:
+-- select count(*) from public.profiles; -- deve dar 0
+
+-- Catálogo global (não é por cliente — items/unidades são compartilhados).
+-- Descomente só se os itens/unidades cadastrados também forem só de teste
+-- e você quiser realmente voltar pra um catálogo vazio:
+-- truncate table public.items cascade;
+-- truncate table public.unidades cascade;

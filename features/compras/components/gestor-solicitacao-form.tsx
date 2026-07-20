@@ -281,10 +281,6 @@ export function GestorSolicitacaoForm({
             />
           </div>
         </div>
-        <p className="text-xs text-muted-foreground">
-          O centro de custo é definido pelo compras/adm antes de enviar para
-          cotação.
-        </p>
         <div className="space-y-1">
           <Label htmlFor="item_0_observacao">Observação do insumo</Label>
           <Input id="item_0_observacao" name="item_0_observacao" />
@@ -292,7 +288,7 @@ export function GestorSolicitacaoForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="anexos">Fotos (até {MAX_ANEXOS})</Label>
+        <Label htmlFor="anexos">Fotos</Label>
         <Input
           id="anexos"
           name="anexos"

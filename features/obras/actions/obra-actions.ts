@@ -20,6 +20,7 @@ export async function createObra(
 ): Promise<ObraActionState> {
   const profile = await requireActor("obras.create");
   const nome = text(formData, "nome");
+  const gestorId = text(formData, "gestor_id");
 
   if (!nome) {
     return { message: "Informe o nome da obra." };
@@ -34,7 +35,6 @@ export async function createObra(
       codigo: text(formData, "codigo"),
       endereco: text(formData, "endereco"),
       fase: text(formData, "fase") ?? "fase_1",
-      responsavel_id: text(formData, "responsavel_id"),
       telefone_responsavel: text(formData, "telefone_responsavel"),
     })
     .select("id")
@@ -44,6 +44,15 @@ export async function createObra(
     return {
       message: friendlyErrorMessage(error, "Não foi possível criar a obra."),
     };
+  }
+
+  if (gestorId) {
+    await supabase.from("obra_usuarios").insert({
+      obra_id: obra.id,
+      user_id: gestorId,
+      papel_na_obra: "gestor",
+      ativo: true,
+    });
   }
 
   const context = await getRequestContext();
@@ -78,7 +87,6 @@ export async function updateObra(formData: FormData) {
       codigo: text(formData, "codigo"),
       endereco: text(formData, "endereco"),
       fase: text(formData, "fase") ?? "fase_1",
-      responsavel_id: text(formData, "responsavel_id"),
       telefone_responsavel: text(formData, "telefone_responsavel"),
     })
     .eq("id", obraId);
@@ -99,6 +107,94 @@ export async function updateObra(formData: FormData) {
   });
 
   revalidatePath(`/obras/${obraId}`);
+}
+
+const FASE_VALUES = ["fase_1", "fase_2", "fase_3", "concluida"];
+
+// Ação dedicada (só troca a fase) em vez de reusar updateObra, que
+// sobrescreveria nome/código/endereço/responsável com null se chamada com um
+// form parcial — updateObra hoje não é usada em nenhuma tela.
+export async function updateObraFase(formData: FormData) {
+  const profile = await requireActor("obras.edit");
+  const obraId = text(formData, "obra_id");
+  const fase = text(formData, "fase");
+
+  if (!obraId || !fase || !FASE_VALUES.includes(fase)) {
+    throw new Error("Fase inválida.");
+  }
+
+  const supabase = (await createClient()) as any;
+  const { error } = await supabase
+    .from("obras")
+    .update({ fase })
+    .eq("id", obraId);
+
+  if (error) {
+    throw new Error("Não foi possível atualizar a fase da obra.");
+  }
+
+  const context = await getRequestContext();
+  await registrarHistorico({
+    clienteId: profile.cliente_id,
+    actorId: profile.id,
+    entidade: "obra",
+    entidadeId: obraId,
+    acao: "obra_fase_alterada",
+    statusNovo: fase,
+    ip: context.ip,
+    userAgent: context.userAgent,
+  });
+
+  revalidatePath(`/obras/${obraId}`);
+  revalidatePath("/obras");
+}
+
+// Escolher o gestor pela própria obra troca o vínculo de acesso
+// (obra_usuarios) — remove qualquer gestor vinculado antes e vincula o
+// escolhido (ou deixa sem gestor, se nenhum for selecionado). Isso é o que
+// efetivamente controla o acesso do gestor_obra àquela obra em todo o
+// sistema (compras, pagamento MO, contratos, estoque), diferente do campo
+// solto "Responsável" da obra.
+export async function updateObraGestor(formData: FormData) {
+  const profile = await requireActor("obras.edit");
+  const obraId = text(formData, "obra_id");
+  const gestorId = text(formData, "gestor_id");
+
+  if (!obraId) {
+    throw new Error("Dados inválidos.");
+  }
+
+  const supabase = (await createClient()) as any;
+
+  await supabase.from("obra_usuarios").delete().eq("obra_id", obraId);
+
+  if (gestorId) {
+    const { error } = await supabase.from("obra_usuarios").insert({
+      obra_id: obraId,
+      user_id: gestorId,
+      papel_na_obra: "gestor",
+      ativo: true,
+    });
+
+    if (error) {
+      throw new Error("Não foi possível vincular o gestor à obra.");
+    }
+  }
+
+  const context = await getRequestContext();
+  await registrarHistorico({
+    clienteId: profile.cliente_id,
+    actorId: profile.id,
+    entidade: "obra",
+    entidadeId: obraId,
+    acao: "obra_gestor_alterado",
+    ip: context.ip,
+    userAgent: context.userAgent,
+    dados: { gestor_id: gestorId ?? undefined },
+  });
+
+  revalidatePath(`/obras/${obraId}`);
+  revalidatePath("/obras");
 }
 
 export async function createOrcamentoItem(formData: FormData) {

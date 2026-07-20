@@ -15,7 +15,7 @@ export async function listObras(input?: { gestorUserId?: string }) {
     const { data } = await supabase
       .from("obras")
       .select(
-        "id,nome,codigo,fase,ativo,cliente:clientes(razao_social,nome_fantasia),responsavel:profiles(nome)",
+        "id,nome,codigo,fase,ativo,cliente:clientes(razao_social,nome_fantasia)",
       )
       .in("id", linkedObraIds)
       .order("nome");
@@ -38,7 +38,7 @@ export async function getObraDetail(id: string) {
   const { data } = await supabase
     .from("obras")
     .select(
-      "id,nome,codigo,endereco,fase,ativo,cliente_id,responsavel_id,telefone_responsavel,cliente:clientes(id,razao_social,nome_fantasia),responsavel:profiles(id,nome)",
+      "id,nome,codigo,endereco,fase,ativo,cliente_id,telefone_responsavel,cliente:clientes(id,razao_social,nome_fantasia)",
     )
     .eq("id", id)
     .single();
@@ -48,6 +48,32 @@ export async function getObraDetail(id: string) {
   }
 
   return data;
+}
+
+export async function listGestoresDisponiveis(clienteId: string) {
+  const supabase = (await createClient()) as any;
+  const { data } = await supabase
+    .from("profiles")
+    .select("id,nome")
+    .eq("cliente_id", clienteId)
+    .eq("role", "gestor_obra")
+    .eq("ativo", true)
+    .order("nome");
+
+  return data ?? [];
+}
+
+export async function getObraGestor(obraId: string) {
+  const supabase = (await createClient()) as any;
+  const { data } = await supabase
+    .from("obra_usuarios")
+    .select("user_id, profile:profiles(id,nome)")
+    .eq("obra_id", obraId)
+    .eq("ativo", true)
+    .limit(1)
+    .maybeSingle();
+
+  return data ?? null;
 }
 
 export async function getOrcamentoRealizado(obraId: string) {
