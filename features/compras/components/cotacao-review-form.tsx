@@ -113,6 +113,11 @@ export function CotacaoReviewForm({
                           name={`cotacao_item_${index}_solicitacao_item_id`}
                           value={item.id}
                         />
+                        <input
+                          type="hidden"
+                          name={`cotacao_item_${index}_incluir`}
+                          value="on"
+                        />
                         <div className="font-medium">{item.descricao}</div>
                         <div className="text-xs text-muted-foreground">
                           {item.unidade}

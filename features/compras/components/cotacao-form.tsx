@@ -76,6 +76,7 @@ export function CotacaoForm({
         <table className="w-full min-w-[780px] text-sm">
           <thead className="bg-secondary">
             <tr>
+              <th className="px-3 py-2 text-left">Incluir</th>
               <th className="px-3 py-2 text-left">Item</th>
               <th className="px-3 py-2 text-left">Qtd.</th>
               <th className="px-3 py-2 text-left">Valor unitário</th>
@@ -86,6 +87,14 @@ export function CotacaoForm({
           <tbody>
             {itensParaCotar.map((item: any, index: number) => (
               <tr key={item.id} className="border-t">
+                <td className="px-3 py-2">
+                  <input
+                    type="checkbox"
+                    name={`cotacao_item_${index}_incluir`}
+                    defaultChecked
+                    className="size-4 rounded border"
+                  />
+                </td>
                 <td className="px-3 py-2">
                   <input
                     type="hidden"

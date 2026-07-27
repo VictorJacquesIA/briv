@@ -11,6 +11,7 @@ import {
 import { ApprovalForm } from "@/features/compras/components/approval-form";
 import { Comparativo } from "@/features/compras/components/comparativo";
 import { CotacaoForm } from "@/features/compras/components/cotacao-form";
+import { CotacaoRequestForm } from "@/features/compras/components/cotacao-request-form";
 import { CotacaoReviewForm } from "@/features/compras/components/cotacao-review-form";
 import { CotacaoUploadForm } from "@/features/compras/components/cotacao-upload-form";
 import { EstoqueDecisionForm } from "@/features/compras/components/estoque-decision-form";
@@ -58,19 +59,19 @@ export default async function CompraDetailPage({
         .map((item: any) => item.item_id)
         .filter((itemId: string | null): itemId is string => Boolean(itemId))
     : [];
-  const supabase = precisaDecidirEstoque
-    ? ((await createClient()) as any)
-    : null;
   const [disponibilidade, orcamentoItensResult] = precisaDecidirEstoque
-    ? await Promise.all([
-        getEstoqueDisponivelPorItem(itemIds),
-        supabase
-          .from("obra_orcamento_itens")
-          .select("id,descricao")
-          .eq("obra_id", solicitacao.obra_id)
-          .eq("tipo", "insumos")
-          .order("descricao"),
-      ])
+    ? await (async () => {
+        const supabase = await createClient();
+        return Promise.all([
+          getEstoqueDisponivelPorItem(itemIds),
+          supabase
+            .from("obra_orcamento_itens")
+            .select("id,descricao")
+            .eq("obra_id", solicitacao.obra_id)
+            .eq("tipo", "insumos")
+            .order("descricao"),
+        ]);
+      })()
     : [{}, { data: [] }];
   const orcamentoItens: Array<{ id: string; descricao: string }> =
     orcamentoItensResult.data ?? [];
@@ -152,10 +153,11 @@ export default async function CompraDetailPage({
               href={waLink(
                 pedido.fornecedor?.whatsapp ?? pedido.fornecedor?.telefone,
                 pedidoMessage({
-                  pedido: pedido.numero,
+                  pedido: pedido.numero ?? "-",
                   fornecedor:
                     pedido.fornecedor?.nome_fantasia ??
-                    pedido.fornecedor?.razao_social,
+                    pedido.fornecedor?.razao_social ??
+                    "Fornecedor",
                   pdfUrl: pedido.pdf_url,
                 }),
               )}
@@ -243,6 +245,7 @@ export default async function CompraDetailPage({
               <CotacaoUploadForm
                 solicitacaoId={solicitacao.id}
                 fornecedores={options.fornecedores}
+                itens={solicitacao.itens ?? []}
               />
             ) : null}
             {STATUSES_AGUARDANDO_APROVACAO.includes(solicitacao.status) ? (
@@ -354,11 +357,30 @@ export default async function CompraDetailPage({
                 key={cotacao.id}
                 solicitacaoId={solicitacao.id}
                 cotacao={cotacao}
-                itens={solicitacao.itens ?? []}
+                itens={(solicitacao.itens ?? []).filter((item: any) =>
+                  (cotacao.itens ?? []).some(
+                    (cotacaoItem: any) =>
+                      cotacaoItem.solicitacao_item_id === item.id,
+                  ),
+                )}
               />
             ))}
         </div>
       ) : null}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">
+            Pedir cotação a um fornecedor
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <CotacaoRequestForm
+            solicitacao={solicitacao}
+            fornecedores={options.fornecedores}
+          />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

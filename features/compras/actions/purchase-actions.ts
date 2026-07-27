@@ -17,14 +17,38 @@ import {
   normalizeRole,
 } from "@/lib/permissions";
 import { registrarHistorico } from "@/services/historico-service";
-import { generatePedidoCompraPdf } from "@/services/pdf-service";
+import {
+  generateCotacaoRequestPdf,
+  generatePedidoCompraPdf,
+} from "@/services/pdf-service";
 import { getRequestContext } from "@/services/request-context";
-import { extractCotacaoFromFile } from "@/services/ai-extraction-service";
+import {
+  extractCotacaoFromFile,
+  type CotacaoExtraction,
+} from "@/services/ai-extraction-service";
 import { getEstoqueDisponivelPorItem } from "@/services/estoque-service";
+import type { Database } from "@/types/database";
 
 type ActionState = {
   message?: string;
 };
+
+type PrioridadeSolicitacao =
+  Database["public"]["Enums"]["prioridade_solicitacao"];
+type SolicitacaoStatus = Database["public"]["Enums"]["solicitacao_status"];
+
+const PRIORIDADE_VALUES: PrioridadeSolicitacao[] = [
+  "baixa",
+  "normal",
+  "alta",
+  "urgente",
+];
+
+function isPrioridadeSolicitacao(
+  value: string,
+): value is PrioridadeSolicitacao {
+  return (PRIORIDADE_VALUES as string[]).includes(value);
+}
 
 function isNextRedirect(error: unknown) {
   return (
@@ -37,7 +61,7 @@ function isNextRedirect(error: unknown) {
 }
 
 async function getActor() {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -56,14 +80,20 @@ async function getActor() {
     throw new Error("Usuario inativo.");
   }
 
-  if (!profile?.cliente_id) {
+  const clienteId = profile.cliente_id;
+
+  if (!clienteId) {
     throw new Error("Perfil sem cliente vinculado.");
   }
 
   return {
     supabase,
     user,
-    profile: { ...profile, role: normalizeRole(profile.role) },
+    profile: {
+      ...profile,
+      cliente_id: clienteId,
+      role: normalizeRole(profile.role),
+    },
   };
 }
 
@@ -86,6 +116,18 @@ function parseCotacaoItens(formData: FormData): CotacaoItemInput[] {
       );
 
       if (!itemId) {
+        return null;
+      }
+
+      // Permite dividir a cotação por fornecedor: um item desmarcado em
+      // "Incluir" (CotacaoForm) não entra nesta cotação — o fornecedor pode
+      // não cotar tudo da solicitação (ex: elétrica x tinta). No fluxo de
+      // revisão de upload (CotacaoReviewForm) o campo vem sempre "on" via
+      // hidden input, já que os itens ali já chegam pré-filtrados pela
+      // seleção feita no upload.
+      const incluido = formData.get(`cotacao_item_${index}_incluir`) === "on";
+
+      if (!incluido) {
         return null;
       }
 
@@ -164,6 +206,12 @@ export async function createSolicitacao(
       return { message: "Envie no máximo 2 fotos." };
     }
 
+    const prioridadeInput = text(formData, "prioridade");
+    const prioridade: PrioridadeSolicitacao =
+      prioridadeInput && isPrioridadeSolicitacao(prioridadeInput)
+        ? prioridadeInput
+        : "normal";
+
     const codigo = `SC-${Date.now().toString(36).toUpperCase()}`;
     const { data: solicitacao, error } = await supabase
       .from("solicitacoes")
@@ -172,7 +220,7 @@ export async function createSolicitacao(
         obra_id: obraId,
         solicitante_id: user.id,
         responsavel_obra_id: finalResponsavelObraId,
-        prioridade: text(formData, "prioridade") ?? "normal",
+        prioridade,
         observacao: text(formData, "observacao"),
         data_necessidade: text(formData, "data_necessidade"),
         status: "aberta",
@@ -190,8 +238,18 @@ export async function createSolicitacao(
       };
     }
 
+    type SolicitacaoItemInput = {
+      solicitacao_id: string;
+      item_id: string | null;
+      orcamento_item_id: string | null;
+      descricao: string;
+      quantidade: number;
+      unidade: string;
+      observacao: string | null;
+    };
+
     const itens = Array.from({ length: 10 })
-      .map((_, index) => {
+      .map((_, index): SolicitacaoItemInput | null => {
         const descricao = text(formData, `item_${index}_descricao`);
         const quantidade = money(formData.get(`item_${index}_quantidade`));
         const unidade = text(formData, `item_${index}_unidade`);
@@ -210,7 +268,7 @@ export async function createSolicitacao(
           observacao: text(formData, `item_${index}_observacao`),
         };
       })
-      .filter(Boolean);
+      .filter((item): item is SolicitacaoItemInput => item !== null);
 
     if (itens.length === 0) {
       return { message: "Inclua ao menos um material." };
@@ -404,14 +462,31 @@ export async function decidirEstoqueSolicitacao(
         };
       }
 
-      const requisicaoItensRows = itensComRetirada.map((decisao: Decisao) => ({
-        requisicao_id: requisicao.id,
-        solicitacao_item_id: decisao.id,
-        estoque_item_id: decisao.itemId
-          ? disponibilidade[decisao.itemId]?.estoqueItemId
-          : null,
-        quantidade_solicitada: decisao.input,
-      }));
+      const requisicaoItensRows = itensComRetirada
+        .map((decisao: Decisao) => {
+          const estoqueItemId = decisao.itemId
+            ? disponibilidade[decisao.itemId]?.estoqueItemId
+            : null;
+
+          if (!estoqueItemId) {
+            return null;
+          }
+
+          return {
+            requisicao_id: requisicao.id,
+            solicitacao_item_id: decisao.id,
+            estoque_item_id: estoqueItemId,
+            quantidade_solicitada: decisao.input,
+          };
+        })
+        .filter((row): row is NonNullable<typeof row> => row !== null);
+
+      if (requisicaoItensRows.length !== itensComRetirada.length) {
+        return {
+          message:
+            "Não foi possível localizar o item de estoque correspondente.",
+        };
+      }
 
       const { error: itensError } = await supabase
         .from("requisicao_almox_itens")
@@ -452,6 +527,11 @@ export async function iniciarCotacao(formData: FormData) {
   const permissions = await getPermissionsForUser(profile.id);
   await assertPermission(profile.role, permissions, "cotacoes.create");
   const id = text(formData, "solicitacao_id");
+
+  if (!id) {
+    throw new Error("Dados inválidos.");
+  }
+
   const context = await getRequestContext();
   const { data: current } = await supabase
     .from("solicitacoes")
@@ -467,7 +547,7 @@ export async function iniciarCotacao(formData: FormData) {
     clienteId: profile.cliente_id,
     actorId: user.id,
     entidade: "solicitacao",
-    entidadeId: id!,
+    entidadeId: id,
     acao: "cotacao_iniciada",
     statusAnterior: current?.status,
     statusNovo: "em_cotacao",
@@ -507,6 +587,13 @@ export async function salvarCotacao(
 
     const frete = money(formData.get("frete"));
     const itens = parseCotacaoItens(formData);
+
+    if (itens.length === 0) {
+      return {
+        message: "Selecione ao menos um item para este fornecedor.",
+      };
+    }
+
     const totalFornecedor = calcularTotalFornecedor(itens, frete);
 
     const { data: cotacao, error } = await supabase
@@ -578,9 +665,14 @@ export async function uploadCotacao(
     const solicitacaoId = text(formData, "solicitacao_id");
     const fornecedorId = text(formData, "fornecedor_id");
     const file = formData.get("arquivo");
+    const itemIdsSelecionados = formData.getAll("item_ids") as string[];
 
     if (!solicitacaoId || !fornecedorId) {
       return { message: "Selecione um fornecedor." };
+    }
+
+    if (itemIdsSelecionados.length === 0) {
+      return { message: "Selecione ao menos um item para este fornecedor." };
     }
 
     if (!(file instanceof File) || file.size === 0) {
@@ -591,7 +683,8 @@ export async function uploadCotacao(
       supabase
         .from("solicitacao_itens")
         .select("id,descricao,quantidade,unidade")
-        .eq("solicitacao_id", solicitacaoId),
+        .eq("solicitacao_id", solicitacaoId)
+        .in("id", itemIdsSelecionados),
       supabase
         .from("cotacoes")
         .select("id")
@@ -627,6 +720,32 @@ export async function uploadCotacao(
       cotacaoId = created.id;
     }
 
+    // Cria as linhas placeholder (sem preço ainda) pros itens escolhidos pra
+    // este fornecedor — é isso que permite dividir a cotação (ex: fornecedor
+    // de elétrica só cota os itens elétricos) e que a etapa de revisão saiba
+    // exatamente quais itens pertencem a esta cotação.
+    const { error: placeholderError } = await supabase
+      .from("cotacao_itens")
+      .upsert(
+        itemIdsSelecionados.map((itemId) => ({
+          cotacao_id: cotacaoId,
+          solicitacao_item_id: itemId,
+        })),
+        {
+          onConflict: "cotacao_id,solicitacao_item_id",
+          ignoreDuplicates: true,
+        },
+      );
+
+    if (placeholderError) {
+      return {
+        message: friendlyErrorMessage(
+          placeholderError,
+          "Não foi possível registrar os itens selecionados.",
+        ),
+      };
+    }
+
     const storagePath = `${profile.cliente_id}/cotacoes/${cotacaoId}/${Date.now()}-${file.name}`;
     const { error: uploadError } = await supabase.storage
       .from("anexos")
@@ -636,7 +755,7 @@ export async function uploadCotacao(
       return { message: "Não foi possível enviar o arquivo." };
     }
 
-    let extracaoIa: unknown = null;
+    let extracaoIa: CotacaoExtraction | null = null;
     let extractionMessage: string | null = null;
 
     try {
@@ -700,6 +819,119 @@ export async function uploadCotacao(
     return {
       message: friendlyErrorMessage(error),
     };
+  }
+}
+
+type CotacaoRequestState = {
+  message?: string;
+  pdfUrl?: string;
+};
+
+// Gera um PDF só com os itens escolhidos (sem preço) pra mandar ao
+// fornecedor pedir cotação — diferente de generatePedidoCompraPdf, que é o
+// pedido final já com preços fechados. Não cria/edita nenhuma cotação; é só
+// documento + link, a divisão real acontece quando o fornecedor responde
+// (CotacaoForm/CotacaoUploadForm, que já respeitam a seleção de itens).
+export async function gerarCotacaoRequestPdf(
+  _state: CotacaoRequestState,
+  formData: FormData,
+): Promise<CotacaoRequestState> {
+  try {
+    const { supabase, user, profile } = await getActor();
+    const permissions = await getPermissionsForUser(profile.id);
+    await assertPermission(profile.role, permissions, "cotacoes.create");
+    const context = await getRequestContext();
+    const solicitacaoId = text(formData, "solicitacao_id");
+    const fornecedorId = text(formData, "fornecedor_id");
+    const itemIdsSelecionados = formData.getAll("item_ids") as string[];
+
+    if (!solicitacaoId || !fornecedorId) {
+      return { message: "Selecione um fornecedor." };
+    }
+
+    if (itemIdsSelecionados.length === 0) {
+      return { message: "Selecione ao menos um item." };
+    }
+
+    const [{ data: solicitacao }, { data: fornecedor }, { data: itens }] =
+      await Promise.all([
+        supabase
+          .from("solicitacoes")
+          .select("codigo,obra:obras(nome)")
+          .eq("id", solicitacaoId)
+          .single(),
+        supabase
+          .from("fornecedores")
+          .select("razao_social,nome_fantasia")
+          .eq("id", fornecedorId)
+          .single(),
+        supabase
+          .from("solicitacao_itens")
+          .select("descricao,quantidade,unidade,observacao")
+          .eq("solicitacao_id", solicitacaoId)
+          .in("id", itemIdsSelecionados),
+      ]);
+
+    if (!solicitacao || !fornecedor) {
+      return { message: "Dados não encontrados." };
+    }
+
+    const pdfBytes = await generateCotacaoRequestPdf({
+      solicitacao: {
+        codigo: solicitacao.codigo,
+        obra: solicitacao.obra?.nome ?? null,
+      },
+      fornecedor: {
+        nome: fornecedor.nome_fantasia ?? fornecedor.razao_social,
+      },
+      itens: (itens ?? []).map((item) => ({
+        descricao: item.descricao,
+        quantidade: Number(item.quantidade),
+        unidade: item.unidade,
+        observacao: item.observacao,
+      })),
+    });
+
+    const storagePath = `${profile.cliente_id}/${solicitacaoId}/cotacao-solicitada/${fornecedorId}-${Date.now()}.pdf`;
+    const { error: uploadError } = await supabase.storage
+      .from("anexos")
+      .upload(storagePath, Buffer.from(pdfBytes), {
+        contentType: "application/pdf",
+        upsert: true,
+      });
+
+    if (uploadError) {
+      return {
+        message: friendlyErrorMessage(
+          uploadError,
+          "Não foi possível gerar o PDF.",
+        ),
+      };
+    }
+
+    const { data: signed } = await supabase.storage
+      .from("anexos")
+      .createSignedUrl(storagePath, 60 * 60 * 24 * 30);
+
+    if (!signed?.signedUrl) {
+      return { message: "PDF gerado, mas não foi possível criar o link." };
+    }
+
+    await registrarHistorico({
+      clienteId: profile.cliente_id,
+      actorId: user.id,
+      entidade: "solicitacao",
+      entidadeId: solicitacaoId,
+      acao: "cotacao_solicitada_pdf_gerado",
+      ip: context.ip,
+      userAgent: context.userAgent,
+      dados: { fornecedor_id: fornecedorId, item_ids: itemIdsSelecionados },
+    });
+
+    revalidatePath(`/compras/${solicitacaoId}`);
+    return { message: "PDF gerado.", pdfUrl: signed.signedUrl };
+  } catch (error) {
+    return { message: friendlyErrorMessage(error) };
   }
 }
 
@@ -883,6 +1115,10 @@ export async function enviarParaAprovacao(
     const context = await getRequestContext();
     const solicitacaoId = text(formData, "solicitacao_id");
 
+    if (!solicitacaoId) {
+      return { message: "Dados inválidos." };
+    }
+
     const { data: cotacoesDaSolicitacao, count } = await supabase
       .from("cotacoes")
       .select("id,validado_at", { count: "exact" })
@@ -903,6 +1139,37 @@ export async function enviarParaAprovacao(
       return {
         message:
           "Todas as cotações precisam ser validadas antes de enviar para aprovação.",
+      };
+    }
+
+    // Com a cotação dividida por fornecedor, "existe cotação validada" não
+    // garante mais que TODOS os itens foram cotados por alguém — cada
+    // fornecedor pode ter ficado só com uma parte (ex: elétrica x tinta).
+    const validadasIds = (cotacoesDaSolicitacao ?? [])
+      .filter((cotacao: any) => cotacao.validado_at)
+      .map((cotacao: any) => cotacao.id);
+
+    const [{ data: todosItens }, { data: itensCotados }] = await Promise.all([
+      supabase
+        .from("solicitacao_itens")
+        .select("id")
+        .eq("solicitacao_id", solicitacaoId),
+      supabase
+        .from("cotacao_itens")
+        .select("solicitacao_item_id")
+        .in("cotacao_id", validadasIds),
+    ]);
+
+    const cobertos = new Set(
+      (itensCotados ?? []).map((item: any) => item.solicitacao_item_id),
+    );
+    const semCotacao = (todosItens ?? []).filter(
+      (item: any) => !cobertos.has(item.id),
+    );
+
+    if (semCotacao.length > 0) {
+      return {
+        message: `${semCotacao.length} ite${semCotacao.length > 1 ? "ns" : "m"} da solicitação ainda ${semCotacao.length > 1 ? "não têm" : "não tem"} cotação de nenhum fornecedor.`,
       };
     }
 
@@ -949,7 +1216,7 @@ export async function enviarParaAprovacao(
 }
 
 export async function registrarDecisaoPublica(formData: FormData) {
-  const supabase = createAdminClient() as any;
+  const supabase = createAdminClient();
   const context = await getRequestContext();
   const token = text(formData, "token");
   const decisao = text(formData, "decisao");
@@ -1104,6 +1371,11 @@ export async function avancarFluxo(formData: FormData) {
   const context = await getRequestContext();
   const solicitacaoId = text(formData, "solicitacao_id");
   const etapa = text(formData, "etapa");
+
+  if (!solicitacaoId) {
+    throw new Error("Dados inválidos.");
+  }
+
   const { data: current } = await supabase
     .from("solicitacoes")
     .select("status")
@@ -1118,23 +1390,26 @@ export async function avancarFluxo(formData: FormData) {
     throw new Error("Transição de status inválida.");
   }
 
-  const updates: Record<string, string> = { status: etapa };
+  const novoStatus = etapa as SolicitacaoStatus;
+  const updates: Database["public"]["Tables"]["solicitacoes"]["Update"] = {
+    status: novoStatus,
+  };
 
-  if (etapa === "pedido_enviado") {
+  if (novoStatus === "pedido_enviado") {
     updates.pedido_enviado_at = new Date().toISOString();
   }
 
-  if (etapa === "finalizada") {
+  if (novoStatus === "finalizada") {
     updates.finalizada_at = new Date().toISOString();
   }
 
-  if (etapa === "cancelada") {
+  if (novoStatus === "cancelada") {
     updates.cancelada_at = new Date().toISOString();
   }
 
   await supabase.from("solicitacoes").update(updates).eq("id", solicitacaoId);
 
-  if (etapa === "pedido_enviado") {
+  if (novoStatus === "pedido_enviado") {
     await supabase
       .from("pedidos")
       .update({ status: "enviado" })
@@ -1145,8 +1420,8 @@ export async function avancarFluxo(formData: FormData) {
     clienteId: profile.cliente_id,
     actorId: user.id,
     entidade: "solicitacao",
-    entidadeId: solicitacaoId!,
-    acao: `fluxo_${etapa}`,
+    entidadeId: solicitacaoId,
+    acao: `fluxo_${novoStatus}`,
     statusAnterior: current.status,
     statusNovo: updates.status,
     ip: context.ip,

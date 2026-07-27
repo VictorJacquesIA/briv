@@ -267,6 +267,83 @@ export async function generatePedidoCompraPdf(input: {
   return pdf.save();
 }
 
+// PDF de PEDIDO de cotação — sem preços, é o que vai pro fornecedor decidir
+// quanto cobrar. Não confundir com generatePedidoCompraPdf (o pedido final,
+// já com fornecedor escolhido e preços fechados).
+export async function generateCotacaoRequestPdf(input: {
+  solicitacao: {
+    codigo: string | null;
+    obra: string | null;
+  };
+  fornecedor: {
+    nome: string;
+  };
+  itens: Array<{
+    descricao: string;
+    quantidade: number;
+    unidade: string;
+    observacao?: string | null;
+  }>;
+}) {
+  const pdf = await PDFDocument.create();
+  const page = pdf.addPage([595, 842]);
+  const regular = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const logo = await embedLogo(pdf);
+
+  let y = drawHeader(page, { regular, bold }, logo, "SOLICITAÇÃO DE COTAÇÃO", [
+    `Solicitação: ${line(input.solicitacao.codigo)}`,
+    `Obra: ${line(input.solicitacao.obra)}`,
+    `Fornecedor: ${input.fornecedor.nome}`,
+    `Data: ${new Date().toLocaleDateString("pt-BR")}`,
+  ]);
+
+  page.drawText(
+    "Por favor, informe valores por item, frete, prazo de entrega e forma de pagamento.",
+    { x: 48, y, size: 9, font: regular, color: TEXT_MUTED },
+  );
+  y -= 22;
+
+  page.drawText("Descricao", { x: 48, y, size: 9, font: bold });
+  page.drawText("Qtd", { x: 340, y, size: 9, font: bold });
+  page.drawText("Unidade", { x: 390, y, size: 9, font: bold });
+  page.drawText("Observacao", { x: 460, y, size: 9, font: bold });
+  y -= 18;
+
+  for (const item of input.itens) {
+    page.drawText(line(item.descricao).slice(0, 55), {
+      x: 48,
+      y,
+      size: 8,
+      font: regular,
+    });
+    page.drawText(money(item.quantidade), {
+      x: 340,
+      y,
+      size: 8,
+      font: regular,
+    });
+    page.drawText(line(item.unidade, "").slice(0, 12), {
+      x: 390,
+      y,
+      size: 8,
+      font: regular,
+    });
+    page.drawText(line(item.observacao, "").slice(0, 20), {
+      x: 460,
+      y,
+      size: 8,
+      font: regular,
+    });
+    y -= 14;
+    if (y < 60) {
+      break;
+    }
+  }
+
+  return pdf.save();
+}
+
 export async function generateOrcamentoRealizadoPdf(input: {
   obra: { nome: string; codigo?: string | null };
   itens: Array<{

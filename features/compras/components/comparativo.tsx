@@ -54,7 +54,9 @@ export function Comparativo({ solicitacao }: { solicitacao: any }) {
                   );
                   return (
                     <td key={cotacao.id} className="px-3 py-2 align-top">
-                      {cotacaoItem?.item_nao_cotado ? (
+                      {!cotacaoItem ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : cotacaoItem.item_nao_cotado ? (
                         <span className="text-destructive">
                           item não cotado
                         </span>

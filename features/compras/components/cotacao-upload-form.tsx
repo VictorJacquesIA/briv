@@ -19,9 +19,11 @@ import { uploadCotacao } from "@/features/compras/actions/purchase-actions";
 export function CotacaoUploadForm({
   solicitacaoId,
   fornecedores,
+  itens,
 }: {
   solicitacaoId: string;
   fornecedores: any[];
+  itens: any[];
 }) {
   const [open, setOpen] = useState(false);
   const [state, action, pending] = useActionState(uploadCotacao, {});
@@ -55,6 +57,26 @@ export function CotacaoUploadForm({
                 </option>
               ))}
             </select>
+          </div>
+          <div className="space-y-2">
+            <Label>Itens que este fornecedor vai cotar</Label>
+            <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border p-2">
+              {itens.map((item: any) => (
+                <label
+                  key={item.id}
+                  className="flex items-center gap-2 text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    name="item_ids"
+                    value={item.id}
+                    defaultChecked
+                    className="size-4 rounded border"
+                  />
+                  {item.descricao}
+                </label>
+              ))}
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="arquivo">Arquivo (PDF ou foto)</Label>

@@ -16,19 +16,27 @@ export function cotacaoMessage(input: {
   obra: string;
   fornecedor: string;
   template?: string | null;
+  pdfUrl?: string | null;
 }) {
+  const pdfLine = input.pdfUrl ? `PDF com os itens: ${input.pdfUrl}` : null;
+
   if (input.template) {
-    return input.template
+    const base = input.template
       .replaceAll("{fornecedor}", input.fornecedor)
       .replaceAll("{codigo}", input.codigo)
       .replaceAll("{obra}", input.obra);
+
+    return pdfLine ? [base, pdfLine].join("\n") : base;
   }
 
   return [
     `Olá, ${input.fornecedor}.`,
     `Solicitamos cotação para a solicitação ${input.codigo}, obra ${input.obra}.`,
     "Por favor, informe valores por item, frete, prazo e forma de pagamento.",
-  ].join("\n");
+    pdfLine,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 export function aprovacaoMessage(input: {
