@@ -4,7 +4,7 @@ import { getLinkedObrasForUser } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
 
 export async function listObras(input?: { gestorUserId?: string }) {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
 
   if (input?.gestorUserId) {
     const linkedObraIds = await getLinkedObrasForUser(input.gestorUserId);
@@ -26,7 +26,7 @@ export async function listObras(input?: { gestorUserId?: string }) {
   const { data } = await supabase
     .from("obras")
     .select(
-      "id,nome,codigo,fase,ativo,cliente:clientes(razao_social,nome_fantasia),responsavel:profiles(nome)",
+      "id,nome,codigo,fase,ativo,cliente:clientes(razao_social,nome_fantasia)",
     )
     .order("nome");
 
@@ -34,7 +34,7 @@ export async function listObras(input?: { gestorUserId?: string }) {
 }
 
 export async function getObraDetail(id: string) {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data } = await supabase
     .from("obras")
     .select(
@@ -51,7 +51,7 @@ export async function getObraDetail(id: string) {
 }
 
 export async function listGestoresDisponiveis(clienteId: string) {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data } = await supabase
     .from("profiles")
     .select("id,nome")
@@ -64,7 +64,7 @@ export async function listGestoresDisponiveis(clienteId: string) {
 }
 
 export async function getObraGestor(obraId: string) {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data } = await supabase
     .from("obra_usuarios")
     .select("user_id, profile:profiles(id,nome)")
@@ -77,7 +77,7 @@ export async function getObraGestor(obraId: string) {
 }
 
 export async function getOrcamentoRealizado(obraId: string) {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data } = await supabase
     .from("v_obra_orcamento_realizado")
     .select("*")
