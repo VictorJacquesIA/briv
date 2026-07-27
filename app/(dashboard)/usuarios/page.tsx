@@ -32,7 +32,7 @@ export default async function UsuariosPage() {
     redirect("/dashboard");
   }
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data: profiles } = await supabase
     .from("profiles")
     .select("id,nome,role,ativo")

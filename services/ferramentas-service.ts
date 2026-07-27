@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 export async function listFerramentas(input?: {
   status?: "deposito" | "emprestada";
 }) {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   let query = supabase
     .from("ferramentas")
     .select("id,nome,codigo,status,ativo,obra_atual:obras(id,nome)")
@@ -19,7 +19,7 @@ export async function listFerramentas(input?: {
 }
 
 export async function listMovimentacoesFerramenta(ferramentaId: string) {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data } = await supabase
     .from("movimentacoes_ferramentas")
     .select(

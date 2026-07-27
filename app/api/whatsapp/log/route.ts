@@ -5,7 +5,7 @@ import { registrarHistorico } from "@/services/historico-service";
 import { getRequestContext } from "@/services/request-context";
 
 export async function POST(request: Request) {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const context = await getRequestContext();
   const body = await request.json();
   const {

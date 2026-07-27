@@ -14,7 +14,7 @@ export async function createUnidade(formData: FormData) {
     throw new Error("Informe o nome da unidade.");
   }
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   await supabase
     .from("unidades")
     .insert({ nome, codigo: text(formData, "codigo") });
@@ -31,7 +31,7 @@ export async function toggleUnidadeAtivo(formData: FormData) {
     throw new Error("Dados inválidos.");
   }
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   await supabase.from("unidades").update({ ativo: !ativo }).eq("id", id);
 
   revalidatePath("/materiais/unidades");
@@ -50,7 +50,7 @@ export async function createItemCatalogo(formData: FormData) {
     throw new Error("Informe a unidade de medida do item.");
   }
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
 
   // Cadastro unificado: a unidade é resolvida (ou criada) junto do item,
   // sem precisar passar antes por /materiais/unidades.
@@ -93,7 +93,7 @@ export async function toggleItemAtivo(formData: FormData) {
     throw new Error("Dados inválidos.");
   }
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   await supabase.from("items").update({ ativo: !ativo }).eq("id", id);
 
   revalidatePath("/materiais");

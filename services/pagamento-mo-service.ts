@@ -1,10 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
+import type { Database } from "@/types/database";
 
 export async function listLancamentos(input?: {
   obraId?: string;
-  status?: string;
+  status?: Database["public"]["Enums"]["lancamento_mo_status"];
 }) {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   let query = supabase
     .from("lancamentos_mo")
     .select(
@@ -25,7 +26,7 @@ export async function listLancamentos(input?: {
 }
 
 export async function listColaboradores() {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data } = await supabase
     .from("colaboradores")
     .select("id,nome,funcao,telefone,ativo")
@@ -35,7 +36,7 @@ export async function listColaboradores() {
 }
 
 export async function getColaboradorSaldo() {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data } = await supabase
     .from("v_colaborador_saldo")
     .select("*")
@@ -46,9 +47,9 @@ export async function getColaboradorSaldo() {
 
 export async function listContratos(input?: {
   obraId?: string;
-  status?: string;
+  status?: Database["public"]["Enums"]["contrato_mo_status"];
 }) {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   let query = supabase
     .from("v_contrato_mo_saldo")
     .select("*")
@@ -67,7 +68,7 @@ export async function listContratos(input?: {
 }
 
 export async function getContrato(id: string) {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data } = await supabase
     .from("v_contrato_mo_saldo")
     .select("*")

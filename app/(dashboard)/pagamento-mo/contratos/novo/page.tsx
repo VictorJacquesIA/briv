@@ -32,7 +32,7 @@ export default async function NovoContratoMoPage() {
   }
 
   const isGestor = isGestorRole(currentProfile.role);
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
 
   const [{ data: obrasData }, colaboradores, linkedObraIds] = await Promise.all(
     [

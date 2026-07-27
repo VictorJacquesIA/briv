@@ -37,7 +37,7 @@ export default async function MateriaisPage() {
     "materiais.edit",
   );
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const [{ data: items }, { data: unidades }] = await Promise.all([
     supabase
       .from("items")

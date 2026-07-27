@@ -13,7 +13,7 @@ export async function registrarHistorico(input: {
   userAgent?: string | null;
   dados?: Json;
 }) {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
 
   await supabase.from("historico").insert({
     cliente_id: input.clienteId,
@@ -29,6 +29,23 @@ export async function registrarHistorico(input: {
   });
 }
 
+export async function listHistoricoPorEntidade(
+  entidade: string,
+  entidadeId: string,
+) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("historico")
+    .select(
+      "id,acao,entidade,entidade_id,created_at,status_anterior,status_novo,dados",
+    )
+    .eq("entidade", entidade)
+    .eq("entidade_id", entidadeId)
+    .order("created_at", { ascending: false });
+
+  return data ?? [];
+}
+
 export async function listHistorico(input?: {
   from?: string;
   to?: string;
@@ -36,7 +53,7 @@ export async function listHistorico(input?: {
   pageSize?: number;
   entidades?: string[];
 }) {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const page = Math.max(input?.page ?? 1, 1);
   const pageSize = input?.pageSize ?? 20;
   const from = (page - 1) * pageSize;

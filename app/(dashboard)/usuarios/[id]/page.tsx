@@ -45,7 +45,7 @@ export default async function EditarUsuarioPage({
     redirect("/usuarios");
   }
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data: targetProfile } = await supabase
     .from("profiles")
     .select("id,nome,role,ativo,cliente_id")
@@ -71,7 +71,7 @@ export default async function EditarUsuarioPage({
   let obras: any[] = [];
   let linkedObraIds: string[] = [];
 
-  if (isGestorRole(targetRole)) {
+  if (isGestorRole(targetRole) && targetProfile.cliente_id) {
     const [{ data: obraRows }, { data: vinculoRows }] = await Promise.all([
       supabase
         .from("obras")

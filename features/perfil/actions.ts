@@ -76,7 +76,7 @@ export async function updateProfile(
       fotoUrl = publicUrl;
     }
 
-    const { error: profileError } = await (supabase as any)
+    const { error: profileError } = await supabase
       .from("profiles")
       .update({ nome, telefone, foto_url: fotoUrl })
       .eq("id", profile.id);

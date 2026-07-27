@@ -34,7 +34,14 @@ export async function GET(
 
   const pdfBytes = await generateOrcamentoRealizadoPdf({
     obra: { nome: obra.nome, codigo: obra.codigo },
-    itens: orcamento,
+    itens: orcamento.map((item) => ({
+      descricao: item.descricao ?? "-",
+      categoria: item.categoria,
+      valor_orcado: item.valor_orcado ?? 0,
+      material_realizado: item.material_realizado ?? 0,
+      mo_realizado: item.mo_realizado ?? 0,
+      tipo: item.tipo,
+    })),
   });
 
   const rawName = `orcado-realizado-${obra.nome}.pdf`;

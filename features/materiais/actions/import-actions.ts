@@ -52,7 +52,7 @@ export async function importUnidadesCsv(
   try {
     await requireActor();
     const rows = await readCsvFile(formData);
-    const supabase = (await createClient()) as any;
+    const supabase = await createClient();
 
     let criados = 0;
     let ignorados = 0;
@@ -106,7 +106,7 @@ export async function importItemsCsv(
   try {
     await requireActor();
     const rows = await readCsvFile(formData);
-    const supabase = (await createClient()) as any;
+    const supabase = await createClient();
 
     let criados = 0;
     let ignorados = 0;

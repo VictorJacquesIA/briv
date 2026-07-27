@@ -4,7 +4,7 @@ export async function listCacambas(input?: {
   obraId?: string;
   status?: "solicitada" | "ativa" | "encerrada";
 }) {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   let query = supabase
     .from("cacambas")
     .select(
@@ -28,7 +28,7 @@ export async function listDesmobilizacoes(input?: {
   obraId?: string;
   status?: "pendente" | "concluida";
 }) {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   let query = supabase
     .from("solicitacoes_desmobilizacao")
     .select(

@@ -26,7 +26,7 @@ export async function createFerramenta(
       return { message: "Informe o nome da ferramenta." };
     }
 
-    const supabase = (await createClient()) as any;
+    const supabase = await createClient();
     const { data: ferramenta, error } = await supabase
       .from("ferramentas")
       .insert({
@@ -78,7 +78,7 @@ export async function registrarSaidaFerramenta(formData: FormData) {
     throw new Error("Selecione a obra de destino.");
   }
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { error } = await supabase.from("movimentacoes_ferramentas").insert({
     cliente_id: profile.cliente_id,
     ferramenta_id: ferramentaId,
@@ -121,7 +121,7 @@ export async function registrarEntradaFerramenta(formData: FormData) {
     throw new Error("Ferramenta inválida.");
   }
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data: ferramenta } = await supabase
     .from("ferramentas")
     .select("status,obra_atual_id")

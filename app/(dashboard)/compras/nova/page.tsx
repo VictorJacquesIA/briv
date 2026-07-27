@@ -33,7 +33,7 @@ export default async function NovaSolicitacaoPage() {
   }
 
   const isGestorObra = isGestorRole(currentProfile.role);
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
 
   // orcamentoItensByObra só é consumido pelo SolicitacaoForm (não-gestor);
   // pular a query pro gestor evita um round-trip descartado. As 4 buscas

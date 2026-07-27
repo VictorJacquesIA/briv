@@ -15,7 +15,7 @@ export * from "@/lib/permissions-shared";
 // página quase sempre buscam as permissões do mesmo usuário de novo.
 export const getPermissionsForUser = cache(async (userId: string) => {
   const supabase = await createClient();
-  const { data } = await (supabase as any)
+  const { data } = await supabase
     .from("user_permissions")
     .select("permission_key,allowed")
     .eq("user_id", userId);
@@ -25,7 +25,7 @@ export const getPermissionsForUser = cache(async (userId: string) => {
 
 export async function getLinkedObrasForUser(userId: string) {
   const supabase = await createClient();
-  const { data } = await (supabase as any)
+  const { data } = await supabase
     .from("obra_usuarios")
     .select("obra_id")
     .eq("user_id", userId)

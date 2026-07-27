@@ -2,6 +2,10 @@ import { notFound } from "next/navigation";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { listHistoricoPorEntidade } from "@/services/historico-service";
+import type { Database } from "@/types/database";
+
+type SolicitacaoStatus = Database["public"]["Enums"]["solicitacao_status"];
 
 export const statusLabels: Record<string, string> = {
   rascunho: "Nova Solicitação",
@@ -42,7 +46,7 @@ export const STATUSES_AGUARDANDO_APROVACAO = [
 export const STATUSES_TERMINAIS = ["finalizada", "cancelada"];
 
 export async function getPurchaseFormOptions() {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const [
     { data: clientes },
     { data: obras },
@@ -71,7 +75,9 @@ export async function getPurchaseFormOptions() {
       .order("nome"),
     supabase
       .from("fornecedores")
-      .select("id,razao_social,nome_fantasia,cliente_id,mensagem_template")
+      .select(
+        "id,razao_social,nome_fantasia,cliente_id,mensagem_template,whatsapp,telefone",
+      )
       .eq("ativo", true)
       .order("razao_social"),
   ]);
@@ -87,11 +93,11 @@ export async function getPurchaseFormOptions() {
 
 export async function listSolicitacoes(input?: {
   search?: string;
-  status?: string;
+  status?: SolicitacaoStatus | "todos";
   page?: number;
   sort?: "created_at" | "prioridade" | "status";
 }) {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const page = Math.max(input?.page ?? 1, 1);
   const pageSize = 10;
   const from = (page - 1) * pageSize;
@@ -127,7 +133,7 @@ export async function listSolicitacoes(input?: {
 }
 
 export async function getSolicitacaoDetail(id: string) {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data } = await supabase
     .from("solicitacoes")
     .select(
@@ -142,8 +148,7 @@ export async function getSolicitacaoDetail(id: string) {
       anexos:solicitacao_anexos(*),
       cotacoes:cotacoes(*, fornecedor:fornecedores(*), itens:cotacao_itens(*)),
       aprovacoes:aprovacoes(*, aprovador:profiles(id,nome)),
-      pedidos:pedidos(*, fornecedor:fornecedores(*)),
-      historico:historico(*)
+      pedidos:pedidos(*, fornecedor:fornecedores(*))
       `,
     )
     .eq("id", id)
@@ -153,11 +158,13 @@ export async function getSolicitacaoDetail(id: string) {
     notFound();
   }
 
-  return data;
+  const historico = await listHistoricoPorEntidade("solicitacao", id);
+
+  return { ...data, historico };
 }
 
 export async function getPublicApprovalByToken(token: string) {
-  const supabase = createAdminClient() as any;
+  const supabase = createAdminClient();
   const { data } = await supabase
     .from("solicitacoes")
     .select(
@@ -219,8 +226,8 @@ export function cotacaoPendencias(cotacao: any) {
 export async function getPurchaseStatusCounts(input?: {
   responsavelObraId?: string;
 }) {
-  const supabase = (await createClient()) as any;
-  const statuses = [
+  const supabase = await createClient();
+  const statuses: SolicitacaoStatus[] = [
     "aberta",
     "em_cotacao",
     "aguardando_aprovacao",
@@ -252,7 +259,7 @@ export async function getPurchaseStatusCounts(input?: {
 }
 
 export async function listUnits() {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data } = await supabase
     .from("unidades")
     .select("id,nome")
@@ -263,7 +270,7 @@ export async function listUnits() {
 }
 
 export async function listItems() {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data } = await supabase
     .from("items")
     .select("id,nome,unidade_id")
@@ -279,7 +286,7 @@ export async function searchItems(query: string) {
     return [];
   }
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data } = await supabase
     .from("items")
     .select("id,nome,unidade_id,unidade:unidades(id,nome)")

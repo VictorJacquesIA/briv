@@ -33,7 +33,7 @@ export async function registrarEntradaEstoque(
       return { message: "Informe uma quantidade maior que zero." };
     }
 
-    const supabase = (await createClient()) as any;
+    const supabase = await createClient();
 
     const { data: estoqueItem, error: upsertError } = await supabase
       .from("estoque_itens")
@@ -118,7 +118,7 @@ export async function registrarSaidaEstoque(
       return { message: "Informe uma quantidade maior que zero." };
     }
 
-    const supabase = (await createClient()) as any;
+    const supabase = await createClient();
 
     const { data: saldo } = await supabase
       .from("v_estoque_saldo")
@@ -126,7 +126,11 @@ export async function registrarSaidaEstoque(
       .eq("item_id", itemId)
       .maybeSingle();
 
-    if (!saldo || Number(saldo.quantidade_atual) <= 0) {
+    if (
+      !saldo ||
+      !saldo.estoque_item_id ||
+      Number(saldo.quantidade_atual) <= 0
+    ) {
       return { message: "Este insumo não tem saldo em estoque." };
     }
 
@@ -184,7 +188,7 @@ export async function confirmarSeparacao(formData: FormData) {
     throw new Error("Dados inválidos.");
   }
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
 
   const { data: requisicao } = await supabase
     .from("requisicoes_almox")

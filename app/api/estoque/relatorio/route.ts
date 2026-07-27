@@ -43,7 +43,12 @@ export async function GET(request: Request) {
 
   const pdfBytes = await generateEstoqueRelatorioPdf({
     filtro: { obraNome, periodoLabel },
-    itens,
+    itens: itens.map((item) => ({
+      item_nome: item.item_nome ?? "-",
+      unidade_nome: item.unidade_nome,
+      quantidade_atual: item.quantidade_atual ?? 0,
+      quantidade_minima: item.quantidade_minima,
+    })),
     entradas,
     saidas,
   });

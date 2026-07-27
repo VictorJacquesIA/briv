@@ -45,7 +45,7 @@ export async function updateUserRole(formData: FormData) {
     throw new Error("Dados inválidos.");
   }
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data: target, error: fetchError } = await supabase
     .from("profiles")
     .select("role,cliente_id")
@@ -155,7 +155,7 @@ export async function createUser(
     };
   }
 
-  const { error: profileError } = await (admin as any).from("profiles").insert({
+  const { error: profileError } = await admin.from("profiles").insert({
     id: created.user.id,
     nome: parsed.data.nome,
     role: parsed.data.role,
@@ -175,7 +175,7 @@ export async function createUser(
       permission_key: key,
       allowed: defaults[key],
     }));
-    await (admin as any).from("user_permissions").insert(rows);
+    await admin.from("user_permissions").insert(rows);
   }
 
   revalidatePath("/usuarios");
@@ -208,7 +208,7 @@ export async function updateUserPermissions(formData: FormData) {
     allowed: formData.get(`perm_${key}`) === "on",
   }));
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { error } = await supabase
     .from("user_permissions")
     .upsert(rows, { onConflict: "user_id,permission_key" });
@@ -255,7 +255,7 @@ export async function updateObraVinculos(formData: FormData) {
     throw new Error("Dados inválidos.");
   }
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
 
   await supabase.from("obra_usuarios").delete().eq("user_id", targetId);
 
@@ -284,6 +284,10 @@ export async function updateUserAccount(
 
   if (!currentProfile?.id) {
     redirect("/login");
+  }
+
+  if (!currentProfile.cliente_id) {
+    return { message: "Seu usuário não está vinculado a um cliente." };
   }
 
   const permissions = await getPermissionsForUser(currentProfile.id);
@@ -344,7 +348,7 @@ export async function updateUserAccount(
     }
   }
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { error: profileError } = await supabase
     .from("profiles")
     .update({ nome })
@@ -361,7 +365,7 @@ export async function updateUserAccount(
 
   const context = await getRequestContext();
   await registrarHistorico({
-    clienteId: currentProfile.cliente_id ?? undefined,
+    clienteId: currentProfile.cliente_id,
     actorId: currentProfile.id,
     entidade: "usuario",
     entidadeId: targetId,
@@ -391,6 +395,10 @@ export async function deleteUser(formData: FormData) {
     redirect("/login");
   }
 
+  if (!currentProfile.cliente_id) {
+    throw new Error("Seu usuário não está vinculado a um cliente.");
+  }
+
   const permissions = await getPermissionsForUser(currentProfile.id);
   await assertPermission(currentProfile.role, permissions, "usuarios.manage");
 
@@ -404,7 +412,7 @@ export async function deleteUser(formData: FormData) {
     throw new Error("Você não pode excluir seu próprio usuário.");
   }
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data: target } = await supabase
     .from("profiles")
     .select("role,cliente_id")
@@ -413,6 +421,10 @@ export async function deleteUser(formData: FormData) {
 
   if (!target) {
     throw new Error("Usuário não encontrado.");
+  }
+
+  if (!target.cliente_id) {
+    throw new Error("Usuário sem cliente vinculado.");
   }
 
   if (normalizeRole(target.role) === "adm_geral") {

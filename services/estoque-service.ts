@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
+import type { Database } from "@/types/database";
 
 export async function listEstoqueSaldo() {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data } = await supabase
     .from("v_estoque_saldo")
     .select("*")
@@ -18,7 +19,7 @@ export async function getEstoqueDisponivelPorItem(itemIds: string[]) {
     >;
   }
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data } = await supabase
     .from("v_estoque_saldo")
     .select("estoque_item_id,item_id,quantidade_atual")
@@ -45,7 +46,7 @@ export async function listMovimentacoesEstoque(input?: {
   to?: string;
   obraId?: string;
 }) {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   let query = supabase
     .from("movimentacoes_estoque")
     .select(
@@ -73,8 +74,10 @@ export async function listMovimentacoesEstoque(input?: {
   return data ?? [];
 }
 
-export async function listRequisicoes(input?: { status?: string }) {
-  const supabase = (await createClient()) as any;
+export async function listRequisicoes(input?: {
+  status?: Database["public"]["Enums"]["requisicao_almox_status"];
+}) {
+  const supabase = await createClient();
   let query = supabase
     .from("requisicoes_almox")
     .select(
@@ -91,7 +94,7 @@ export async function listRequisicoes(input?: { status?: string }) {
 }
 
 export async function getRequisicaoDetail(id: string) {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data } = await supabase
     .from("requisicoes_almox")
     .select(

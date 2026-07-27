@@ -9,10 +9,19 @@ import { text } from "@/lib/form-data";
 import { requireActor } from "@/lib/require-actor";
 import { registrarHistorico } from "@/services/historico-service";
 import { getRequestContext } from "@/services/request-context";
+import type { Database } from "@/types/database";
 
 export type ObraActionState = {
   message?: string;
 };
+
+type ObraFase = Database["public"]["Enums"]["obra_fase"];
+
+const FASE_VALUES: ObraFase[] = ["fase_1", "fase_2", "fase_3", "concluida"];
+
+function isObraFase(value: string): value is ObraFase {
+  return (FASE_VALUES as string[]).includes(value);
+}
 
 export async function createObra(
   _state: ObraActionState,
@@ -26,7 +35,11 @@ export async function createObra(
     return { message: "Informe o nome da obra." };
   }
 
-  const supabase = (await createClient()) as any;
+  const faseInput = text(formData, "fase");
+  const fase: ObraFase =
+    faseInput && isObraFase(faseInput) ? faseInput : "fase_1";
+
+  const supabase = await createClient();
   const { data: obra, error } = await supabase
     .from("obras")
     .insert({
@@ -34,7 +47,7 @@ export async function createObra(
       nome,
       codigo: text(formData, "codigo"),
       endereco: text(formData, "endereco"),
-      fase: text(formData, "fase") ?? "fase_1",
+      fase,
       telefone_responsavel: text(formData, "telefone_responsavel"),
     })
     .select("id")
@@ -79,14 +92,18 @@ export async function updateObra(formData: FormData) {
     throw new Error("Dados inválidos.");
   }
 
-  const supabase = (await createClient()) as any;
+  const faseInput = text(formData, "fase");
+  const fase: ObraFase =
+    faseInput && isObraFase(faseInput) ? faseInput : "fase_1";
+
+  const supabase = await createClient();
   const { error } = await supabase
     .from("obras")
     .update({
-      nome: text(formData, "nome"),
+      nome: text(formData, "nome") ?? undefined,
       codigo: text(formData, "codigo"),
       endereco: text(formData, "endereco"),
-      fase: text(formData, "fase") ?? "fase_1",
+      fase,
       telefone_responsavel: text(formData, "telefone_responsavel"),
     })
     .eq("id", obraId);
@@ -109,21 +126,21 @@ export async function updateObra(formData: FormData) {
   revalidatePath(`/obras/${obraId}`);
 }
 
-const FASE_VALUES = ["fase_1", "fase_2", "fase_3", "concluida"];
-
 // Ação dedicada (só troca a fase) em vez de reusar updateObra, que
 // sobrescreveria nome/código/endereço/responsável com null se chamada com um
 // form parcial — updateObra hoje não é usada em nenhuma tela.
 export async function updateObraFase(formData: FormData) {
   const profile = await requireActor("obras.edit");
   const obraId = text(formData, "obra_id");
-  const fase = text(formData, "fase");
+  const faseInput = text(formData, "fase");
 
-  if (!obraId || !fase || !FASE_VALUES.includes(fase)) {
+  if (!obraId || !faseInput || !isObraFase(faseInput)) {
     throw new Error("Fase inválida.");
   }
 
-  const supabase = (await createClient()) as any;
+  const fase = faseInput;
+
+  const supabase = await createClient();
   const { error } = await supabase
     .from("obras")
     .update({ fase })
@@ -164,7 +181,7 @@ export async function updateObraGestor(formData: FormData) {
     throw new Error("Dados inválidos.");
   }
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
 
   await supabase.from("obra_usuarios").delete().eq("obra_id", obraId);
 
@@ -216,7 +233,7 @@ export async function createOrcamentoItem(formData: FormData) {
     );
   }
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("obra_orcamento_itens")
     .insert({
@@ -264,7 +281,7 @@ export async function deleteOrcamentoItem(formData: FormData) {
     throw new Error("Dados inválidos.");
   }
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   await supabase.from("obra_orcamento_itens").delete().eq("id", itemId);
 
   const context = await getRequestContext();

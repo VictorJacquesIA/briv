@@ -17,12 +17,14 @@ export async function requireActor(
     redirect("/login");
   }
 
-  if (!currentProfile.cliente_id) {
+  const clienteId = currentProfile.cliente_id;
+
+  if (!clienteId) {
     throw new Error("Seu usuário não está vinculado a um cliente.");
   }
 
   const permissions = await getPermissionsForUser(currentProfile.id);
   await assertPermission(currentProfile.role, permissions, permission);
 
-  return currentProfile;
+  return { ...currentProfile, cliente_id: clienteId };
 }

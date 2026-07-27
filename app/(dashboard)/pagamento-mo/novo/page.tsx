@@ -35,7 +35,7 @@ export default async function NovoLancamentoMoPage() {
   }
 
   const isGestor = isGestorRole(currentProfile.role);
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
 
   const [
     { data: obrasData },

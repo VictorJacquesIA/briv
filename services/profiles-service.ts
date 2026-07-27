@@ -17,11 +17,11 @@ export const getCurrentProfile = cache(async () => {
     return null;
   }
 
-  const { data } = (await supabase
+  const { data } = await supabase
     .from("profiles")
     .select("id,nome,role,cliente_id,ativo,telefone,foto_url")
     .eq("id", user.id)
-    .single()) as any;
+    .single();
 
   if (!data) {
     return null;

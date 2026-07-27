@@ -54,7 +54,7 @@ export async function createCacamba(
       return { message: obraError };
     }
 
-    const supabase = (await createClient()) as any;
+    const supabase = await createClient();
     const { data: cacamba, error } = await supabase
       .from("cacambas")
       .insert({
@@ -114,7 +114,7 @@ async function inserirEventoCacamba(
     throw new Error("Caçamba inválida.");
   }
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { error } = await supabase.from("cacamba_eventos").insert({
     cliente_id: profile.cliente_id,
     cacamba_id: cacambaId,
@@ -215,7 +215,7 @@ export async function createDesmobilizacao(
       return { message: obraError };
     }
 
-    const supabase = (await createClient()) as any;
+    const supabase = await createClient();
     const { data: solicitacao, error } = await supabase
       .from("solicitacoes_desmobilizacao")
       .insert({
@@ -265,7 +265,7 @@ export async function confirmarDesmobilizacao(formData: FormData) {
     throw new Error("Dados inválidos.");
   }
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { error } = await supabase
     .from("solicitacoes_desmobilizacao")
     .update({

@@ -48,7 +48,7 @@ export async function createUnit(
     return { message: "Nome da unidade é obrigatório." };
   }
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const result = await findOrCreateByName(supabase, "unidades", nome);
 
   if (!result) {
@@ -69,7 +69,7 @@ export async function createItem(
     return { message: "Nome do item é obrigatório." };
   }
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const result = await findOrCreateByName(supabase, "items", nome, {
     unidade_id: unidadeId,
   });

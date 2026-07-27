@@ -37,7 +37,7 @@ export default async function UnidadesPage() {
     "materiais.edit",
   );
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data: unidades } = await supabase
     .from("unidades")
     .select("id,nome,codigo,ativo")
