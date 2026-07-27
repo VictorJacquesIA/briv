@@ -260,22 +260,31 @@ export default async function DashboardPage({
       label: "Solicitações abertas",
       value: statusCounts.abertas,
       icon: FileClock,
+      href: "/compras?status=aberta",
     },
-    { label: "Em cotação", value: statusCounts.emCotacao, icon: Clock },
+    {
+      label: "Em cotação",
+      value: statusCounts.emCotacao,
+      icon: Clock,
+      href: "/compras?status=em_cotacao",
+    },
     {
       label: "Aguardando aprovação",
       value: statusCounts.aguardandoAprovacao,
       icon: ClipboardCheck,
+      href: "/compras?status=aguardando_aprovacao",
     },
     {
       label: "Pedidos enviados",
       value: statusCounts.pedidosEnviados,
       icon: Send,
+      href: "/compras?status=pedido_enviado",
     },
     {
       label: "Finalizadas",
       value: statusCounts.finalizadas,
       icon: CheckCircle2,
+      href: "/compras?status=finalizada",
     },
   ];
 
@@ -285,31 +294,31 @@ export default async function DashboardPage({
           label: "Lançamentos MO pendentes",
           value: outrasSolicitacoes.lancamentosPendentes,
           icon: Wallet,
-          href: "/pagamento-mo",
+          href: "/pagamento-mo?status=pendente",
         },
         {
           label: "Contratos de MO abertos",
           value: outrasSolicitacoes.contratosAbertos,
           icon: FileText,
-          href: "/pagamento-mo/contratos",
+          href: "/pagamento-mo/contratos?status=aberto",
         },
         {
           label: "Requisições de estoque pendentes",
           value: outrasSolicitacoes.requisicoesPendentes,
           icon: PackageSearch,
-          href: "/estoque/requisicoes",
+          href: "/estoque/requisicoes?status=pendente",
         },
         {
           label: "Caçambas pendentes",
           value: outrasSolicitacoes.cacambasPendentes,
           icon: Trash2,
-          href: "/servicos/cacamba",
+          href: "/servicos/cacamba?filtro=pendente",
         },
         {
           label: "Desmobilizações pendentes",
           value: outrasSolicitacoes.desmobilizacoesPendentes,
           icon: Truck,
-          href: "/servicos/desmobilizacao",
+          href: "/servicos/desmobilizacao?status=pendente",
         },
       ]
     : [];
@@ -340,17 +349,21 @@ export default async function DashboardPage({
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           {indicators.map((indicator) => (
-            <Card key={indicator.label}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  {indicator.label}
-                </CardTitle>
-                <indicator.icon className="size-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">{indicator.value}</div>
-              </CardContent>
-            </Card>
+            <Link key={indicator.label} href={indicator.href as never}>
+              <Card className="transition-colors hover:bg-secondary">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    {indicator.label}
+                  </CardTitle>
+                  <indicator.icon className="size-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-semibold">
+                    {indicator.value}
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
       </div>

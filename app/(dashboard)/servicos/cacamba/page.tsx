@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +32,11 @@ const ACAO_LABELS: Record<string, string> = {
   devolucao: "Devolução pendente",
 };
 
-export default async function CacambaPage() {
+export default async function CacambaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ filtro?: string }>;
+}) {
   const currentProfile = await getCurrentProfile();
 
   if (!currentProfile?.id) {
@@ -56,13 +61,26 @@ export default async function CacambaPage() {
   );
   const isGestor = isGestorRole(currentProfile.role);
 
-  const [cacambas, obrasData, linkedObraIds] = await Promise.all([
+  const params = await searchParams;
+  const filtroPendente = params.filtro === "pendente";
+
+  const [todasCacambas, obrasData, linkedObraIds] = await Promise.all([
     listCacambas(),
     listObras(),
     isGestor
       ? getLinkedObrasForUser(currentProfile.id)
       : Promise.resolve<string[]>([]),
   ]);
+
+  // Mesma condição usada pra contar o card "Caçambas pendentes" no dashboard
+  // (status solicitada aguardando entrega, ou troca/devolução aguardando
+  // confirmação) — não é um único status, então não dá pra filtrar direto
+  // via listCacambas({status}).
+  const cacambas = filtroPendente
+    ? todasCacambas.filter(
+        (c: any) => c.status === "solicitada" || c.acao_pendente,
+      )
+    : todasCacambas;
 
   const obrasParaCriar = isGestor
     ? obrasData.filter((obra: any) => linkedObraIds.includes(obra.id))
@@ -82,6 +100,14 @@ export default async function CacambaPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             Solicitação, troca e devolução de caçamba nas obras.
           </p>
+          {filtroPendente ? (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Filtrando por: Pendentes ·{" "}
+              <Link href="/servicos/cacamba" className="underline">
+                Ver todos
+              </Link>
+            </p>
+          ) : null}
         </div>
         {canCreate && obrasParaCriar.length > 0 ? (
           <CacambaForm obras={obrasParaCriar} />

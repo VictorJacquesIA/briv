@@ -8,16 +8,31 @@ import { hasPermission, getPermissionsForUser } from "@/lib/permissions";
 import { getCurrentProfile } from "@/services/profiles-service";
 import { listRequisicoes } from "@/services/estoque-service";
 
-export default async function RequisicoesPage() {
+const STATUS_FILTRO_LABELS: Record<string, string> = {
+  pendente: "Pendentes",
+  separado: "Separadas",
+};
+
+export default async function RequisicoesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string }>;
+}) {
   const currentProfile = await getCurrentProfile();
 
   if (!currentProfile?.id) {
     redirect("/login");
   }
 
+  const params = await searchParams;
+  const status =
+    params.status === "pendente" || params.status === "separado"
+      ? params.status
+      : undefined;
+
   const [permissions, requisicoes] = await Promise.all([
     getPermissionsForUser(currentProfile.id),
-    listRequisicoes(),
+    listRequisicoes({ status }),
   ]);
 
   if (!hasPermission(currentProfile.role, permissions, "estoque.view")) {
@@ -34,6 +49,14 @@ export default async function RequisicoesPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             Itens que o Compras destinou ao estoque, aguardando separação.
           </p>
+          {status ? (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Filtrando por: {STATUS_FILTRO_LABELS[status]} ·{" "}
+              <Link href="/estoque/requisicoes" className="underline">
+                Ver todos
+              </Link>
+            </p>
+          ) : null}
         </div>
         <Button asChild variant="outline">
           <Link href="/estoque">Itens em depósito</Link>

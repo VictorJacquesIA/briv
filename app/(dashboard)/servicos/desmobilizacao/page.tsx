@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +15,16 @@ import { listObras } from "@/services/obras-service";
 import { listDesmobilizacoes } from "@/services/servicos-obra-service";
 import { getCurrentProfile } from "@/services/profiles-service";
 
-export default async function DesmobilizacaoPage() {
+const STATUS_FILTRO_LABELS: Record<string, string> = {
+  pendente: "Pendentes",
+  concluida: "Concluídas",
+};
+
+export default async function DesmobilizacaoPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string }>;
+}) {
   const currentProfile = await getCurrentProfile();
 
   if (!currentProfile?.id) {
@@ -39,8 +49,14 @@ export default async function DesmobilizacaoPage() {
   );
   const isGestor = isGestorRole(currentProfile.role);
 
+  const params = await searchParams;
+  const status =
+    params.status === "pendente" || params.status === "concluida"
+      ? params.status
+      : undefined;
+
   const [desmobilizacoes, obrasData, linkedObraIds] = await Promise.all([
-    listDesmobilizacoes(),
+    listDesmobilizacoes({ status }),
     listObras(),
     isGestor
       ? getLinkedObrasForUser(currentProfile.id)
@@ -61,6 +77,14 @@ export default async function DesmobilizacaoPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             Solicitação de desmobilização da obra para uma data.
           </p>
+          {status ? (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Filtrando por: {STATUS_FILTRO_LABELS[status]} ·{" "}
+              <Link href="/servicos/desmobilizacao" className="underline">
+                Ver todos
+              </Link>
+            </p>
+          ) : null}
         </div>
         {canCreate && obrasParaCriar.length > 0 ? (
           <DesmobilizacaoForm obras={obrasParaCriar} />

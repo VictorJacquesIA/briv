@@ -23,7 +23,16 @@ const TIPO_LABELS: Record<string, string> = {
   reembolso: "Reembolso",
 };
 
-export default async function PagamentoMoPage() {
+const STATUS_FILTRO_LABELS: Record<string, string> = {
+  pendente: "Pendentes",
+  confirmado: "Confirmados",
+};
+
+export default async function PagamentoMoPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string }>;
+}) {
   const currentProfile = await getCurrentProfile();
 
   if (!currentProfile?.id) {
@@ -41,8 +50,13 @@ export default async function PagamentoMoPage() {
     permissions,
     "pagamento_mo.confirm",
   );
+  const params = await searchParams;
+  const status =
+    params.status === "pendente" || params.status === "confirmado"
+      ? params.status
+      : undefined;
   const [lancamentos, saldos] = await Promise.all([
-    listLancamentos(),
+    listLancamentos({ status }),
     getColaboradorSaldo(),
   ]);
 
@@ -83,7 +97,7 @@ export default async function PagamentoMoPage() {
   > = {};
 
   if (canConfirm && precisaCentroCusto) {
-    const supabase = (await createClient()) as any;
+    const supabase = await createClient();
     const { data: orcamentoItens } = await supabase
       .from("obra_orcamento_itens")
       .select("id,obra_id,descricao")
@@ -109,6 +123,14 @@ export default async function PagamentoMoPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             Lançamentos de mão de obra: solicitações, vales e reembolsos.
           </p>
+          {status ? (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Filtrando por: {STATUS_FILTRO_LABELS[status]} ·{" "}
+              <Link href="/pagamento-mo" className="underline">
+                Ver todos
+              </Link>
+            </p>
+          ) : null}
         </div>
         <div className="flex gap-2">
           <Button asChild variant="outline">

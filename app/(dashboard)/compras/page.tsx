@@ -4,13 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { listSolicitacoes, statusLabels } from "@/services/compras-service";
+import type { Database } from "@/types/database";
+
+type SolicitacaoStatus = Database["public"]["Enums"]["solicitacao_status"];
 
 export default async function ComprasPage({
   searchParams,
 }: {
   searchParams: Promise<{
     q?: string;
-    status?: string;
+    status?: SolicitacaoStatus | "todos";
     page?: string;
     sort?: "created_at" | "prioridade" | "status";
   }>;

@@ -8,7 +8,16 @@ import { hasPermission, getPermissionsForUser } from "@/lib/permissions";
 import { getCurrentProfile } from "@/services/profiles-service";
 import { listContratos } from "@/services/pagamento-mo-service";
 
-export default async function ContratosMoPage() {
+const STATUS_FILTRO_LABELS: Record<string, string> = {
+  aberto: "Abertos",
+  quitado: "Quitados",
+};
+
+export default async function ContratosMoPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string }>;
+}) {
   const currentProfile = await getCurrentProfile();
 
   if (!currentProfile?.id) {
@@ -21,7 +30,12 @@ export default async function ContratosMoPage() {
     redirect("/dashboard");
   }
 
-  const contratos = await listContratos();
+  const params = await searchParams;
+  const status =
+    params.status === "aberto" || params.status === "quitado"
+      ? params.status
+      : undefined;
+  const contratos = await listContratos({ status });
 
   return (
     <div className="space-y-6">
@@ -34,6 +48,14 @@ export default async function ContratosMoPage() {
             Valor fechado com um prestador para uma obra, pago à vista ou em
             parcelas.
           </p>
+          {status ? (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Filtrando por: {STATUS_FILTRO_LABELS[status]} ·{" "}
+              <Link href="/pagamento-mo/contratos" className="underline">
+                Ver todos
+              </Link>
+            </p>
+          ) : null}
         </div>
         <Button asChild>
           <Link href="/pagamento-mo/contratos/novo">Novo contrato</Link>
