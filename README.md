@@ -90,3 +90,7 @@ O módulo de compras foi implementado com solicitação, cotação por fornecedo
 - Cada clique de WhatsApp registra histórico com data/hora, usuário, tipo de mensagem e destinatário.
 - O histórico registra status anterior, status novo, IP e user-agent quando disponíveis.
 - Migrations tornam o histórico imutável contra update/delete.
+
+## Deploy e CI — pendente
+
+Não há hoje nenhuma configuração de deploy ou integração contínua neste repositório: sem `vercel.json`, sem `Dockerfile`, sem workflows de GitHub Actions. O deploy, quando acontecer, precisa ser configurado manualmente numa plataforma compatível com Next.js (ex.: Vercel) — inclui decidir como as variáveis de ambiente de produção são injetadas e se as migrations do Supabase rodam automaticamente nesse processo ou continuam manuais. Isso é uma pendência de infraestrutura, não algo já resolvido.
