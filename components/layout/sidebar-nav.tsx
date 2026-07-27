@@ -6,6 +6,7 @@ import {
   Package,
   ShoppingCart,
   ShieldCheck,
+  Store,
   Truck,
   Wallet,
 } from "lucide-react";
@@ -22,6 +23,7 @@ type NavHref =
   | "/materiais"
   | "/materiais/unidades"
   | "/materiais/importar"
+  | "/fornecedores"
   | "/pagamento-mo"
   | "/pagamento-mo/colaboradores"
   | "/pagamento-mo/contratos"
@@ -86,6 +88,12 @@ const navigation: NavItem[] = [
         requiredPermission: "materiais.import",
       },
     ],
+  },
+  {
+    label: "Fornecedores",
+    href: "/fornecedores",
+    icon: Store,
+    requiredPermission: "fornecedores.view",
   },
   {
     label: "Pagamentos",
