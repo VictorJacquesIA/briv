@@ -9,6 +9,7 @@ import { money, text } from "@/lib/form-data";
 import { requireActor } from "@/lib/require-actor";
 import { registrarHistorico } from "@/services/historico-service";
 import { getRequestContext } from "@/services/request-context";
+import type { Database } from "@/types/database";
 
 export type MoActionState = {
   message?: string;
@@ -16,16 +17,35 @@ export type MoActionState = {
   nome?: string;
 };
 
+type LancamentoMoTipo = Database["public"]["Enums"]["lancamento_mo_tipo"];
+
+const LANCAMENTO_MO_TIPOS: LancamentoMoTipo[] = [
+  "solicitacao",
+  "vale",
+  "reembolso",
+];
+
+function isLancamentoMoTipo(value: string): value is LancamentoMoTipo {
+  return (LANCAMENTO_MO_TIPOS as string[]).includes(value);
+}
+
 export async function createLancamento(
   _state: MoActionState,
   formData: FormData,
 ): Promise<MoActionState> {
   try {
     const profile = await requireActor("pagamento_mo.create");
+
+    if (formData.get("rateio") === "on") {
+      return await createLancamentoRateio(profile, formData);
+    }
+
     const contratoId = text(formData, "contrato_id");
     let obraId = text(formData, "obra_id");
     let colaboradorId = text(formData, "colaborador_id");
-    let tipo = text(formData, "tipo") ?? "solicitacao";
+    const tipoInput = text(formData, "tipo");
+    let tipo: LancamentoMoTipo =
+      tipoInput && isLancamentoMoTipo(tipoInput) ? tipoInput : "solicitacao";
     const orcamentoItemId = text(formData, "orcamento_item_id");
     const descricao = text(formData, "descricao");
 
@@ -34,7 +54,7 @@ export async function createLancamento(
     const valorDiaria = money(formData.get("valor_diaria"));
     const usingDiarias = qtdDiarias != null;
 
-    const supabaseCheck = (await createClient()) as any;
+    const supabaseCheck = await createClient();
     let contratoSaldoRestante: number | null = null;
 
     // Parcela de contrato: obra/colaborador/tipo vêm do contrato no banco,
@@ -133,7 +153,7 @@ export async function createLancamento(
       return { message: "Selecione o centro de custo." };
     }
 
-    const supabase = (await createClient()) as any;
+    const supabase = await createClient();
     const { data: lancamento, error } = await supabase
       .from("lancamentos_mo")
       .insert({
@@ -190,6 +210,154 @@ export async function createLancamento(
   }
 }
 
+// Rateio: divide um lançamento entre várias obras, criando um
+// lancamentos_mo comum por obra (mesma tabela, mesmas regras/triggers/RLS
+// de sempre) — só adm_geral/compras usam isso; gestor_obra segue lançando
+// numa obra vinculada por vez, como já era. Cada linha é confirmada,
+// somada no orçamento realizado e no saldo do colaborador exatamente como
+// um lançamento normal, porque é um lançamento normal.
+async function createLancamentoRateio(
+  profile: Awaited<ReturnType<typeof requireActor>>,
+  formData: FormData,
+): Promise<MoActionState> {
+  if (isGestorRole(profile.role)) {
+    return { message: "Gestor de obra não pode ratear entre obras." };
+  }
+
+  const colaboradorId = text(formData, "colaborador_id");
+
+  if (!colaboradorId) {
+    return { message: "Selecione o colaborador/prestador." };
+  }
+
+  const tipoInput = text(formData, "tipo");
+  const tipo: LancamentoMoTipo =
+    tipoInput && isLancamentoMoTipo(tipoInput) ? tipoInput : "solicitacao";
+  const descricao = text(formData, "descricao");
+  const valorDiariaCompartilhado = money(formData.get("valor_diaria"));
+
+  type LinhaRateio = {
+    obraId: string;
+    orcamentoItemId: string | null;
+    valor: number | null;
+    qtdDiarias: number | null;
+  };
+
+  const linhas: LinhaRateio[] = [];
+
+  for (let index = 0; index < 20; index++) {
+    const obraId = text(formData, `rateio_${index}_obra_id`);
+
+    if (!obraId) {
+      continue;
+    }
+
+    const orcamentoItemId = text(formData, `rateio_${index}_orcamento_item_id`);
+    const valorInput = money(formData.get(`rateio_${index}_valor`));
+    const qtdDiariasInput = money(formData.get(`rateio_${index}_qtd_diarias`));
+    const usingDiarias = qtdDiariasInput != null;
+
+    let valor: number | null = valorInput;
+    if (usingDiarias) {
+      valor =
+        valorDiariaCompartilhado != null
+          ? Number((qtdDiariasInput * valorDiariaCompartilhado).toFixed(2))
+          : null;
+    }
+
+    linhas.push({
+      obraId,
+      orcamentoItemId: tipo === "solicitacao" ? orcamentoItemId : null,
+      valor,
+      qtdDiarias: usingDiarias ? qtdDiariasInput : null,
+    });
+  }
+
+  if (linhas.length < 2) {
+    return { message: "Informe ao menos 2 obras para ratear." };
+  }
+
+  if (
+    tipo === "solicitacao" &&
+    linhas.some((linha) => !linha.orcamentoItemId)
+  ) {
+    return { message: "Selecione o centro de custo de todas as obras." };
+  }
+
+  if (linhas.some((linha) => linha.valor == null && linha.qtdDiarias == null)) {
+    return { message: "Informe o valor ou as diárias de todas as obras." };
+  }
+
+  if (
+    linhas.some((linha) => linha.qtdDiarias != null && linha.qtdDiarias <= 0)
+  ) {
+    return {
+      message:
+        "A quantidade de diárias deve ser maior que zero em todas as obras.",
+    };
+  }
+
+  if (linhas.some((linha) => linha.valor != null && linha.valor <= 0)) {
+    return { message: "O valor deve ser maior que zero em todas as obras." };
+  }
+
+  const supabase = await createClient();
+  const { data: inseridos, error } = await supabase
+    .from("lancamentos_mo")
+    .insert(
+      linhas.map((linha) => ({
+        cliente_id: profile.cliente_id,
+        colaborador_id: colaboradorId,
+        obra_id: linha.obraId,
+        orcamento_item_id: linha.orcamentoItemId,
+        tipo,
+        valor: linha.valor,
+        qtd_diarias: linha.qtdDiarias,
+        valor_diaria:
+          linha.qtdDiarias != null ? valorDiariaCompartilhado : null,
+        descricao,
+        criado_por: profile.id,
+      })),
+    )
+    .select("id,obra_id");
+
+  if (error || !inseridos) {
+    return {
+      message: friendlyErrorMessage(
+        error,
+        "Não foi possível registrar o rateio.",
+      ),
+    };
+  }
+
+  const context = await getRequestContext();
+  await Promise.all(
+    inseridos.map((lancamento) =>
+      registrarHistorico({
+        clienteId: profile.cliente_id,
+        actorId: profile.id,
+        entidade: "lancamento_mo",
+        entidadeId: lancamento.id,
+        acao: "lancamento_criado",
+        statusNovo: "pendente",
+        ip: context.ip,
+        userAgent: context.userAgent,
+        dados: {
+          tipo,
+          colaborador_id: colaboradorId,
+          obra_id: lancamento.obra_id,
+          rateio: true,
+        },
+      }),
+    ),
+  );
+
+  revalidatePath("/pagamento-mo");
+  return {
+    message: `${inseridos.length} lançamentos registrados (rateio entre ${inseridos.length} obras).`,
+  };
+}
+
 export async function createContrato(
   _state: MoActionState,
   formData: FormData,
@@ -225,7 +393,7 @@ export async function createContrato(
       }
     }
 
-    const supabase = (await createClient()) as any;
+    const supabase = await createClient();
     const { data: contrato, error } = await supabase
       .from("contratos_mo")
       .insert({
@@ -282,7 +450,7 @@ export async function confirmarLancamento(formData: FormData) {
     throw new Error("Dados inválidos.");
   }
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
 
   const { data: lancamento } = await supabase
     .from("lancamentos_mo")
@@ -294,7 +462,7 @@ export async function confirmarLancamento(formData: FormData) {
     throw new Error("Lançamento não encontrado.");
   }
 
-  const updates: Record<string, unknown> = {
+  const updates: Database["public"]["Tables"]["lancamentos_mo"]["Update"] = {
     status: "confirmado",
     confirmado_por: profile.id,
     confirmado_at: new Date().toISOString(),
@@ -366,7 +534,7 @@ export async function darBaixaVale(formData: FormData) {
     throw new Error("Selecione o pagamento pra vincular a baixa.");
   }
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
 
   const [{ data: vale }, { data: pagamento }] = await Promise.all([
     supabase
@@ -445,7 +613,7 @@ export async function createColaboradorGestor(
       return { message: "Informe a chave Pix ou os dados bancários." };
     }
 
-    const supabase = (await createClient()) as any;
+    const supabase = await createClient();
     const { data, error } = await supabase
       .from("colaboradores")
       .insert({
@@ -480,7 +648,7 @@ export async function createColaborador(formData: FormData) {
     throw new Error("Informe o nome do colaborador.");
   }
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   await supabase.from("colaboradores").insert({
     cliente_id: profile.cliente_id,
     nome,

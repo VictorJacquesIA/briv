@@ -40,6 +40,11 @@ export function LancamentoForm({
   const [selectedColaboradorId, setSelectedColaboradorId] = useState("");
   const [selectedContratoId, setSelectedContratoId] = useState("");
   const [showNovoPrestador, setShowNovoPrestador] = useState(false);
+  const [isRateio, setIsRateio] = useState(false);
+  const [linhasRateio, setLinhasRateio] = useState<{ obraId: string }[]>([
+    { obraId: "" },
+    { obraId: "" },
+  ]);
   const [prestadorState, prestadorAction] = useActionState(
     createColaboradorGestor,
     {},
@@ -75,6 +80,26 @@ export function LancamentoForm({
   }, [obraId, tipo]);
 
   useEffect(() => {
+    if (isContrato) {
+      setIsRateio(false);
+    }
+  }, [isContrato]);
+
+  function updateLinhaRateioObra(index: number, value: string) {
+    setLinhasRateio((prev) =>
+      prev.map((linha, i) => (i === index ? { obraId: value } : linha)),
+    );
+  }
+
+  function addLinhaRateio() {
+    setLinhasRateio((prev) => [...prev, { obraId: "" }]);
+  }
+
+  function removeLinhaRateio(index: number) {
+    setLinhasRateio((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  useEffect(() => {
     if (prestadorState.id && prestadorState.nome) {
       setLocalColaboradores((prev) => [
         ...prev,
@@ -94,25 +119,28 @@ export function LancamentoForm({
         aria-hidden="true"
       />
       <form action={action} className="space-y-4">
+        {isRateio ? <input type="hidden" name="rateio" value="on" /> : null}
         <div className="grid gap-4 lg:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="obra_id">Obra</Label>
-            <select
-              id="obra_id"
-              name="obra_id"
-              className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-              required
-              value={obraId}
-              onChange={(event) => setObraId(event.target.value)}
-            >
-              <option value="">Selecione</option>
-              {obras.map((obra) => (
-                <option key={obra.id} value={obra.id}>
-                  {obra.nome}
-                </option>
-              ))}
-            </select>
-          </div>
+          {!isRateio ? (
+            <div className="space-y-2">
+              <Label htmlFor="obra_id">Obra</Label>
+              <select
+                id="obra_id"
+                name="obra_id"
+                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                required
+                value={obraId}
+                onChange={(event) => setObraId(event.target.value)}
+              >
+                <option value="">Selecione</option>
+                {obras.map((obra) => (
+                  <option key={obra.id} value={obra.id}>
+                    {obra.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
           <div className="space-y-2">
             {isContrato ? (
               <>
@@ -234,100 +262,256 @@ export function LancamentoForm({
               <option value="contrato">Pagamento de contrato</option>
             </select>
           </div>
-          <div className="space-y-2 lg:col-span-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="valor">Valor</Label>
-              {isSolicitacao ? (
-                <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    checked={usarDiarias}
-                    onChange={(event) => setUsarDiarias(event.target.checked)}
-                  />
-                  Lançar por diárias
-                </label>
-              ) : null}
+          {!isGestor && !isContrato ? (
+            <div className="lg:col-span-2">
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={isRateio}
+                  onChange={(event) => setIsRateio(event.target.checked)}
+                />
+                Ratear entre obras
+              </label>
             </div>
-            {showDiariasFields ? (
-              <div
-                className={
-                  isGestor ? "grid gap-4" : "grid gap-4 sm:grid-cols-2"
-                }
-              >
-                <div className="space-y-2">
-                  <Label htmlFor="qtd_diarias">Diárias</Label>
-                  <select
-                    id="qtd_diarias"
-                    name="qtd_diarias"
-                    className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                    required
-                    defaultValue=""
-                  >
-                    <option value="">Selecione</option>
-                    {Array.from({ length: 50 }, (_, index) => index + 1).map(
-                      (n) => (
-                        <option key={n} value={n}>
-                          {n}
-                        </option>
-                      ),
-                    )}
-                  </select>
-                  {isGestor ? (
-                    <p className="text-xs text-muted-foreground">
-                      O valor da diária é preenchido pelo compras/adm ao
-                      confirmar o pagamento.
-                    </p>
+          ) : null}
+          {!isRateio ? (
+            <>
+              <div className="space-y-2 lg:col-span-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="valor">Valor</Label>
+                  {isSolicitacao ? (
+                    <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={usarDiarias}
+                        onChange={(event) =>
+                          setUsarDiarias(event.target.checked)
+                        }
+                      />
+                      Lançar por diárias
+                    </label>
                   ) : null}
                 </div>
-                {isGestor ? null : (
-                  <div className="space-y-2">
-                    <Label htmlFor="valor_diaria">Valor da diária</Label>
-                    <Input
-                      id="valor_diaria"
-                      name="valor_diaria"
-                      inputMode="decimal"
-                      placeholder="0,00"
-                    />
+                {showDiariasFields ? (
+                  <div
+                    className={
+                      isGestor ? "grid gap-4" : "grid gap-4 sm:grid-cols-2"
+                    }
+                  >
+                    <div className="space-y-2">
+                      <Label htmlFor="qtd_diarias">Diárias</Label>
+                      <select
+                        id="qtd_diarias"
+                        name="qtd_diarias"
+                        className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                        required
+                        defaultValue=""
+                      >
+                        <option value="">Selecione</option>
+                        {Array.from(
+                          { length: 50 },
+                          (_, index) => index + 1,
+                        ).map((n) => (
+                          <option key={n} value={n}>
+                            {n}
+                          </option>
+                        ))}
+                      </select>
+                      {isGestor ? (
+                        <p className="text-xs text-muted-foreground">
+                          O valor da diária é preenchido pelo compras/adm ao
+                          confirmar o pagamento.
+                        </p>
+                      ) : null}
+                    </div>
+                    {isGestor ? null : (
+                      <div className="space-y-2">
+                        <Label htmlFor="valor_diaria">Valor da diária</Label>
+                        <Input
+                          id="valor_diaria"
+                          name="valor_diaria"
+                          inputMode="decimal"
+                          placeholder="0,00"
+                        />
+                      </div>
+                    )}
                   </div>
+                ) : (
+                  <Input
+                    id="valor"
+                    name="valor"
+                    inputMode="decimal"
+                    placeholder="0,00"
+                    required
+                  />
                 )}
               </div>
-            ) : (
-              <Input
-                id="valor"
-                name="valor"
-                inputMode="decimal"
-                placeholder="0,00"
-                required
-              />
-            )}
-          </div>
-          {showCentroCustoSelect ? (
-            <div className="space-y-2 lg:col-span-2">
-              <Label htmlFor="orcamento_item_id">Centro de custo</Label>
-              <select
-                id="orcamento_item_id"
-                name="orcamento_item_id"
-                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                required
-                disabled={!obraId}
+              {showCentroCustoSelect ? (
+                <div className="space-y-2 lg:col-span-2">
+                  <Label htmlFor="orcamento_item_id">Centro de custo</Label>
+                  <select
+                    id="orcamento_item_id"
+                    name="orcamento_item_id"
+                    className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                    required
+                    disabled={!obraId}
+                  >
+                    <option value="">
+                      {obraId ? "Selecione" : "Selecione a obra primeiro"}
+                    </option>
+                    {orcamentoItens.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.descricao}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+              {showCentroCustoNote ? (
+                <p className="text-xs text-muted-foreground lg:col-span-2">
+                  O centro de custo é definido pelo compras/adm ao confirmar o
+                  pagamento.
+                </p>
+              ) : null}
+            </>
+          ) : (
+            <div className="space-y-3 lg:col-span-2">
+              <div className="flex items-center justify-between">
+                <Label>Rateio por obra</Label>
+                {isSolicitacao ? (
+                  <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={usarDiarias}
+                      onChange={(event) => setUsarDiarias(event.target.checked)}
+                    />
+                    Lançar por diárias
+                  </label>
+                ) : null}
+              </div>
+              {usarDiarias ? (
+                <div className="space-y-2">
+                  <Label htmlFor="valor_diaria">
+                    Valor da diária (mesma taxa para todas as obras)
+                  </Label>
+                  <Input
+                    id="valor_diaria"
+                    name="valor_diaria"
+                    inputMode="decimal"
+                    placeholder="0,00"
+                  />
+                </div>
+              ) : null}
+              {linhasRateio.map((linha, index) => (
+                <div
+                  key={index}
+                  className="grid gap-3 rounded-md border p-3 sm:grid-cols-[2fr_2fr_1fr_auto]"
+                >
+                  <div className="space-y-2">
+                    <Label htmlFor={`rateio_${index}_obra_id`}>Obra</Label>
+                    <select
+                      id={`rateio_${index}_obra_id`}
+                      name={`rateio_${index}_obra_id`}
+                      className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                      required
+                      value={linha.obraId}
+                      onChange={(event) =>
+                        updateLinhaRateioObra(index, event.target.value)
+                      }
+                    >
+                      <option value="">Selecione</option>
+                      {obras.map((obra) => (
+                        <option key={obra.id} value={obra.id}>
+                          {obra.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {isSolicitacao ? (
+                    <div className="space-y-2">
+                      <Label htmlFor={`rateio_${index}_orcamento_item_id`}>
+                        Centro de custo
+                      </Label>
+                      <select
+                        id={`rateio_${index}_orcamento_item_id`}
+                        name={`rateio_${index}_orcamento_item_id`}
+                        className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                        required
+                        disabled={!linha.obraId}
+                      >
+                        <option value="">
+                          {linha.obraId
+                            ? "Selecione"
+                            : "Selecione a obra primeiro"}
+                        </option>
+                        {(orcamentoItensByObra[linha.obraId] ?? []).map(
+                          (item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.descricao}
+                            </option>
+                          ),
+                        )}
+                      </select>
+                    </div>
+                  ) : null}
+                  <div className="space-y-2">
+                    {usarDiarias ? (
+                      <>
+                        <Label htmlFor={`rateio_${index}_qtd_diarias`}>
+                          Diárias
+                        </Label>
+                        <select
+                          id={`rateio_${index}_qtd_diarias`}
+                          name={`rateio_${index}_qtd_diarias`}
+                          className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                          required
+                          defaultValue=""
+                        >
+                          <option value="">Selecione</option>
+                          {Array.from({ length: 50 }, (_, i) => i + 1).map(
+                            (n) => (
+                              <option key={n} value={n}>
+                                {n}
+                              </option>
+                            ),
+                          )}
+                        </select>
+                      </>
+                    ) : (
+                      <>
+                        <Label htmlFor={`rateio_${index}_valor`}>Valor</Label>
+                        <Input
+                          id={`rateio_${index}_valor`}
+                          name={`rateio_${index}_valor`}
+                          inputMode="decimal"
+                          placeholder="0,00"
+                          required
+                        />
+                      </>
+                    )}
+                  </div>
+                  <div className="flex items-end">
+                    {linhasRateio.length > 2 ? (
+                      <button
+                        type="button"
+                        className="text-sm text-destructive underline"
+                        onClick={() => removeLinhaRateio(index)}
+                      >
+                        Remover
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+              <button
+                type="button"
+                className="text-sm text-primary underline"
+                onClick={addLinhaRateio}
               >
-                <option value="">
-                  {obraId ? "Selecione" : "Selecione a obra primeiro"}
-                </option>
-                {orcamentoItens.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.descricao}
-                  </option>
-                ))}
-              </select>
+                + Adicionar obra
+              </button>
             </div>
-          ) : null}
-          {showCentroCustoNote ? (
-            <p className="text-xs text-muted-foreground lg:col-span-2">
-              O centro de custo é definido pelo compras/adm ao confirmar o
-              pagamento.
-            </p>
-          ) : null}
+          )}
           <div className="space-y-2 lg:col-span-2">
             <Label htmlFor="descricao">Descrição</Label>
             <Input id="descricao" name="descricao" />
