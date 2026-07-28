@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   importItemsCsv,
-  importUnidadesCsv,
   type ImportActionState,
 } from "@/features/materiais/actions/import-actions";
 
@@ -64,12 +63,6 @@ function ImportForm({
 export function ImportCsvForms() {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <ImportForm
-        title="Importar unidades"
-        description="Cria unidades novas; nomes já existentes (case-insensitive) são ignorados."
-        columnsHint="nome, codigo (opcional)"
-        action={importUnidadesCsv}
-      />
       <ImportForm
         title="Importar itens"
         description="Cria itens novos; nomes já existentes (case-insensitive) são ignorados. A coluna unidade é casada por nome com unidades já cadastradas."
