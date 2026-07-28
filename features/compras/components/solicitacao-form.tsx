@@ -178,7 +178,10 @@ export function SolicitacaoForm({
                 <option value="">Item do catálogo</option>
                 {options.items.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.nome}
+                    {item.nome} —{" "}
+                    {item.estoqueAtual > 0
+                      ? `${item.estoqueAtual} em estoque`
+                      : "sem estoque"}
                   </option>
                 ))}
               </select>

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { getEstoqueDisponivelPorItem } from "@/services/estoque-service";
 import { listHistoricoPorEntidade } from "@/services/historico-service";
 import type { Database } from "@/types/database";
 
@@ -82,11 +83,18 @@ export async function getPurchaseFormOptions() {
       .order("razao_social"),
   ]);
 
+  const estoquePorItem = await getEstoqueDisponivelPorItem(
+    (items ?? []).map((item) => item.id),
+  );
+
   return {
     clientes: clientes ?? [],
     obras: obras ?? [],
     responsaveis: responsaveis ?? [],
-    items: items ?? [],
+    items: (items ?? []).map((item) => ({
+      ...item,
+      estoqueAtual: estoquePorItem[item.id]?.quantidadeAtual ?? 0,
+    })),
     fornecedores: fornecedores ?? [],
   };
 }
