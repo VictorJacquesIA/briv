@@ -9,8 +9,11 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/",
     scope: "/",
     display: "standalone",
-    background_color: "#121212",
-    theme_color: "#121212",
+    // Preto puro, não #121212 do tema — bate exatamente com o fundo de
+    // public/pwa.png (fonte do icon-512.png), sem costura visível na splash
+    // que o Chrome/Android monta a partir desses dois campos + o ícone.
+    background_color: "#000000",
+    theme_color: "#000000",
     lang: "pt-BR",
     icons: [
       {

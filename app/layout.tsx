@@ -12,6 +12,9 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "default",
     title: "UNA Compras",
+    // Splash do iOS ao abrir o app instalado (public/pwa.png) — sem media
+    // query, então serve como fallback genérico pra qualquer tamanho de tela.
+    startupImage: "/apple-splash.png",
   },
   other: {
     "mobile-web-app-capable": "yes",
@@ -21,7 +24,9 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#121212",
+  // Preto puro, não #121212 do tema — bate exatamente com o fundo de
+  // public/pwa.png (fonte dos ícones/splash), sem costura visível.
+  themeColor: "#000000",
 };
 
 export default function RootLayout({
