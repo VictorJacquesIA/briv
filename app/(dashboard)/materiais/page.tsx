@@ -5,10 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  createItemCatalogo,
-  toggleItemAtivo,
-} from "@/features/materiais/actions/materiais-actions";
+import { createItemCatalogo } from "@/features/materiais/actions/materiais-actions";
+import { CatalogoTable } from "@/features/materiais/components/catalogo-table";
 import { hasPermission, getPermissionsForUser } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/services/profiles-service";
@@ -113,63 +111,11 @@ export default async function MateriaisPage() {
           <CardTitle className="text-base">Catálogo</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-hidden rounded-lg border border-border bg-card">
-            <table className="w-full text-sm">
-              <thead className="bg-secondary">
-                <tr>
-                  <th className="px-3 py-2 text-left">Nome</th>
-                  <th className="px-3 py-2 text-left">Unidade</th>
-                  <th className="px-3 py-2 text-left">Status</th>
-                  {canEdit ? (
-                    <th className="px-3 py-2 text-left">Ações</th>
-                  ) : null}
-                </tr>
-              </thead>
-              <tbody>
-                {(items ?? []).map((item: any) => (
-                  <tr key={item.id} className="border-t">
-                    <td className="px-3 py-2">
-                      <div className="font-medium">{item.nome}</div>
-                      {item.descricao ? (
-                        <div className="text-xs text-muted-foreground">
-                          {item.descricao}
-                        </div>
-                      ) : null}
-                    </td>
-                    <td className="px-3 py-2">{item.unidade?.nome ?? "-"}</td>
-                    <td className="px-3 py-2">
-                      {item.ativo ? "Ativo" : "Inativo"}
-                    </td>
-                    {canEdit ? (
-                      <td className="px-3 py-2">
-                        <form action={toggleItemAtivo}>
-                          <input type="hidden" name="id" value={item.id} />
-                          <input
-                            type="hidden"
-                            name="ativo"
-                            value={String(item.ativo)}
-                          />
-                          <Button type="submit" variant="outline" size="sm">
-                            {item.ativo ? "Desativar" : "Ativar"}
-                          </Button>
-                        </form>
-                      </td>
-                    ) : null}
-                  </tr>
-                ))}
-                {(items ?? []).length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={4}
-                      className="h-20 px-3 text-center text-muted-foreground"
-                    >
-                      Nenhum item cadastrado.
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
+          <CatalogoTable
+            items={items ?? []}
+            unidades={unidades ?? []}
+            canEdit={canEdit}
+          />
         </CardContent>
       </Card>
     </div>

@@ -27,6 +27,10 @@ import {
   type CotacaoExtraction,
 } from "@/services/ai-extraction-service";
 import { getEstoqueDisponivelPorItem } from "@/services/estoque-service";
+import {
+  createShortLink,
+  createShortLinkWithClient,
+} from "@/services/short-link-service";
 import type { Database } from "@/types/database";
 
 type ActionState = {
@@ -48,6 +52,20 @@ function isPrioridadeSolicitacao(
   value: string,
 ): value is PrioridadeSolicitacao {
   return (PRIORIDADE_VALUES as string[]).includes(value);
+}
+
+type PedidoLocalEntrega = Database["public"]["Enums"]["pedido_local_entrega"];
+
+const PEDIDO_LOCAL_ENTREGA_VALUES: PedidoLocalEntrega[] = [
+  "obra",
+  "deposito",
+  "retirada",
+];
+
+function isPedidoLocalEntrega(
+  value: string | null,
+): value is PedidoLocalEntrega {
+  return !!value && (PEDIDO_LOCAL_ENTREGA_VALUES as string[]).includes(value);
 }
 
 function isNextRedirect(error: unknown) {
@@ -832,6 +850,9 @@ type CotacaoRequestState = {
 // pedido final já com preços fechados. Não cria/edita nenhuma cotação; é só
 // documento + link, a divisão real acontece quando o fornecedor responde
 // (CotacaoForm/CotacaoUploadForm, que já respeitam a seleção de itens).
+// O documento é o mesmo pra qualquer fornecedor — não pede pra escolher um
+// aqui; a escolha de pra quem mandar acontece depois, no client, na hora de
+// gerar os links de WhatsApp (um por fornecedor selecionado).
 export async function gerarCotacaoRequestPdf(
   _state: CotacaoRequestState,
   formData: FormData,
@@ -842,37 +863,30 @@ export async function gerarCotacaoRequestPdf(
     await assertPermission(profile.role, permissions, "cotacoes.create");
     const context = await getRequestContext();
     const solicitacaoId = text(formData, "solicitacao_id");
-    const fornecedorId = text(formData, "fornecedor_id");
     const itemIdsSelecionados = formData.getAll("item_ids") as string[];
 
-    if (!solicitacaoId || !fornecedorId) {
-      return { message: "Selecione um fornecedor." };
+    if (!solicitacaoId) {
+      return { message: "Solicitação inválida." };
     }
 
     if (itemIdsSelecionados.length === 0) {
       return { message: "Selecione ao menos um item." };
     }
 
-    const [{ data: solicitacao }, { data: fornecedor }, { data: itens }] =
-      await Promise.all([
-        supabase
-          .from("solicitacoes")
-          .select("codigo,obra:obras(nome)")
-          .eq("id", solicitacaoId)
-          .single(),
-        supabase
-          .from("fornecedores")
-          .select("razao_social,nome_fantasia")
-          .eq("id", fornecedorId)
-          .single(),
-        supabase
-          .from("solicitacao_itens")
-          .select("descricao,quantidade,unidade,observacao")
-          .eq("solicitacao_id", solicitacaoId)
-          .in("id", itemIdsSelecionados),
-      ]);
+    const [{ data: solicitacao }, { data: itens }] = await Promise.all([
+      supabase
+        .from("solicitacoes")
+        .select("codigo,obra:obras(nome)")
+        .eq("id", solicitacaoId)
+        .single(),
+      supabase
+        .from("solicitacao_itens")
+        .select("descricao,quantidade,unidade,observacao")
+        .eq("solicitacao_id", solicitacaoId)
+        .in("id", itemIdsSelecionados),
+    ]);
 
-    if (!solicitacao || !fornecedor) {
+    if (!solicitacao) {
       return { message: "Dados não encontrados." };
     }
 
@@ -880,9 +894,6 @@ export async function gerarCotacaoRequestPdf(
       solicitacao: {
         codigo: solicitacao.codigo,
         obra: solicitacao.obra?.nome ?? null,
-      },
-      fornecedor: {
-        nome: fornecedor.nome_fantasia ?? fornecedor.razao_social,
       },
       itens: (itens ?? []).map((item) => ({
         descricao: item.descricao,
@@ -892,7 +903,7 @@ export async function gerarCotacaoRequestPdf(
       })),
     });
 
-    const storagePath = `${profile.cliente_id}/${solicitacaoId}/cotacao-solicitada/${fornecedorId}-${Date.now()}.pdf`;
+    const storagePath = `${profile.cliente_id}/${solicitacaoId}/cotacao-solicitada/${Date.now()}.pdf`;
     const { error: uploadError } = await supabase.storage
       .from("anexos")
       .upload(storagePath, Buffer.from(pdfBytes), {
@@ -917,6 +928,12 @@ export async function gerarCotacaoRequestPdf(
       return { message: "PDF gerado, mas não foi possível criar o link." };
     }
 
+    const shortUrl = await createShortLink({
+      targetUrl: signed.signedUrl,
+      clienteId: profile.cliente_id,
+      createdBy: user.id,
+    });
+
     await registrarHistorico({
       clienteId: profile.cliente_id,
       actorId: user.id,
@@ -925,11 +942,11 @@ export async function gerarCotacaoRequestPdf(
       acao: "cotacao_solicitada_pdf_gerado",
       ip: context.ip,
       userAgent: context.userAgent,
-      dados: { fornecedor_id: fornecedorId, item_ids: itemIdsSelecionados },
+      dados: { item_ids: itemIdsSelecionados },
     });
 
     revalidatePath(`/compras/${solicitacaoId}`);
-    return { message: "PDF gerado.", pdfUrl: signed.signedUrl };
+    return { message: "PDF gerado.", pdfUrl: shortUrl };
   } catch (error) {
     return { message: friendlyErrorMessage(error) };
   }
@@ -1049,9 +1066,25 @@ export async function programarPedido(
     const solicitacaoId = text(formData, "solicitacao_id");
     const prazoConfirmadoDias = money(formData.get("prazo_confirmado_dias"));
     const dataPrevistaEntrega = text(formData, "data_prevista_entrega");
+    const localEntregaInput = text(formData, "local_entrega");
 
     if (!solicitacaoId) {
       return { message: "Dados inválidos." };
+    }
+
+    if (!isPedidoLocalEntrega(localEntregaInput)) {
+      return { message: "Escolha como o pedido vai chegar." };
+    }
+
+    const localEntrega = localEntregaInput;
+    const retiradaAutorizadoNome = text(formData, "retirada_autorizado_nome");
+    const retiradaAutorizadoDocumento = text(
+      formData,
+      "retirada_autorizado_documento",
+    );
+
+    if (localEntrega === "retirada" && !retiradaAutorizadoNome) {
+      return { message: "Informe o nome de quem vai retirar o pedido." };
     }
 
     const { data: current } = await supabase
@@ -1071,6 +1104,11 @@ export async function programarPedido(
       .update({
         prazo_confirmado_dias: prazoConfirmadoDias,
         data_prevista_entrega: dataPrevistaEntrega,
+        local_entrega: localEntrega,
+        retirada_autorizado_nome:
+          localEntrega === "retirada" ? retiradaAutorizadoNome : null,
+        retirada_autorizado_documento:
+          localEntrega === "retirada" ? retiradaAutorizadoDocumento : null,
       })
       .eq("solicitacao_id", solicitacaoId);
 
@@ -1097,6 +1135,157 @@ export async function programarPedido(
 
     revalidatePath(`/compras/${solicitacaoId}`);
     return { message: "Pedido programado." };
+  } catch (error) {
+    return {
+      message: friendlyErrorMessage(error),
+    };
+  }
+}
+
+// Confirma que o pedido chegou de verdade. "obra"/"depósito" já sabem seu
+// destino desde programarPedido; "retirada" só definiu quem ia buscar, então
+// aqui pergunta o destino final antes de decidir o efeito no estoque — só
+// entra estoque quando o destino efetivo é "depósito", e só depois de
+// confirmado (evita contar material que ainda não chegou de verdade).
+export async function confirmarRecebimentoPedido(
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  try {
+    const { supabase, user, profile } = await getActor();
+    const permissions = await getPermissionsForUser(profile.id);
+    await assertPermission(profile.role, permissions, "solicitacoes.edit");
+    const context = await getRequestContext();
+    const solicitacaoId = text(formData, "solicitacao_id");
+
+    if (!solicitacaoId) {
+      return { message: "Dados inválidos." };
+    }
+
+    const { data: current } = await supabase
+      .from("solicitacoes")
+      .select("status")
+      .eq("id", solicitacaoId)
+      .single();
+
+    if (current?.status !== "pedido_enviado") {
+      return {
+        message:
+          "Só é possível confirmar o recebimento após o pedido ser enviado.",
+      };
+    }
+
+    const { data: pedido } = await supabase
+      .from("pedidos")
+      .select("id,numero,fornecedor_id,local_entrega")
+      .eq("solicitacao_id", solicitacaoId)
+      .single();
+
+    if (!pedido) {
+      return { message: "Pedido não encontrado." };
+    }
+
+    let destinoEfetivo: PedidoLocalEntrega | null = pedido.local_entrega;
+    let retiradaDestinoFinal: PedidoLocalEntrega | null = null;
+
+    if (pedido.local_entrega === "retirada") {
+      const destinoInput = text(formData, "destino_final");
+
+      if (destinoInput !== "obra" && destinoInput !== "deposito") {
+        return { message: "Escolha o destino final da retirada." };
+      }
+
+      destinoEfetivo = destinoInput;
+      retiradaDestinoFinal = destinoInput;
+    }
+
+    await supabase
+      .from("pedidos")
+      .update({
+        status: "recebido",
+        recebido_em: new Date().toISOString(),
+        recebido_por: profile.id,
+        retirada_destino_final: retiradaDestinoFinal,
+      })
+      .eq("id", pedido.id);
+
+    await supabase
+      .from("solicitacoes")
+      .update({ status: "finalizada", finalizada_at: new Date().toISOString() })
+      .eq("id", solicitacaoId);
+
+    if (destinoEfetivo === "deposito") {
+      const { data: cotacao } = await supabase
+        .from("cotacoes")
+        .select(
+          "itens:cotacao_itens(solicitacao_item:solicitacao_itens(item_id,quantidade,quantidade_estoque))",
+        )
+        .eq("solicitacao_id", solicitacaoId)
+        .eq("fornecedor_id", pedido.fornecedor_id)
+        .single();
+
+      for (const cotacaoItem of cotacao?.itens ?? []) {
+        const solicitacaoItem = cotacaoItem.solicitacao_item;
+        const itemId = solicitacaoItem?.item_id;
+
+        if (!itemId) {
+          continue;
+        }
+
+        const quantidadeComprada =
+          (solicitacaoItem.quantidade ?? 0) -
+          (solicitacaoItem.quantidade_estoque ?? 0);
+
+        if (quantidadeComprada <= 0) {
+          continue;
+        }
+
+        const { data: estoqueItem } = await supabase
+          .from("estoque_itens")
+          .upsert(
+            { cliente_id: profile.cliente_id, item_id: itemId },
+            { onConflict: "cliente_id,item_id", ignoreDuplicates: false },
+          )
+          .select("id")
+          .single();
+
+        if (!estoqueItem) {
+          continue;
+        }
+
+        await supabase.from("movimentacoes_estoque").insert({
+          cliente_id: profile.cliente_id,
+          estoque_item_id: estoqueItem.id,
+          tipo: "entrada",
+          quantidade: quantidadeComprada,
+          motivo: `Recebimento do pedido ${pedido.numero ?? ""}`.trim(),
+          solicitacao_id: solicitacaoId,
+          responsavel_id: profile.id,
+        });
+      }
+    }
+
+    await registrarHistorico({
+      clienteId: profile.cliente_id,
+      actorId: user.id,
+      entidade: "solicitacao",
+      entidadeId: solicitacaoId,
+      acao: "pedido_recebido",
+      statusAnterior: current.status,
+      statusNovo: "finalizada",
+      ip: context.ip,
+      userAgent: context.userAgent,
+      dados: {
+        local_entrega: pedido.local_entrega,
+        destino_efetivo: destinoEfetivo,
+      },
+    });
+
+    revalidatePath(`/compras/${solicitacaoId}`);
+    if (destinoEfetivo === "deposito") {
+      revalidatePath("/estoque");
+    }
+    return { message: "Recebimento confirmado." };
   } catch (error) {
     return {
       message: friendlyErrorMessage(error),
@@ -1173,7 +1362,11 @@ export async function enviarParaAprovacao(
       };
     }
 
-    const token = randomBytes(32).toString("hex");
+    // 6 bytes (8 caracteres em base64url) — curto o suficiente pra caber
+    // numa mensagem de WhatsApp sem ficar feio, mas ainda com entropia alta
+    // o bastante (2^48 combinações) pra um link que expira em 14 dias e é
+    // invalidado assim que a decisão é registrada.
+    const token = randomBytes(6).toString("base64url");
     const { data: current } = await supabase
       .from("solicitacoes")
       .select("status")
@@ -1311,6 +1504,13 @@ export async function registrarDecisaoPublica(formData: FormData) {
       .from("pedidos-pdf")
       .createSignedUrl(pdfPath, 60 * 60 * 24 * 30);
 
+    const pdfShortUrl = signed?.signedUrl
+      ? await createShortLinkWithClient(supabase, {
+          targetUrl: signed.signedUrl,
+          clienteId,
+        })
+      : null;
+
     await supabase.from("pedidos").insert({
       cliente_id: clienteId,
       solicitacao_id: solicitacaoId,
@@ -1319,7 +1519,7 @@ export async function registrarDecisaoPublica(formData: FormData) {
       status: "emitido",
       valor_total: cotacao?.total_fornecedor ?? 0,
       pdf_path: pdfPath,
-      pdf_url: signed?.signedUrl ?? null,
+      pdf_url: pdfShortUrl,
       autorizado_por_nome: gestorNome,
       autorizado_por_email: gestorEmail,
       autorizado_at: decidedAt,
@@ -1361,7 +1561,10 @@ const FLOW_TRANSITIONS: Record<string, string[]> = {
   validado: ["cancelada"],
   aguardando_aprovacao: ["cancelada"],
   pedido_programado: ["pedido_enviado", "cancelada"],
-  pedido_enviado: ["finalizada", "cancelada"],
+  // "finalizada" não é mais genérico: só sai daqui via
+  // confirmarRecebimentoPedido, que exige escolher/confirmar o destino antes
+  // de decidir o efeito no estoque.
+  pedido_enviado: ["cancelada"],
 };
 
 export async function avancarFluxo(formData: FormData) {
@@ -1397,10 +1600,6 @@ export async function avancarFluxo(formData: FormData) {
 
   if (novoStatus === "pedido_enviado") {
     updates.pedido_enviado_at = new Date().toISOString();
-  }
-
-  if (novoStatus === "finalizada") {
-    updates.finalizada_at = new Date().toISOString();
   }
 
   if (novoStatus === "cancelada") {

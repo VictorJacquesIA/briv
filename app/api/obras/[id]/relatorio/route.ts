@@ -40,6 +40,7 @@ export async function GET(
       valor_orcado: item.valor_orcado ?? 0,
       material_realizado: item.material_realizado ?? 0,
       mo_realizado: item.mo_realizado ?? 0,
+      servicos_realizado: item.servicos_realizado ?? 0,
       tipo: item.tipo,
     })),
   });

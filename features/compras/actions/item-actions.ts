@@ -9,7 +9,7 @@ export type ItemActionState = {
   nome?: string;
 };
 
-async function findOrCreateByName(
+export async function findOrCreateByName(
   supabase: any,
   table: "unidades" | "items",
   nome: string,

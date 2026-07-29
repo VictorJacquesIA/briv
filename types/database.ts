@@ -153,9 +153,11 @@ export type Database = {
           id: string;
           obra_id: string;
           observacao: string | null;
+          orcamento_item_id: string | null;
           status: Database["public"]["Enums"]["cacamba_status"];
           tipo: string;
           updated_at: string;
+          valor: number | null;
         };
         Insert: {
           acao_pendente?:
@@ -166,9 +168,11 @@ export type Database = {
           id?: string;
           obra_id: string;
           observacao?: string | null;
+          orcamento_item_id?: string | null;
           status?: Database["public"]["Enums"]["cacamba_status"];
           tipo?: string;
           updated_at?: string;
+          valor?: number | null;
         };
         Update: {
           acao_pendente?:
@@ -179,9 +183,11 @@ export type Database = {
           id?: string;
           obra_id?: string;
           observacao?: string | null;
+          orcamento_item_id?: string | null;
           status?: Database["public"]["Enums"]["cacamba_status"];
           tipo?: string;
           updated_at?: string;
+          valor?: number | null;
         };
         Relationships: [
           {
@@ -204,6 +210,20 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "obras";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cacambas_orcamento_item_id_fkey";
+            columns: ["orcamento_item_id"];
+            isOneToOne: false;
+            referencedRelation: "obra_orcamento_itens";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cacambas_orcamento_item_id_fkey";
+            columns: ["orcamento_item_id"];
+            isOneToOne: false;
+            referencedRelation: "v_obra_orcamento_realizado";
+            referencedColumns: ["orcamento_item_id"];
           },
         ];
       };
@@ -268,6 +288,7 @@ export type Database = {
           funcao: string | null;
           id: string;
           nome: string;
+          observacao: string | null;
           telefone: string | null;
           updated_at: string;
         };
@@ -280,6 +301,7 @@ export type Database = {
           funcao?: string | null;
           id?: string;
           nome: string;
+          observacao?: string | null;
           telefone?: string | null;
           updated_at?: string;
         };
@@ -292,6 +314,7 @@ export type Database = {
           funcao?: string | null;
           id?: string;
           nome?: string;
+          observacao?: string | null;
           telefone?: string | null;
           updated_at?: string;
         };
@@ -969,6 +992,7 @@ export type Database = {
           id: string;
           motivo: string | null;
           obra_id: string | null;
+          preco_unitario: number | null;
           quantidade: number;
           responsavel_id: string | null;
           solicitacao_id: string | null;
@@ -981,6 +1005,7 @@ export type Database = {
           id?: string;
           motivo?: string | null;
           obra_id?: string | null;
+          preco_unitario?: number | null;
           quantidade: number;
           responsavel_id?: string | null;
           solicitacao_id?: string | null;
@@ -993,6 +1018,7 @@ export type Database = {
           id?: string;
           motivo?: string | null;
           obra_id?: string | null;
+          preco_unitario?: number | null;
           quantidade?: number;
           responsavel_id?: string | null;
           solicitacao_id?: string | null;
@@ -1270,10 +1296,18 @@ export type Database = {
           emitido_por: string | null;
           fornecedor_id: string;
           id: string;
+          local_entrega:
+            Database["public"]["Enums"]["pedido_local_entrega"] | null;
           numero: string | null;
           pdf_path: string | null;
           pdf_url: string | null;
           prazo_confirmado_dias: number | null;
+          recebido_em: string | null;
+          recebido_por: string | null;
+          retirada_autorizado_documento: string | null;
+          retirada_autorizado_nome: string | null;
+          retirada_destino_final:
+            Database["public"]["Enums"]["pedido_local_entrega"] | null;
           solicitacao_id: string;
           status: Database["public"]["Enums"]["pedido_status"];
           updated_at: string;
@@ -1290,10 +1324,18 @@ export type Database = {
           emitido_por?: string | null;
           fornecedor_id: string;
           id?: string;
+          local_entrega?:
+            Database["public"]["Enums"]["pedido_local_entrega"] | null;
           numero?: string | null;
           pdf_path?: string | null;
           pdf_url?: string | null;
           prazo_confirmado_dias?: number | null;
+          recebido_em?: string | null;
+          recebido_por?: string | null;
+          retirada_autorizado_documento?: string | null;
+          retirada_autorizado_nome?: string | null;
+          retirada_destino_final?:
+            Database["public"]["Enums"]["pedido_local_entrega"] | null;
           solicitacao_id: string;
           status?: Database["public"]["Enums"]["pedido_status"];
           updated_at?: string;
@@ -1310,10 +1352,18 @@ export type Database = {
           emitido_por?: string | null;
           fornecedor_id?: string;
           id?: string;
+          local_entrega?:
+            Database["public"]["Enums"]["pedido_local_entrega"] | null;
           numero?: string | null;
           pdf_path?: string | null;
           pdf_url?: string | null;
           prazo_confirmado_dias?: number | null;
+          recebido_em?: string | null;
+          recebido_por?: string | null;
+          retirada_autorizado_documento?: string | null;
+          retirada_autorizado_nome?: string | null;
+          retirada_destino_final?:
+            Database["public"]["Enums"]["pedido_local_entrega"] | null;
           solicitacao_id?: string;
           status?: Database["public"]["Enums"]["pedido_status"];
           updated_at?: string;
@@ -1339,6 +1389,13 @@ export type Database = {
             columns: ["fornecedor_id"];
             isOneToOne: false;
             referencedRelation: "fornecedores";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "pedidos_recebido_por_fkey";
+            columns: ["recebido_por"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
           {
@@ -1527,6 +1584,48 @@ export type Database = {
             columns: ["solicitacao_id"];
             isOneToOne: false;
             referencedRelation: "solicitacoes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      short_links: {
+        Row: {
+          cliente_id: string;
+          code: string;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          target_url: string;
+        };
+        Insert: {
+          cliente_id: string;
+          code: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          target_url: string;
+        };
+        Update: {
+          cliente_id?: string;
+          code?: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          target_url?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "short_links_cliente_id_fkey";
+            columns: ["cliente_id"];
+            isOneToOne: false;
+            referencedRelation: "clientes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "short_links_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
@@ -2014,6 +2113,7 @@ export type Database = {
           mo_realizado: number | null;
           obra_id: string | null;
           orcamento_item_id: string | null;
+          servicos_realizado: number | null;
           tipo: Database["public"]["Enums"]["obra_orcamento_tipo"] | null;
           valor_orcado: number | null;
         };
@@ -2064,7 +2164,8 @@ export type Database = {
       movimentacao_estoque_tipo: "entrada" | "saida";
       movimentacao_ferramenta_tipo: "saida" | "entrada";
       obra_fase: "fase_1" | "fase_2" | "fase_3" | "concluida";
-      obra_orcamento_tipo: "insumos" | "mao_de_obra";
+      obra_orcamento_tipo: "insumos" | "mao_de_obra" | "servicos";
+      pedido_local_entrega: "obra" | "deposito" | "retirada";
       pedido_status:
         "rascunho" | "emitido" | "enviado" | "recebido" | "cancelado";
       prioridade_solicitacao: "baixa" | "normal" | "alta" | "urgente";
@@ -2238,7 +2339,8 @@ export const Constants = {
       movimentacao_estoque_tipo: ["entrada", "saida"],
       movimentacao_ferramenta_tipo: ["saida", "entrada"],
       obra_fase: ["fase_1", "fase_2", "fase_3", "concluida"],
-      obra_orcamento_tipo: ["insumos", "mao_de_obra"],
+      obra_orcamento_tipo: ["insumos", "mao_de_obra", "servicos"],
+      pedido_local_entrega: ["obra", "deposito", "retirada"],
       pedido_status: [
         "rascunho",
         "emitido",

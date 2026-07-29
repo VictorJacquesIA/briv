@@ -8,7 +8,7 @@ export async function listCacambas(input?: {
   let query = supabase
     .from("cacambas")
     .select(
-      "id,tipo,status,acao_pendente,observacao,created_at,obra:obras(id,nome)",
+      "id,tipo,status,acao_pendente,observacao,valor,created_at,obra:obras(id,nome),orcamento_item:obra_orcamento_itens(id,descricao)",
     )
     .order("created_at", { ascending: false });
 

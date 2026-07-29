@@ -10,6 +10,7 @@ import {
 } from "@/features/compras/actions/purchase-actions";
 import { ApprovalForm } from "@/features/compras/components/approval-form";
 import { Comparativo } from "@/features/compras/components/comparativo";
+import { ConfirmarRecebimentoForm } from "@/features/compras/components/confirmar-recebimento-form";
 import { CotacaoForm } from "@/features/compras/components/cotacao-form";
 import { CotacaoRequestForm } from "@/features/compras/components/cotacao-request-form";
 import { CotacaoReviewForm } from "@/features/compras/components/cotacao-review-form";
@@ -263,6 +264,16 @@ export default async function CompraDetailPage({
                 </a>
               </Button>
             ) : null}
+            {pedido?.local_entrega ? (
+              <p className="text-xs text-muted-foreground">
+                Entrega:{" "}
+                {pedido.local_entrega === "retirada"
+                  ? `Retirada autorizada${pedido.retirada_autorizado_nome ? ` (${pedido.retirada_autorizado_nome})` : ""}`
+                  : pedido.local_entrega === "deposito"
+                    ? "Depósito"
+                    : "Obra"}
+              </p>
+            ) : null}
             {solicitacao.status === "pdf_gerado" ? (
               <ProgramarPedidoForm id={solicitacao.id} />
             ) : null}
@@ -274,10 +285,10 @@ export default async function CompraDetailPage({
               />
             ) : null}
             {solicitacao.status === "pedido_enviado" ? (
-              <FlowButton
+              <ConfirmarRecebimentoForm
                 id={solicitacao.id}
-                etapa="finalizada"
-                label="Finalizar"
+                localEntrega={pedido?.local_entrega ?? null}
+                retiradaAutorizadoNome={pedido?.retirada_autorizado_nome}
               />
             ) : null}
             {!STATUSES_TERMINAIS.includes(solicitacao.status) ? (

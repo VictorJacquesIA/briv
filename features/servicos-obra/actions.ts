@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
 import { friendlyErrorMessage } from "@/lib/error-message";
-import { text } from "@/lib/form-data";
+import { money, text } from "@/lib/form-data";
 import { getLinkedObrasForUser, isGestorRole } from "@/lib/permissions";
 import { requireActor } from "@/lib/require-actor";
 import { registrarHistorico } from "@/services/historico-service";
@@ -43,6 +43,8 @@ export async function createCacamba(
     const obraId = text(formData, "obra_id");
     const tipo = text(formData, "tipo") ?? "mista";
     const observacao = text(formData, "observacao");
+    const orcamentoItemId = text(formData, "orcamento_item_id");
+    const valor = money(formData.get("valor"));
 
     if (!obraId) {
       return { message: "Selecione a obra." };
@@ -63,6 +65,8 @@ export async function createCacamba(
         tipo,
         observacao,
         criado_por: profile.id,
+        orcamento_item_id: orcamentoItemId,
+        valor,
       })
       .select("id")
       .single();
@@ -91,6 +95,61 @@ export async function createCacamba(
 
     revalidatePath("/servicos/cacamba");
     return { success: true, message: "Caçamba solicitada." };
+  } catch (error) {
+    return { message: friendlyErrorMessage(error) };
+  }
+}
+
+// Centro de custo e valor costumam só ficar disponíveis depois (nota
+// fiscal/fatura da caçambeira chega depois da solicitação) — por isso é
+// uma edição separada, não só um campo no formulário de criação, e fica
+// restrita a quem confirma (cacamba.confirm), não a quem só solicita.
+export async function updateCacamba(
+  _state: ServicoObraActionState,
+  formData: FormData,
+): Promise<ServicoObraActionState> {
+  try {
+    const profile = await requireActor("cacamba.confirm");
+    const cacambaId = text(formData, "cacamba_id");
+    const orcamentoItemId = text(formData, "orcamento_item_id");
+    const valor = money(formData.get("valor"));
+
+    if (!cacambaId) {
+      return { message: "Caçamba inválida." };
+    }
+
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("cacambas")
+      .update({
+        orcamento_item_id: orcamentoItemId,
+        valor,
+      })
+      .eq("id", cacambaId);
+
+    if (error) {
+      return {
+        message: friendlyErrorMessage(
+          error,
+          "Não foi possível salvar as alterações.",
+        ),
+      };
+    }
+
+    const context = await getRequestContext();
+    await registrarHistorico({
+      clienteId: profile.cliente_id,
+      actorId: profile.id,
+      entidade: "cacamba",
+      entidadeId: cacambaId,
+      acao: "cacamba_orcamento_atualizado",
+      ip: context.ip,
+      userAgent: context.userAgent,
+      dados: { orcamento_item_id: orcamentoItemId, valor },
+    });
+
+    revalidatePath("/servicos/cacamba");
+    return { success: true, message: "Caçamba atualizada." };
   } catch (error) {
     return { message: friendlyErrorMessage(error) };
   }

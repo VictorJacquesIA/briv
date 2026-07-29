@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createColaborador } from "@/features/pagamento-mo/actions/mo-actions";
+import { ColaboradoresTable } from "@/features/pagamento-mo/components/colaboradores-table";
 import { hasPermission, getPermissionsForUser } from "@/lib/permissions";
 import { getCurrentProfile } from "@/services/profiles-service";
 import { listColaboradores } from "@/services/pagamento-mo-service";
@@ -57,7 +58,7 @@ export default async function ColaboradoresPage() {
           <CardContent>
             <form
               action={createColaborador}
-              className="grid gap-3 lg:grid-cols-[2fr_1fr_1fr_auto]"
+              className="grid gap-3 lg:grid-cols-[2fr_1fr_1fr_1fr_auto]"
             >
               <div className="space-y-2">
                 <Label htmlFor="nome">Nome</Label>
@@ -71,10 +72,23 @@ export default async function ColaboradoresPage() {
                 <Label htmlFor="telefone">Telefone</Label>
                 <Input id="telefone" name="telefone" />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="chave_pix">Chave Pix</Label>
+                <Input id="chave_pix" name="chave_pix" />
+              </div>
               <div className="flex items-end">
                 <Button type="submit" className="w-full">
                   Adicionar
                 </Button>
+              </div>
+              <div className="space-y-2 lg:col-span-5">
+                <Label htmlFor="observacao">Observação</Label>
+                <textarea
+                  id="observacao"
+                  name="observacao"
+                  className="min-h-16 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  placeholder="Alguma informação adicional sobre este colaborador/prestador..."
+                />
               </div>
             </form>
           </CardContent>
@@ -88,40 +102,10 @@ export default async function ColaboradoresPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-hidden rounded-lg border border-border bg-card">
-            <table className="w-full text-sm">
-              <thead className="bg-secondary">
-                <tr>
-                  <th className="px-3 py-2 text-left">Nome</th>
-                  <th className="px-3 py-2 text-left">Função</th>
-                  <th className="px-3 py-2 text-left">Telefone</th>
-                  <th className="px-3 py-2 text-left">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {colaboradores.map((colaborador: any) => (
-                  <tr key={colaborador.id} className="border-t">
-                    <td className="px-3 py-2">{colaborador.nome}</td>
-                    <td className="px-3 py-2">{colaborador.funcao ?? "-"}</td>
-                    <td className="px-3 py-2">{colaborador.telefone ?? "-"}</td>
-                    <td className="px-3 py-2">
-                      {colaborador.ativo ? "Ativo" : "Inativo"}
-                    </td>
-                  </tr>
-                ))}
-                {colaboradores.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={4}
-                      className="h-20 px-3 text-center text-muted-foreground"
-                    >
-                      Nenhum colaborador/prestador cadastrado.
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
+          <ColaboradoresTable
+            colaboradores={colaboradores}
+            canManage={canManage}
+          />
         </CardContent>
       </Card>
     </div>

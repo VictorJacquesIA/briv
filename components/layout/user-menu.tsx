@@ -30,9 +30,13 @@ type UserMenuProps = {
     email?: string | null;
     foto_url?: string | null;
   } | null;
+  // Rail recolhido do desktop: empilha avatar/nome/sair verticalmente e
+  // esconde o bloco de nome (não cabe no rail estreito). O menu mobile
+  // (MobileNav) não passa isso e mantém a linha horizontal com nome visível.
+  compact?: boolean;
 };
 
-export function UserMenu({ profile }: UserMenuProps) {
+export function UserMenu({ profile, compact = false }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const [state, action] = useActionState(updateProfile, {});
   const [preview, setPreview] = useState<string | null>(
@@ -53,21 +57,17 @@ export function UserMenu({ profile }: UserMenuProps) {
   }
 
   return (
-    <div className="flex items-center gap-3">
-      <div className="hidden text-right sm:block">
-        <p className="text-sm font-medium">{profile?.nome ?? "Usuario"}</p>
-        <p className="text-xs text-muted-foreground">
-          {profile
-            ? ROLE_LABELS[normalizeRole(profile.role)]
-            : "Perfil pendente"}
-        </p>
-      </div>
-
+    <div
+      className={
+        compact ? "flex flex-col items-center gap-2" : "flex items-center gap-3"
+      }
+    >
       <Dialog open={open} onOpenChange={setOpen}>
         <button
           type="button"
           onClick={() => setOpen(true)}
           aria-label="Editar perfil"
+          title={compact ? (profile?.nome ?? "Editar perfil") : undefined}
           className="flex size-10 items-center justify-center overflow-hidden rounded-md border bg-card"
         >
           {preview ? (
@@ -163,6 +163,17 @@ export function UserMenu({ profile }: UserMenuProps) {
           </form>
         </DialogContent>
       </Dialog>
+
+      {!compact ? (
+        <div className="hidden whitespace-nowrap text-left sm:block">
+          <p className="text-sm font-medium">{profile?.nome ?? "Usuario"}</p>
+          <p className="text-xs text-muted-foreground">
+            {profile
+              ? ROLE_LABELS[normalizeRole(profile.role)]
+              : "Perfil pendente"}
+          </p>
+        </div>
+      ) : null}
 
       <form action={logout}>
         <Button variant="ghost" size="icon" aria-label="Sair" title="Sair">

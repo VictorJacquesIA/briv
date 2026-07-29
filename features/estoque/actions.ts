@@ -9,6 +9,7 @@ import { money, text } from "@/lib/form-data";
 import { requireActor } from "@/lib/require-actor";
 import { registrarHistorico } from "@/services/historico-service";
 import { getRequestContext } from "@/services/request-context";
+import { findOrCreateByName } from "@/features/compras/actions/item-actions";
 
 export type EstoqueActionState = {
   message?: string;
@@ -21,19 +22,50 @@ export async function registrarEntradaEstoque(
 ): Promise<EstoqueActionState> {
   try {
     const profile = await requireActor("estoque.entrada.create");
-    const itemId = text(formData, "item_id");
+    let itemId = text(formData, "item_id");
+    const novoItemNome = text(formData, "novo_item_nome");
+    const unidadeNome = text(formData, "unidade_nome");
+    const precoUnitario = money(formData.get("preco_unitario"));
     const quantidade = money(formData.get("quantidade"));
     const motivo = text(formData, "motivo");
 
+    const supabase = await createClient();
+
     if (!itemId) {
-      return { message: "Selecione um insumo." };
+      if (!novoItemNome) {
+        return {
+          message: "Selecione um insumo ou informe o nome do novo insumo.",
+        };
+      }
+
+      if (!unidadeNome) {
+        return { message: "Informe a unidade de medida do novo insumo." };
+      }
+
+      const unidade = await findOrCreateByName(
+        supabase,
+        "unidades",
+        unidadeNome,
+      );
+
+      if (!unidade) {
+        return { message: "Não foi possível registrar a unidade de medida." };
+      }
+
+      const item = await findOrCreateByName(supabase, "items", novoItemNome, {
+        unidade_id: unidade.id,
+      });
+
+      if (!item) {
+        return { message: "Não foi possível criar o insumo." };
+      }
+
+      itemId = item.id;
     }
 
     if (quantidade == null || quantidade <= 0) {
       return { message: "Informe uma quantidade maior que zero." };
     }
-
-    const supabase = await createClient();
 
     const { data: estoqueItem, error: upsertError } = await supabase
       .from("estoque_itens")
@@ -61,6 +93,7 @@ export async function registrarEntradaEstoque(
         tipo: "entrada",
         quantidade,
         motivo,
+        preco_unitario: precoUnitario,
         responsavel_id: profile.id,
       });
 
@@ -82,7 +115,13 @@ export async function registrarEntradaEstoque(
       acao: "entrada_registrada",
       ip: context.ip,
       userAgent: context.userAgent,
-      dados: { item_id: itemId, quantidade, motivo },
+      dados: {
+        item_id: itemId,
+        quantidade,
+        motivo,
+        preco_unitario: precoUnitario,
+        novo_item: novoItemNome ? novoItemNome : undefined,
+      },
     });
 
     revalidatePath("/estoque");

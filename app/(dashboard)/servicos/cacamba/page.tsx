@@ -11,12 +11,14 @@ import {
   solicitarTrocaCacamba,
 } from "@/features/servicos-obra/actions";
 import { CacambaForm } from "@/features/servicos-obra/components/cacamba-form";
+import { CacambaOrcamentoForm } from "@/features/servicos-obra/components/cacamba-orcamento-form";
 import {
   getLinkedObrasForUser,
   hasPermission,
   getPermissionsForUser,
   isGestorRole,
 } from "@/lib/permissions";
+import { createClient } from "@/lib/supabase/server";
 import { listObras } from "@/services/obras-service";
 import { listCacambas } from "@/services/servicos-obra-service";
 import { getCurrentProfile } from "@/services/profiles-service";
@@ -64,13 +66,31 @@ export default async function CacambaPage({
   const params = await searchParams;
   const filtroPendente = params.filtro === "pendente";
 
-  const [todasCacambas, obrasData, linkedObraIds] = await Promise.all([
-    listCacambas(),
-    listObras(),
-    isGestor
-      ? getLinkedObrasForUser(currentProfile.id)
-      : Promise.resolve<string[]>([]),
-  ]);
+  const supabase = await createClient();
+  const [todasCacambas, obrasData, linkedObraIds, { data: orcamentoItens }] =
+    await Promise.all([
+      listCacambas(),
+      listObras(),
+      isGestor
+        ? getLinkedObrasForUser(currentProfile.id)
+        : Promise.resolve<string[]>([]),
+      supabase
+        .from("obra_orcamento_itens")
+        .select("id,obra_id,descricao")
+        .eq("tipo", "servicos")
+        .order("descricao"),
+    ]);
+
+  const orcamentoItensByObra: Record<
+    string,
+    Array<{ id: string; descricao: string }>
+  > = {};
+  for (const item of orcamentoItens ?? []) {
+    (orcamentoItensByObra[item.obra_id] ??= []).push({
+      id: item.id,
+      descricao: item.descricao,
+    });
+  }
 
   // Mesma condição usada pra contar o card "Caçambas pendentes" no dashboard
   // (status solicitada aguardando entrega, ou troca/devolução aguardando
@@ -125,6 +145,8 @@ export default async function CacambaPage({
                 <tr>
                   <th className="px-3 py-2 text-left">Obra</th>
                   <th className="px-3 py-2 text-left">Tipo</th>
+                  <th className="px-3 py-2 text-left">Centro de custo</th>
+                  <th className="px-3 py-2 text-left">Valor</th>
                   <th className="px-3 py-2 text-left">Status</th>
                   <th className="px-3 py-2 text-left">Observação</th>
                   <th className="px-3 py-2 text-left">Ações</th>
@@ -138,6 +160,17 @@ export default async function CacambaPage({
                     <tr key={cacamba.id} className="border-t">
                       <td className="px-3 py-2">{cacamba.obra?.nome}</td>
                       <td className="px-3 py-2">{cacamba.tipo}</td>
+                      <td className="px-3 py-2">
+                        {cacamba.orcamento_item?.descricao ?? "-"}
+                      </td>
+                      <td className="px-3 py-2">
+                        {cacamba.valor != null
+                          ? Number(cacamba.valor).toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            })
+                          : "-"}
+                      </td>
                       <td className="px-3 py-2">
                         <Badge
                           variant={
@@ -242,6 +275,25 @@ export default async function CacambaPage({
                             </button>
                           </form>
                         ) : null}
+
+                        {canConfirm ? (
+                          <div className="mt-2">
+                            <CacambaOrcamentoForm
+                              cacambaId={cacamba.id}
+                              orcamentoItemId={
+                                cacamba.orcamento_item?.id ?? null
+                              }
+                              valor={
+                                cacamba.valor != null
+                                  ? Number(cacamba.valor)
+                                  : null
+                              }
+                              orcamentoItens={
+                                orcamentoItensByObra[cacamba.obra?.id] ?? []
+                              }
+                            />
+                          </div>
+                        ) : null}
                       </td>
                     </tr>
                   );
@@ -249,7 +301,7 @@ export default async function CacambaPage({
                 {cacambas.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={7}
                       className="h-20 px-3 text-center text-muted-foreground"
                     >
                       Nenhuma caçamba solicitada ainda.

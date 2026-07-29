@@ -21,7 +21,7 @@ export default async function DashboardLayout({
   return (
     <div className="min-h-screen bg-background">
       <AppSidebar profile={profile} permissions={permissions} />
-      <div className="lg:pl-72 print:pl-0">
+      <div className="lg:pl-16 print:pl-0">
         <AppHeader profile={profile} permissions={permissions} />
         <main className="px-4 py-6 lg:px-8">{children}</main>
       </div>

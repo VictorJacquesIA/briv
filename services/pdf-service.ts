@@ -275,9 +275,6 @@ export async function generateCotacaoRequestPdf(input: {
     codigo: string | null;
     obra: string | null;
   };
-  fornecedor: {
-    nome: string;
-  };
   itens: Array<{
     descricao: string;
     quantidade: number;
@@ -291,10 +288,12 @@ export async function generateCotacaoRequestPdf(input: {
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const logo = await embedLogo(pdf);
 
+  // Documento genérico — o mesmo PDF é enviado pra todos os fornecedores
+  // escolhidos, sem personalizar por destinatário (só a mensagem do
+  // WhatsApp que acompanha o link é personalizada).
   let y = drawHeader(page, { regular, bold }, logo, "SOLICITAÇÃO DE COTAÇÃO", [
     `Solicitação: ${line(input.solicitacao.codigo)}`,
     `Obra: ${line(input.solicitacao.obra)}`,
-    `Fornecedor: ${input.fornecedor.nome}`,
     `Data: ${new Date().toLocaleDateString("pt-BR")}`,
   ]);
 
@@ -352,6 +351,7 @@ export async function generateOrcamentoRealizadoPdf(input: {
     valor_orcado: number;
     material_realizado: number;
     mo_realizado: number;
+    servicos_realizado?: number;
     tipo?: string | null;
   }>;
 }) {
@@ -393,16 +393,18 @@ export async function generateOrcamentoRealizadoPdf(input: {
 
   renderHeader();
 
-  // Mesma separação Insumos x Mão de Obra da tela de orçamento da obra
-  // (obra_orcamento_itens.tipo, desde a Fase de "obra_orcamento_tipo") —
-  // cada item só tem realizado no campo do seu próprio tipo.
+  // Mesma separação Insumos x Mão de Obra x Serviços da tela de orçamento
+  // da obra (obra_orcamento_itens.tipo, desde a Fase de
+  // "obra_orcamento_tipo") — cada item só tem realizado no campo do seu
+  // próprio tipo.
   const insumosItens = input.itens.filter((item) => item.tipo === "insumos");
   const moItens = input.itens.filter((item) => item.tipo === "mao_de_obra");
+  const servicosItens = input.itens.filter((item) => item.tipo === "servicos");
 
   const drawSection = (
     titulo: string,
     itens: typeof input.itens,
-    realizadoKey: "material_realizado" | "mo_realizado",
+    realizadoKey: "material_realizado" | "mo_realizado" | "servicos_realizado",
   ) => {
     ensureSpace();
     y -= 8;
@@ -463,11 +465,16 @@ export async function generateOrcamentoRealizadoPdf(input: {
     "material_realizado",
   );
   const moTotals = drawSection("Mão de Obra", moItens, "mo_realizado");
+  const servicosTotals = drawSection(
+    "Serviços",
+    servicosItens,
+    "servicos_realizado",
+  );
 
   ensureSpace();
   y -= 8;
   draw(
-    `Total orçado: R$ ${money(insumosTotals.totalOrcado + moTotals.totalOrcado)}  |  Total realizado: R$ ${money(insumosTotals.totalRealizado + moTotals.totalRealizado)}`,
+    `Total orçado: R$ ${money(insumosTotals.totalOrcado + moTotals.totalOrcado + servicosTotals.totalOrcado)}  |  Total realizado: R$ ${money(insumosTotals.totalRealizado + moTotals.totalRealizado + servicosTotals.totalRealizado)}`,
     48,
     11,
     bold,

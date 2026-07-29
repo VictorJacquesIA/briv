@@ -227,9 +227,9 @@ export async function createOrcamentoItem(formData: FormData) {
     throw new Error("Dados inválidos.");
   }
 
-  if (tipo !== "insumos" && tipo !== "mao_de_obra") {
+  if (tipo !== "insumos" && tipo !== "mao_de_obra" && tipo !== "servicos") {
     throw new Error(
-      "Selecione o tipo do item de orçamento (Insumos ou Mão de Obra).",
+      "Selecione o tipo do item de orçamento (Insumos, Mão de Obra ou Serviços).",
     );
   }
 

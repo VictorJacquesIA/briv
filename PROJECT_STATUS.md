@@ -2,8 +2,110 @@
 
 > Relatório técnico do estado atual do projeto, gerado a partir de análise completa do
 > código-fonte, estrutura de pastas, dependências, migrations e configurações.
-> Data da análise: 2026-07-20. Objetivo: servir de contexto completo para continuidade
-> de desenvolvimento por outra ferramenta de IA.
+> Análise original: 2026-07-20. Seção 0 abaixo foi adicionada em 2026-07-28 e é a fonte
+> mais confiável do estado atual — o resto do documento (seções 1-8) não foi
+> re-auditado por completo e contém informação desatualizada em alguns pontos
+> específicos (sinalizados inline onde eu sei que mudaram).
+
+---
+
+## 0. Estado da sessão (2026-07-28) — LER PRIMEIRO ao continuar em nova conversa
+
+### O que foi feito desde a análise original (2026-07-20)
+
+- **Fase 1-4 de dívida técnica**: `types/database.ts` foi ampliado bastante (não é mais
+  gerado automaticamente, é mantido manualmente linha a linha — ver "pendência crítica"
+  abaixo); todos os `(await createClient()) as any` foram removidos das actions/services;
+  `docs/SISTEMA.md` foi reescrito; `docs/DEPRECATIONS.md` foi criado; `middleware.ts`
+  ganhou mais rotas protegidas no matcher; `package.json` ganhou `vitest`, `dotenv`,
+  `playwright` como devDependencies e testes de integração reais foram adicionados em
+  `tests/` (tenant descartável via cliente service-role, cobrindo RLS/triggers
+  historicamente problemáticos).
+- **Fornecedores agora tem CRUD de verdade** — `/fornecedores` +
+  `features/fornecedores/` — a linha da tabela da seção 3.1 abaixo que diz "não
+  implementado" está **desatualizada**.
+- **Fix de bug**: obras sumindo da listagem (embed quebrado
+  `responsavel:profiles(nome)` em `services/obras-service.ts::listObras` — coluna
+  `responsavel_id` já tinha sido dropada numa migration anterior).
+- **Cotação dividida por fornecedor** (`features/compras/components/comparativo.tsx`,
+  `cotacao-form.tsx`, `cotacao-review-form.tsx`, `cotacao-upload-form.tsx`,
+  `cotacao-request-form.tsx` novo) + geração de PDF de pedido de cotação
+  (`generateCotacaoRequestPdf` em `services/pdf-service.ts`) pra mandar pro fornecedor.
+- **Cards da Home (`/dashboard`) viraram filtros clicáveis** — cada card linka pra sua
+  lista já filtrada (`?status=...`) com indicador "Filtrando por: X · Ver todos" em
+  compras/estoque/pagamento-mo/contratos/serviços de obra.
+- **Fix de bug**: combobox de insumo travado dentro de Dialog (`components/ui/popover.tsx`)
+  — Radix Dialog põe `pointer-events:none` no `<body>`, Popover portalizado (irmão do
+  Dialog, não filho) herdava isso; fix é `pointer-events-auto` + `z-[60]` explícito no
+  `PopoverContent`.
+- **Rateio de pagamento de mão de obra entre obras** — só `adm_geral`/`compras` (não
+  `gestor_obra`) conseguem dividir um lançamento solto (solicitação/vale/reembolso) entre
+  N obras; gera N `lancamentos_mo` independentes, zero mudança de schema.
+- **Estoque disponível visível na criação de solicitação de compra** — só no
+  `SolicitacaoForm` (adm_geral/compras), não no `GestorSolicitacaoForm` do gestor_obra.
+- **Reset completo do sistema** feito em 2026-07-28 pra começar teste real do zero:
+  todos os dados de negócio zerados (obras, solicitações, cotações, estoque, contratos,
+  ferramentas, caçambas, catálogo de materiais/unidades, histórico), mantendo só 1
+  `clientes` (UNA REFORMA E CONSTRUÇÃO) e 1 `profiles` (Victor Jacques, adm_geral,
+  `victorjbinello@gmail.com`). Outros 2 usuários de teste (Ronny/gestor_obra, "teste
+  estoque"/almox) foram removidos. **O sistema está vazio de propósito — não é bug.**
+- **Removida importação de unidades via CSV** (`/materiais/importar`) — ficou só
+  "Importar itens".
+
+### ✅ Resolvido em 2026-07-28 — "forma de chegada do pedido" (obra/retirada/depósito)
+
+Feature implementada em código nesta sessão (2026-07-28). A migration
+`supabase/migrations/202607190001_pedido_local_entrega.sql` foi **aplicada no banco real**
+via MCP do Supabase em 2026-07-28 (versão registrada: `20260728180355`). Confirmado com
+`list_migrations` e `get_advisors` (nenhum warning novo introduzido). Não há mais
+pendência de banco para esta feature — o código já estava pronto (`typecheck`/`lint`/`build`
+limpos).
+
+O que a feature faz: ao programar o pedido (`programarPedido`, depois do PDF gerado),
+escolhe entre 3 formas de chegada — "obra" (sem efeito em estoque), "retirada
+autorizada" (define quem busca, decide destino só na confirmação), "depósito" (lança
+entrada de estoque automaticamente ao confirmar recebimento). Nova action
+`confirmarRecebimentoPedido` substituiu o antigo botão genérico "Finalizar"
+(`avancarFluxo` não permite mais `pedido_enviado → finalizada` diretamente — só via essa
+action dedicada). Componentes novos/alterados: `programar-pedido-form.tsx`,
+`confirmar-recebimento-form.tsx` (novo), `app/(dashboard)/compras/[id]/page.tsx`.
+`typecheck`/`lint`/`build` já passaram limpos. **Falta**: aplicar a migration e testar os
+3 caminhos no navegador (ver seção "Verificação" do plano, se ainda existir em
+`C:\Users\victo\.claude\plans\`).
+
+### Particularidades do ambiente (aprendidas na marra — vale saber antes de tentar de novo)
+
+- **Não há acesso a execução de SQL/DDL direto neste ambiente**: sem Supabase CLI
+  funcional no Windows (`No matching Supabase CLI binary package found for win32-x64`),
+  sem `psql`, sem `pg`/`DATABASE_URL`. O MCP do Supabase às vezes conecta, às vezes não,
+  nesta sessão — **sempre confirmar com `ToolSearch` (query `mcp__supabase`) se as
+  ferramentas realmente estão disponíveis antes de assumir que sim**, mesmo que o usuário
+  diga que conectou. Quando não está disponível, a única via pra DDL é pedir pro usuário
+  colar SQL no SQL Editor do painel do Supabase manualmente.
+- **Operações de dado (select/insert/update/delete) via API funcionam sempre**, mesmo sem
+  MCP: usar `@supabase/supabase-js` + `SUPABASE_SERVICE_ROLE_KEY` (de `.env.local`) num
+  script `.mjs` descartável na raiz do projeto (pra `node_modules` resolver), rodado via
+  `node`, apagado depois. `dotenv` já é devDependency; carregar com
+  `config({ path: ".env.local" })` (o `.env.local` tem prioridade sobre `.env`, então
+  `dotenv/config` sozinho não pega os valores certos).
+- **`historico` é append-only por trigger** (`prevent_historico_delete`/`update`
+  levantam exceção sempre) — isso bloqueia até updates _indiretos_ via
+  `ON DELETE SET NULL` em cascata (ex.: apagar um `profiles` referenciado por
+  `historico.actor_id` falha, porque o Postgres tenta fazer `UPDATE historico SET
+actor_id = null` como parte do cascade). Só dá pra contornar desabilitando os 2
+  triggers via SQL manual, fazendo a operação, e reabilitando.
+- **OneDrive trava arquivos intermitentemente** (`package-lock.json`,
+  `tsconfig.tsbuildinfo`, `.next/prerender-manifest.json`, e até
+  `.git/COMMIT_EDITMSG` com atributo Hidden inesperado bloqueando o `git commit` do
+  hook do Husky/lint-staged) — geralmente resolve deletando o arquivo/pasta específico e
+  deixando regenerar, ou (caso do `COMMIT_EDITMSG`) rodando
+  `attrib -H -A .git\COMMIT_EDITMSG` via PowerShell antes de tentar de novo.
+- **Login de teste real**: `victorjbinello@gmail.com` / `121298` (fornecido
+  explicitamente pelo usuário pra testes com Playwright). Playwright + Chromium já estão
+  instalados como devDependency.
+- **Ao acumular várias features sem commit**, o padrão preferido pelo usuário é dividir
+  em vários commits pequenos por feature/tema (não um commit gigante) — ver
+  `git log --oneline` pra exemplos de mensagens no estilo certo.
 
 ---
 
@@ -189,7 +291,7 @@ o outro (já aconteceu — ver bug #2 na seção 7).
 | **Dashboard**                                 | `/dashboard`                                                                          | **Completo**. Conteúdo role-aware: `almox` vê visão só de estoque (itens abaixo do mínimo, requisições pendentes, ferramentas emprestadas); demais papéis veem contadores de compras por status + outras solicitações pendentes + log de atividade paginado com filtro de data.                                                                                                                                                                                                   |
 | **Usuários/Permissões**                       | `/usuarios`, `/usuarios/novo`, `/usuarios/[id]`                                       | **Completo**. Criar/editar (nome, e-mail, senha)/excluir usuário, grade de permissões por checkbox, vínculo de gestor a obras. Bloqueia auto-exclusão e exclusão do último `adm_geral`. Restrito a `adm_geral`.                                                                                                                                                                                                                                                                   |
 | **Clientes**                                  | `/clientes`                                                                           | **Stub / não implementado** — página é literalmente um card "Módulo reservado", sem query, formulário ou tabela. Reservado para futura administração multi-tenant do SaaS.                                                                                                                                                                                                                                                                                                        |
-| **Fornecedores**                              | _(nenhuma rota própria)_                                                              | **Não implementado como tela**. Fornecedores só existem como dropdown dentro do formulário de cotação (`features/compras/components/cotacao-form.tsx`); cadastro hoje é manual via SQL/Supabase Studio. É a lacuna de CRUD mais visível do sistema.                                                                                                                                                                                                                               |
+| **Fornecedores**                              | `/fornecedores`                                                                       | **[DESATUALIZADO — ver seção 0] Completo desde 2026-07-2x.** CRUD próprio já existe em `features/fornecedores/` — esta linha só ficou aqui por não ter sido re-auditada.                                                                                                                                                                                                                                                                                                          |
 | **Histórico/Auditoria**                       | _(consumido dentro do dashboard e detalhes)_                                          | **Completo**. Tabela `historico` append-only (triggers bloqueiam update/delete), alimentada por praticamente toda ação de mutação.                                                                                                                                                                                                                                                                                                                                                |
 
 ### 3.2 Endpoints (Route Handlers)

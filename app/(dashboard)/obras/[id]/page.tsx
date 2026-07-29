@@ -63,6 +63,17 @@ export default async function ObraDetailPage({
 
   const insumosItens = orcamento.filter((item: any) => item.tipo === "insumos");
   const moItens = orcamento.filter((item: any) => item.tipo === "mao_de_obra");
+  const servicosItens = orcamento.filter(
+    (item: any) => item.tipo === "servicos",
+  );
+
+  function realizadoDoItem(item: any) {
+    return (
+      Number(item.material_realizado ?? 0) +
+      Number(item.mo_realizado ?? 0) +
+      Number(item.servicos_realizado ?? 0)
+    );
+  }
 
   function totals(itens: any[]) {
     return {
@@ -71,10 +82,7 @@ export default async function ObraDetailPage({
         0,
       ),
       realizado: itens.reduce(
-        (sum: number, item: any) =>
-          sum +
-          Number(item.material_realizado ?? 0) +
-          Number(item.mo_realizado ?? 0),
+        (sum: number, item: any) => sum + realizadoDoItem(item),
         0,
       ),
     };
@@ -82,6 +90,7 @@ export default async function ObraDetailPage({
 
   const insumosTotals = totals(insumosItens);
   const moTotals = totals(moItens);
+  const servicosTotals = totals(servicosItens);
 
   return (
     <div className="space-y-6">
@@ -224,6 +233,7 @@ export default async function ObraDetailPage({
                           </option>
                           <option value="insumos">Insumos</option>
                           <option value="mao_de_obra">Mão de Obra</option>
+                          <option value="servicos">Serviços</option>
                         </select>
                       </div>
                       <div className="space-y-2">
@@ -279,6 +289,23 @@ export default async function ObraDetailPage({
                     obraId={obra.id}
                     canEditOrcamento={canEditOrcamento}
                     emptyMessage="Nenhum item de mão de obra cadastrado."
+                  />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">
+                    Serviços — Orçado x Realizado
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <OrcamentoTable
+                    itens={servicosItens}
+                    totals={servicosTotals}
+                    obraId={obra.id}
+                    canEditOrcamento={canEditOrcamento}
+                    emptyMessage="Nenhum item de serviços cadastrado."
                   />
                 </CardContent>
               </Card>
@@ -357,7 +384,9 @@ function OrcamentoTable({
               <td className="px-3 py-2">
                 R${" "}
                 {(
-                  Number(item.material_realizado) + Number(item.mo_realizado)
+                  Number(item.material_realizado ?? 0) +
+                  Number(item.mo_realizado ?? 0) +
+                  Number(item.servicos_realizado ?? 0)
                 ).toLocaleString("pt-BR", {
                   minimumFractionDigits: 2,
                 })}

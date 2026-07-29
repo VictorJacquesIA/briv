@@ -654,7 +654,122 @@ export async function createColaborador(formData: FormData) {
     nome,
     funcao: text(formData, "funcao"),
     telefone: text(formData, "telefone"),
+    chave_pix: text(formData, "chave_pix"),
+    observacao: text(formData, "observacao"),
   });
+
+  revalidatePath("/pagamento-mo/colaboradores");
+}
+
+export type ColaboradorFormState = { message?: string; success?: boolean };
+
+export async function updateColaborador(
+  _prev: ColaboradorFormState,
+  formData: FormData,
+): Promise<ColaboradorFormState> {
+  try {
+    await requireActor("pagamento_mo.confirm");
+    const id = text(formData, "id");
+    const nome = text(formData, "nome");
+
+    if (!id) {
+      return { message: "Colaborador inválido." };
+    }
+
+    if (!nome) {
+      return { message: "Informe o nome do colaborador." };
+    }
+
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("colaboradores")
+      .update({
+        nome,
+        funcao: text(formData, "funcao"),
+        telefone: text(formData, "telefone"),
+        chave_pix: text(formData, "chave_pix"),
+        observacao: text(formData, "observacao"),
+      })
+      .eq("id", id);
+
+    if (error) {
+      return {
+        message: friendlyErrorMessage(
+          error,
+          "Não foi possível salvar as alterações.",
+        ),
+      };
+    }
+
+    revalidatePath("/pagamento-mo/colaboradores");
+    return { success: true, message: "Colaborador atualizado." };
+  } catch (error) {
+    return {
+      message: friendlyErrorMessage(
+        error,
+        "Não foi possível salvar as alterações.",
+      ),
+    };
+  }
+}
+
+export async function deleteColaborador(
+  _prev: ColaboradorFormState,
+  formData: FormData,
+): Promise<ColaboradorFormState> {
+  try {
+    await requireActor("pagamento_mo.confirm");
+    const id = text(formData, "id");
+
+    if (!id) {
+      return { message: "Colaborador inválido." };
+    }
+
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("colaboradores")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      if (error.code === "23503") {
+        return {
+          message:
+            "Este colaborador/prestador já tem lançamentos ou contratos vinculados — desative-o em vez de apagar.",
+        };
+      }
+
+      return {
+        message: friendlyErrorMessage(
+          error,
+          "Não foi possível apagar o colaborador.",
+        ),
+      };
+    }
+
+    revalidatePath("/pagamento-mo/colaboradores");
+    return { success: true, message: "Colaborador apagado." };
+  } catch (error) {
+    return {
+      message: friendlyErrorMessage(
+        error,
+        "Não foi possível apagar o colaborador.",
+      ),
+    };
+  }
+}
+
+export async function toggleColaboradorAtivo(formData: FormData) {
+  await requireActor("pagamento_mo.confirm");
+  const id = text(formData, "id");
+  const ativo = formData.get("ativo") === "true";
+
+  if (!id) {
+    throw new Error("Dados inválidos.");
+  }
+
+  const supabase = await createClient();
+  await supabase.from("colaboradores").update({ ativo: !ativo }).eq("id", id);
 
   revalidatePath("/pagamento-mo/colaboradores");
 }
