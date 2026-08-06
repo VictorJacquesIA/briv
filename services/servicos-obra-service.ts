@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 export async function listCacambas(input?: {
   obraId?: string;
   status?: "solicitada" | "ativa" | "encerrada";
+  pendente?: boolean;
 }) {
   const supabase = await createClient();
   let query = supabase
@@ -18,6 +19,10 @@ export async function listCacambas(input?: {
 
   if (input?.status) {
     query = query.eq("status", input.status);
+  }
+
+  if (input?.pendente) {
+    query = query.or("status.eq.solicitada,acao_pendente.eq.true");
   }
 
   const { data } = await query;
@@ -44,6 +49,6 @@ export async function listDesmobilizacoes(input?: {
     query = query.eq("status", input.status);
   }
 
-  const { data } = await query;
+  const { data } = await query.limit(200);
   return data ?? [];
 }

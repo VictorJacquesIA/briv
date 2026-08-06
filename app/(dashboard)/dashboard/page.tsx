@@ -219,14 +219,14 @@ export default async function DashboardPage({
       listLancamentos({ status: "pendente" }),
       listContratos({ status: "aberto" }),
       listRequisicoes({ status: "pendente" }),
-      listCacambas(),
+      listCacambas({ pendente: true }),
       listDesmobilizacoes({ status: "pendente" }),
     ]).then(
       ([
         lancamentosPendentes,
         contratosAbertos,
         requisicoesPendentes,
-        todasCacambas,
+        cacambasPendentesDb,
         desmobilizacoesPendentes,
       ]) => {
         const naObraDoGestor = (obraId: string | undefined) =>
@@ -242,10 +242,8 @@ export default async function DashboardPage({
           requisicoesPendentes: requisicoesPendentes.filter((r: any) =>
             naObraDoGestor(r.obra?.id),
           ).length,
-          cacambasPendentes: todasCacambas.filter(
-            (c: any) =>
-              (c.status === "solicitada" || c.acao_pendente) &&
-              naObraDoGestor(c.obra?.id),
+          cacambasPendentes: cacambasPendentesDb.filter((c: any) =>
+            naObraDoGestor(c.obra?.id),
           ).length,
           desmobilizacoesPendentes: desmobilizacoesPendentes.filter((d: any) =>
             naObraDoGestor(d.obra?.id),

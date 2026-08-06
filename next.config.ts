@@ -14,6 +14,7 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "6mb",
     },
+    optimizePackageImports: ["lucide-react"],
   },
   // O projeto vive dentro de uma pasta sincronizada pelo OneDrive, que trava
   // arquivos temporários durante o sync e quebra o rename do cache persistente

@@ -21,7 +21,7 @@ export async function listLancamentos(input?: {
     query = query.eq("status", input.status);
   }
 
-  const { data } = await query;
+  const { data } = await query.limit(200);
   return data ?? [];
 }
 

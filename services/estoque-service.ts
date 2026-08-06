@@ -6,7 +6,8 @@ export async function listEstoqueSaldo() {
   const { data } = await supabase
     .from("v_estoque_saldo")
     .select("*")
-    .order("item_nome");
+    .order("item_nome")
+    .limit(200);
 
   return data ?? [];
 }
@@ -70,7 +71,7 @@ export async function listMovimentacoesEstoque(input?: {
     query = query.eq("obra_id", input.obraId);
   }
 
-  const { data } = await query;
+  const { data } = await query.limit(200);
   return data ?? [];
 }
 
