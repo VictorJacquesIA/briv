@@ -227,9 +227,9 @@ export async function createOrcamentoItem(formData: FormData) {
     throw new Error("Dados inválidos.");
   }
 
-  if (tipo !== "insumos" && tipo !== "mao_de_obra" && tipo !== "servicos") {
+  if (tipo !== "insumos" && tipo !== "mao_de_obra") {
     throw new Error(
-      "Selecione o tipo do item de orçamento (Insumos, Mão de Obra ou Serviços).",
+      "Selecione o tipo do item de orçamento (Insumos ou Mão de Obra).",
     );
   }
 
@@ -294,6 +294,96 @@ export async function deleteOrcamentoItem(formData: FormData) {
     ip: context.ip,
     userAgent: context.userAgent,
     dados: { orcamento_item_id: itemId },
+  });
+
+  revalidatePath(`/obras/${obraId}`);
+}
+
+// Despesa lançada diretamente contra um centro de custo, sem passar pelo
+// fluxo de Compras (solicitação/cotação/pedido) nem pelos fluxos de
+// serviço (caçambas/desmobilização) — pode ser vinculada a um item de
+// orçamento de qualquer tipo (Insumos, Mão de Obra ou Serviços).
+export async function createDespesaManual(formData: FormData) {
+  const profile = await requireActor("obras.orcamento.edit");
+  const obraId = text(formData, "obra_id");
+  const orcamentoItemId = text(formData, "orcamento_item_id");
+  const descricao = text(formData, "descricao");
+  const dataDespesa = text(formData, "data_despesa");
+  const valor = Number(String(formData.get("valor") ?? "0").replace(",", "."));
+
+  if (
+    !obraId ||
+    !orcamentoItemId ||
+    !descricao ||
+    !dataDespesa ||
+    !Number.isFinite(valor) ||
+    valor <= 0
+  ) {
+    throw new Error("Dados inválidos.");
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("despesas_manuais")
+    .insert({
+      obra_id: obraId,
+      cliente_id: profile.cliente_id,
+      orcamento_item_id: orcamentoItemId,
+      descricao,
+      valor,
+      data_despesa: dataDespesa,
+      criado_por: profile.id,
+    })
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    throw new Error("Não foi possível lançar a despesa manual.");
+  }
+
+  const context = await getRequestContext();
+  await registrarHistorico({
+    clienteId: profile.cliente_id,
+    actorId: profile.id,
+    entidade: "despesa_manual",
+    entidadeId: data.id,
+    acao: "despesa_manual_lancada",
+    ip: context.ip,
+    userAgent: context.userAgent,
+    dados: {
+      obra_id: obraId,
+      orcamento_item_id: orcamentoItemId,
+      descricao,
+      valor,
+      data_despesa: dataDespesa,
+    },
+  });
+
+  revalidatePath(`/obras/${obraId}`);
+}
+
+export async function deleteDespesaManual(formData: FormData) {
+  const profile = await requireActor("obras.orcamento.edit");
+  const obraId = text(formData, "obra_id");
+  const despesaId = text(formData, "despesa_id");
+
+  if (!obraId || !despesaId) {
+    throw new Error("Dados inválidos.");
+  }
+
+  const supabase = await createClient();
+  await supabase.from("despesas_manuais").delete().eq("id", despesaId);
+
+  const context = await getRequestContext();
+  await registrarHistorico({
+    clienteId: profile.cliente_id,
+    actorId: profile.id,
+    entidade: "despesa_manual",
+    entidadeId: despesaId,
+    acao: "despesa_manual_removida",
+    ip: context.ip,
+    userAgent: context.userAgent,
+    dados: { obra_id: obraId },
   });
 
   revalidatePath(`/obras/${obraId}`);

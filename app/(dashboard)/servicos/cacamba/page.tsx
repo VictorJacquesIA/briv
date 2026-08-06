@@ -77,7 +77,7 @@ export default async function CacambaPage({
       supabase
         .from("obra_orcamento_itens")
         .select("id,obra_id,descricao")
-        .eq("tipo", "servicos")
+        .eq("tipo", "insumos")
         .order("descricao"),
     ]);
 

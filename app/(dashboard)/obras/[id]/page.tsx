@@ -8,17 +8,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  createDespesaManual,
   createOrcamentoItem,
+  deleteDespesaManual,
   deleteOrcamentoItem,
   updateObraFase,
   updateObraGestor,
 } from "@/features/obras/actions/obra-actions";
 import { hasPermission, getPermissionsForUser } from "@/lib/permissions";
-import { FASE_LABELS } from "@/lib/obras-constants";
+import { FASE_LABELS, ORCAMENTO_TIPO_LABELS } from "@/lib/obras-constants";
 import {
   getObraDetail,
   getObraGestor,
   getOrcamentoRealizado,
+  listDespesasManuais,
   listGestoresDisponiveis,
 } from "@/services/obras-service";
 import { getCurrentProfile } from "@/services/profiles-service";
@@ -35,12 +38,14 @@ export default async function ObraDetailPage({
     redirect("/login");
   }
 
-  const [permissions, obra, orcamento, obraGestor] = await Promise.all([
-    getPermissionsForUser(currentProfile.id),
-    getObraDetail(id),
-    getOrcamentoRealizado(id),
-    getObraGestor(id),
-  ]);
+  const [permissions, obra, orcamento, obraGestor, despesasManuais] =
+    await Promise.all([
+      getPermissionsForUser(currentProfile.id),
+      getObraDetail(id),
+      getOrcamentoRealizado(id),
+      getObraGestor(id),
+      listDespesasManuais(id),
+    ]);
 
   const canManageObra = hasPermission(
     currentProfile.role,
@@ -63,15 +68,13 @@ export default async function ObraDetailPage({
 
   const insumosItens = orcamento.filter((item: any) => item.tipo === "insumos");
   const moItens = orcamento.filter((item: any) => item.tipo === "mao_de_obra");
-  const servicosItens = orcamento.filter(
-    (item: any) => item.tipo === "servicos",
-  );
 
   function realizadoDoItem(item: any) {
     return (
       Number(item.material_realizado ?? 0) +
       Number(item.mo_realizado ?? 0) +
-      Number(item.servicos_realizado ?? 0)
+      Number(item.servicos_realizado ?? 0) +
+      Number(item.despesas_realizado ?? 0)
     );
   }
 
@@ -90,7 +93,6 @@ export default async function ObraDetailPage({
 
   const insumosTotals = totals(insumosItens);
   const moTotals = totals(moItens);
-  const servicosTotals = totals(servicosItens);
 
   return (
     <div className="space-y-6">
@@ -233,7 +235,6 @@ export default async function ObraDetailPage({
                           </option>
                           <option value="insumos">Insumos</option>
                           <option value="mao_de_obra">Mão de Obra</option>
-                          <option value="servicos">Serviços</option>
                         </select>
                       </div>
                       <div className="space-y-2">
@@ -258,6 +259,184 @@ export default async function ObraDetailPage({
                   </CardContent>
                 </Card>
               ) : null}
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Despesas manuais</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Lance um gasto diretamente contra um centro de custo
+                    existente, sem passar por Compras ou Serviços. O valor entra
+                    imediatamente no Realizado do item selecionado.
+                  </p>
+
+                  {canEditOrcamento ? (
+                    <form
+                      action={createDespesaManual}
+                      className="grid gap-3 lg:grid-cols-[1.3fr_1.3fr_0.9fr_0.9fr_auto]"
+                    >
+                      <input type="hidden" name="obra_id" value={obra.id} />
+                      <div className="space-y-2">
+                        <Label htmlFor="orcamento_item_id">
+                          Centro de custo
+                        </Label>
+                        <select
+                          id="orcamento_item_id"
+                          name="orcamento_item_id"
+                          className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                          required
+                          defaultValue=""
+                        >
+                          <option value="" disabled>
+                            Selecione
+                          </option>
+                          <optgroup label="Insumos">
+                            {insumosItens.map((item: any) => (
+                              <option
+                                key={item.orcamento_item_id}
+                                value={item.orcamento_item_id}
+                              >
+                                {item.descricao}
+                              </option>
+                            ))}
+                          </optgroup>
+                          <optgroup label="Mão de Obra">
+                            {moItens.map((item: any) => (
+                              <option
+                                key={item.orcamento_item_id}
+                                value={item.orcamento_item_id}
+                              >
+                                {item.descricao}
+                              </option>
+                            ))}
+                          </optgroup>
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="despesa_descricao">
+                          Descrição / motivo
+                        </Label>
+                        <Input
+                          id="despesa_descricao"
+                          name="descricao"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="data_despesa">Data</Label>
+                        <Input
+                          id="data_despesa"
+                          name="data_despesa"
+                          type="date"
+                          defaultValue={new Date().toISOString().slice(0, 10)}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="despesa_valor">Valor</Label>
+                        <Input
+                          id="despesa_valor"
+                          name="valor"
+                          inputMode="decimal"
+                          required
+                        />
+                      </div>
+                      <div className="flex items-end">
+                        <Button type="submit" className="w-full">
+                          Lançar
+                        </Button>
+                      </div>
+                    </form>
+                  ) : null}
+
+                  <div className="overflow-x-auto rounded-lg border border-border bg-card">
+                    <table className="w-full min-w-[700px] text-sm">
+                      <thead className="bg-secondary">
+                        <tr>
+                          <th className="px-3 py-2 text-left">Data</th>
+                          <th className="px-3 py-2 text-left">
+                            Centro de custo
+                          </th>
+                          <th className="px-3 py-2 text-left">Descrição</th>
+                          <th className="px-3 py-2 text-left">Valor</th>
+                          <th className="px-3 py-2 text-left">Lançado por</th>
+                          {canEditOrcamento ? (
+                            <th className="px-3 py-2 text-left">Ações</th>
+                          ) : null}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {despesasManuais.map((despesa: any) => (
+                          <tr key={despesa.id} className="border-t">
+                            <td className="px-3 py-2">
+                              {new Date(
+                                `${despesa.data_despesa}T00:00:00`,
+                              ).toLocaleDateString("pt-BR")}
+                            </td>
+                            <td className="px-3 py-2">
+                              <div className="font-medium">
+                                {despesa.orcamento_item?.descricao ?? "-"}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {despesa.orcamento_item?.tipo
+                                  ? ORCAMENTO_TIPO_LABELS[
+                                      despesa.orcamento_item.tipo
+                                    ]
+                                  : "-"}
+                              </div>
+                            </td>
+                            <td className="px-3 py-2">{despesa.descricao}</td>
+                            <td className="px-3 py-2">
+                              R${" "}
+                              {Number(despesa.valor).toLocaleString("pt-BR", {
+                                minimumFractionDigits: 2,
+                              })}
+                            </td>
+                            <td className="px-3 py-2">
+                              {despesa.profile?.nome ?? "-"}
+                            </td>
+                            {canEditOrcamento ? (
+                              <td className="px-3 py-2">
+                                <form action={deleteDespesaManual}>
+                                  <input
+                                    type="hidden"
+                                    name="obra_id"
+                                    value={obra.id}
+                                  />
+                                  <input
+                                    type="hidden"
+                                    name="despesa_id"
+                                    value={despesa.id}
+                                  />
+                                  <ConfirmSubmitButton
+                                    type="submit"
+                                    variant="destructive"
+                                    size="sm"
+                                    message="Remover esta despesa manual?"
+                                  >
+                                    Remover
+                                  </ConfirmSubmitButton>
+                                </form>
+                              </td>
+                            ) : null}
+                          </tr>
+                        ))}
+                        {despesasManuais.length === 0 ? (
+                          <tr>
+                            <td
+                              colSpan={canEditOrcamento ? 6 : 5}
+                              className="h-20 px-3 text-center text-muted-foreground"
+                            >
+                              Nenhuma despesa manual lançada.
+                            </td>
+                          </tr>
+                        ) : null}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
 
               <Card>
                 <CardHeader>
@@ -289,23 +468,6 @@ export default async function ObraDetailPage({
                     obraId={obra.id}
                     canEditOrcamento={canEditOrcamento}
                     emptyMessage="Nenhum item de mão de obra cadastrado."
-                  />
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">
-                    Serviços — Orçado x Realizado
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <OrcamentoTable
-                    itens={servicosItens}
-                    totals={servicosTotals}
-                    obraId={obra.id}
-                    canEditOrcamento={canEditOrcamento}
-                    emptyMessage="Nenhum item de serviços cadastrado."
                   />
                 </CardContent>
               </Card>
@@ -386,7 +548,8 @@ function OrcamentoTable({
                 {(
                   Number(item.material_realizado ?? 0) +
                   Number(item.mo_realizado ?? 0) +
-                  Number(item.servicos_realizado ?? 0)
+                  Number(item.servicos_realizado ?? 0) +
+                  Number(item.despesas_realizado ?? 0)
                 ).toLocaleString("pt-BR", {
                   minimumFractionDigits: 2,
                 })}

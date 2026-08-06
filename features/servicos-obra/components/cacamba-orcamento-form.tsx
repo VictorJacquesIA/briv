@@ -72,7 +72,7 @@ export function CacambaOrcamentoForm({
             </select>
             {orcamentoItens.length === 0 ? (
               <p className="text-xs text-muted-foreground">
-                Esta obra ainda não tem itens de orçamento do tipo Serviços
+                Esta obra ainda não tem itens de orçamento do tipo Insumos
                 cadastrados.
               </p>
             ) : null}

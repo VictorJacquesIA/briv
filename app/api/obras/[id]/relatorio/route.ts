@@ -41,6 +41,7 @@ export async function GET(
       material_realizado: item.material_realizado ?? 0,
       mo_realizado: item.mo_realizado ?? 0,
       servicos_realizado: item.servicos_realizado ?? 0,
+      despesas_realizado: item.despesas_realizado ?? 0,
       tipo: item.tipo,
     })),
   });

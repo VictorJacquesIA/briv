@@ -552,6 +552,81 @@ export type Database = {
           },
         ];
       };
+      despesas_manuais: {
+        Row: {
+          cliente_id: string;
+          created_at: string;
+          criado_por: string | null;
+          data_despesa: string;
+          descricao: string;
+          id: string;
+          obra_id: string;
+          orcamento_item_id: string | null;
+          updated_at: string;
+          valor: number;
+        };
+        Insert: {
+          cliente_id: string;
+          created_at?: string;
+          criado_por?: string | null;
+          data_despesa?: string;
+          descricao: string;
+          id?: string;
+          obra_id: string;
+          orcamento_item_id?: string | null;
+          updated_at?: string;
+          valor: number;
+        };
+        Update: {
+          cliente_id?: string;
+          created_at?: string;
+          criado_por?: string | null;
+          data_despesa?: string;
+          descricao?: string;
+          id?: string;
+          obra_id?: string;
+          orcamento_item_id?: string | null;
+          updated_at?: string;
+          valor?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "despesas_manuais_cliente_id_fkey";
+            columns: ["cliente_id"];
+            isOneToOne: false;
+            referencedRelation: "clientes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "despesas_manuais_criado_por_fkey";
+            columns: ["criado_por"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "despesas_manuais_obra_id_fkey";
+            columns: ["obra_id"];
+            isOneToOne: false;
+            referencedRelation: "obras";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "despesas_manuais_orcamento_item_id_fkey";
+            columns: ["orcamento_item_id"];
+            isOneToOne: false;
+            referencedRelation: "obra_orcamento_itens";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "despesas_manuais_orcamento_item_id_fkey";
+            columns: ["orcamento_item_id"];
+            isOneToOne: false;
+            referencedRelation: "v_obra_orcamento_realizado";
+            referencedColumns: ["orcamento_item_id"];
+          },
+        ];
+      };
       estoque_itens: {
         Row: {
           cliente_id: string;
@@ -2109,6 +2184,7 @@ export type Database = {
           categoria: string | null;
           cliente_id: string | null;
           descricao: string | null;
+          despesas_realizado: number | null;
           material_realizado: number | null;
           mo_realizado: number | null;
           obra_id: string | null;

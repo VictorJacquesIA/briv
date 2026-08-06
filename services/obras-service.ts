@@ -86,3 +86,16 @@ export async function getOrcamentoRealizado(obraId: string) {
 
   return data ?? [];
 }
+
+export async function listDespesasManuais(obraId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("despesas_manuais")
+    .select(
+      "id,descricao,valor,data_despesa,orcamento_item_id,orcamento_item:obra_orcamento_itens(id,descricao,tipo),profile:profiles(id,nome)",
+    )
+    .eq("obra_id", obraId)
+    .order("data_despesa", { ascending: false });
+
+  return data ?? [];
+}

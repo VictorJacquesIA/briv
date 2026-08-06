@@ -352,6 +352,7 @@ export async function generateOrcamentoRealizadoPdf(input: {
     material_realizado: number;
     mo_realizado: number;
     servicos_realizado?: number;
+    despesas_realizado?: number;
     tipo?: string | null;
   }>;
 }) {
@@ -393,18 +394,28 @@ export async function generateOrcamentoRealizadoPdf(input: {
 
   renderHeader();
 
-  // Mesma separação Insumos x Mão de Obra x Serviços da tela de orçamento
-  // da obra (obra_orcamento_itens.tipo, desde a Fase de
-  // "obra_orcamento_tipo") — cada item só tem realizado no campo do seu
-  // próprio tipo.
+  // Mesma separação Insumos x Mão de Obra da tela de orçamento da obra
+  // (obra_orcamento_itens.tipo) — cada item só tem realizado no campo do
+  // seu próprio tipo. Caçambas vinculam num item tipo Insumos (escolhido
+  // manualmente por caçamba), por isso servicos_realizado entra na seção
+  // Insumos, não numa seção própria.
   const insumosItens = input.itens.filter((item) => item.tipo === "insumos");
   const moItens = input.itens.filter((item) => item.tipo === "mao_de_obra");
-  const servicosItens = input.itens.filter((item) => item.tipo === "servicos");
 
+  // Despesas manuais contribuem pra QUALQUER seção (não é uma 4ª seção à
+  // parte) — por isso cada chamada de drawSection soma sua própria chave
+  // de realizado + "despesas_realizado". Correto sem double-count: cada
+  // linha só entra numa seção (filtro por tipo é mutuamente exclusivo), e
+  // despesas_realizado daquela linha já é escopado ao orcamento_item_id dela.
   const drawSection = (
     titulo: string,
     itens: typeof input.itens,
-    realizadoKey: "material_realizado" | "mo_realizado" | "servicos_realizado",
+    realizadoKeys: Array<
+      | "material_realizado"
+      | "mo_realizado"
+      | "servicos_realizado"
+      | "despesas_realizado"
+    >,
   ) => {
     ensureSpace();
     y -= 8;
@@ -421,7 +432,11 @@ export async function generateOrcamentoRealizadoPdf(input: {
     for (const item of itens) {
       ensureSpace();
       totalOrcado += Number(item.valor_orcado ?? 0);
-      totalRealizado += Number(item[realizadoKey] ?? 0);
+      const itemRealizado = realizadoKeys.reduce(
+        (sum, key) => sum + Number(item[key] ?? 0),
+        0,
+      );
+      totalRealizado += itemRealizado;
 
       page.drawText(line(item.descricao).slice(0, 55), {
         x: 48,
@@ -435,7 +450,7 @@ export async function generateOrcamentoRealizadoPdf(input: {
         size: 8,
         font: regular,
       });
-      page.drawText(`R$ ${money(item[realizadoKey])}`, {
+      page.drawText(`R$ ${money(itemRealizado)}`, {
         x: 460,
         y,
         size: 8,
@@ -459,22 +474,20 @@ export async function generateOrcamentoRealizadoPdf(input: {
     return { totalOrcado, totalRealizado };
   };
 
-  const insumosTotals = drawSection(
-    "Insumos",
-    insumosItens,
+  const insumosTotals = drawSection("Insumos", insumosItens, [
     "material_realizado",
-  );
-  const moTotals = drawSection("Mão de Obra", moItens, "mo_realizado");
-  const servicosTotals = drawSection(
-    "Serviços",
-    servicosItens,
     "servicos_realizado",
-  );
+    "despesas_realizado",
+  ]);
+  const moTotals = drawSection("Mão de Obra", moItens, [
+    "mo_realizado",
+    "despesas_realizado",
+  ]);
 
   ensureSpace();
   y -= 8;
   draw(
-    `Total orçado: R$ ${money(insumosTotals.totalOrcado + moTotals.totalOrcado + servicosTotals.totalOrcado)}  |  Total realizado: R$ ${money(insumosTotals.totalRealizado + moTotals.totalRealizado + servicosTotals.totalRealizado)}`,
+    `Total orçado: R$ ${money(insumosTotals.totalOrcado + moTotals.totalOrcado)}  |  Total realizado: R$ ${money(insumosTotals.totalRealizado + moTotals.totalRealizado)}`,
     48,
     11,
     bold,
