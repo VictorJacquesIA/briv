@@ -7,6 +7,7 @@ import { SidebarNav } from "@/components/layout/sidebar-nav";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { UserMenu } from "@/components/layout/user-menu";
 import type { AppRole } from "@/lib/permissions";
+import { APP_VERSION } from "@/lib/version";
 import { cn } from "@/utils/cn";
 
 type AppSidebarProps = {
@@ -79,6 +80,14 @@ export function AppSidebar({ profile, permissions = {} }: AppSidebarProps) {
         <UserMenu profile={profile} compact={!expanded} />
         <ThemeToggle />
       </div>
+      <p
+        className={cn(
+          "select-none pb-2 text-[10px] text-muted-foreground/60",
+          expanded ? "px-4 text-left" : "text-center",
+        )}
+      >
+        v{APP_VERSION}
+      </p>
     </aside>
   );
 }

@@ -8,6 +8,7 @@ import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { UserMenu } from "@/components/layout/user-menu";
 import { Button } from "@/components/ui/button";
 import type { AppRole } from "@/lib/permissions-shared";
+import { APP_VERSION } from "@/lib/version";
 
 type MobileNavProps = {
   profile: {
@@ -61,6 +62,9 @@ export function MobileNav({ profile, permissions = {} }: MobileNavProps) {
               <UserMenu profile={profile} />
               <ThemeToggle />
             </div>
+            <p className="select-none px-6 pb-2 text-[10px] text-muted-foreground/60">
+              v{APP_VERSION}
+            </p>
           </div>
         </div>
       ) : null}
