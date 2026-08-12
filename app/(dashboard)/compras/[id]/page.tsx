@@ -1,8 +1,15 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
+import {
+  MobileCard,
+  MobileCardEmpty,
+  MobileCardList,
+  MobileCardRow,
+} from "@/components/ui/mobile-card-list";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   avancarFluxo,
@@ -17,12 +24,12 @@ import { CotacaoReviewForm } from "@/features/compras/components/cotacao-review-
 import { CotacaoUploadForm } from "@/features/compras/components/cotacao-upload-form";
 import { EstoqueDecisionForm } from "@/features/compras/components/estoque-decision-form";
 import { ProgramarPedidoForm } from "@/features/compras/components/programar-pedido-form";
-import { WhatsAppButton } from "@/features/compras/components/whatsapp-button";
 import { createClient } from "@/lib/supabase/server";
+import { hasPermission, getPermissionsForUser } from "@/lib/permissions";
+import { getCurrentProfile } from "@/services/profiles-service";
 import {
   getPurchaseFormOptions,
   getSolicitacaoDetail,
-  purchaseFlow,
   statusLabels,
   STATUSES_AGUARDANDO_APROVACAO,
   STATUSES_AGUARDANDO_COTACAO,
@@ -30,18 +37,33 @@ import {
   STATUSES_TERMINAIS,
 } from "@/services/compras-service";
 import { getEstoqueDisponivelPorItem } from "@/services/estoque-service";
-import {
-  aprovacaoMessage,
-  cotacaoMessage,
-  pedidoMessage,
-  waLink,
-} from "@/services/whatsapp-service";
 
 export default async function CompraDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const currentProfile = await getCurrentProfile();
+
+  if (!currentProfile?.id) {
+    redirect("/login");
+  }
+
+  const permissions = await getPermissionsForUser(currentProfile.id);
+
+  if (!hasPermission(currentProfile.role, permissions, "solicitacoes.view")) {
+    redirect("/dashboard");
+  }
+
+  // Gestor de obra só solicita, acompanha o status e pode cancelar — não
+  // participa do processo de cotação/pedido (isso já é bloqueado no servidor
+  // por cotacoes.view/create/edit/validate, aqui só espelhamos na tela).
+  const canViewProcesso = hasPermission(
+    currentProfile.role,
+    permissions,
+    "cotacoes.view",
+  );
+
   const { id } = await params;
   const [solicitacao, options] = await Promise.all([
     getSolicitacaoDetail(id),
@@ -108,91 +130,6 @@ export default async function CompraDetailPage({
         </Card>
       ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">WhatsApp</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          {options.fornecedores.slice(0, 6).map((fornecedor: any) => (
-            <WhatsAppButton
-              key={fornecedor.id}
-              href={waLink(
-                fornecedor.whatsapp ?? fornecedor.telefone,
-                cotacaoMessage({
-                  codigo: solicitacao.codigo ?? solicitacao.id.slice(0, 8),
-                  obra: solicitacao.obra?.nome ?? "-",
-                  fornecedor:
-                    fornecedor.nome_fantasia ?? fornecedor.razao_social,
-                  template: fornecedor.mensagem_template,
-                }),
-              )}
-              tipo="cotacao"
-              destinatario={fornecedor.nome_fantasia ?? fornecedor.razao_social}
-              entidadeId={solicitacao.id}
-            >
-              Enviar cotação
-            </WhatsAppButton>
-          ))}
-          <WhatsAppButton
-            href={waLink(
-              solicitacao.responsavel_obra?.whatsapp ??
-                solicitacao.responsavel_obra?.telefone,
-              aprovacaoMessage({
-                codigo: solicitacao.codigo ?? solicitacao.id.slice(0, 8),
-                obra: solicitacao.obra?.nome ?? "-",
-                approvalUrl,
-              }),
-            )}
-            tipo="aprovacao"
-            destinatario={solicitacao.responsavel_obra?.nome ?? "Gestor"}
-            entidadeId={solicitacao.id}
-          >
-            Enviar aprovação
-          </WhatsAppButton>
-          {pedido ? (
-            <WhatsAppButton
-              href={waLink(
-                pedido.fornecedor?.whatsapp ?? pedido.fornecedor?.telefone,
-                pedidoMessage({
-                  pedido: pedido.numero ?? "-",
-                  fornecedor:
-                    pedido.fornecedor?.nome_fantasia ??
-                    pedido.fornecedor?.razao_social ??
-                    "Fornecedor",
-                  pdfUrl: pedido.pdf_url,
-                }),
-              )}
-              tipo="pedido"
-              destinatario={
-                pedido.fornecedor?.nome_fantasia ??
-                pedido.fornecedor?.razao_social
-              }
-              entidadeId={solicitacao.id}
-            >
-              Enviar pedido
-            </WhatsAppButton>
-          ) : null}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Fluxo obrigatório</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {purchaseFlow.map((step) => (
-              <span
-                key={step}
-                className="rounded-md border border-border bg-secondary px-3 py-1 text-xs font-medium text-muted-foreground"
-              >
-                {step}
-              </span>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
@@ -228,68 +165,76 @@ export default async function CompraDetailPage({
             <CardTitle className="text-base">Ações</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {(solicitacao.status === "aberta" ||
-              solicitacao.status === "rascunho") &&
-            !precisaDecidirEstoque ? (
-              <form action={iniciarCotacao}>
-                <input
-                  type="hidden"
-                  name="solicitacao_id"
-                  value={solicitacao.id}
-                />
-                <Button type="submit" className="w-full">
-                  Iniciar cotação
-                </Button>
-              </form>
-            ) : null}
-            {STATUSES_EM_COTACAO.includes(solicitacao.status) ? (
-              <CotacaoUploadForm
-                solicitacaoId={solicitacao.id}
-                fornecedores={options.fornecedores}
-                itens={solicitacao.itens ?? []}
-              />
-            ) : null}
-            {STATUSES_AGUARDANDO_APROVACAO.includes(solicitacao.status) ? (
-              <ApprovalForm solicitacao={solicitacao} />
-            ) : null}
-            {approvalUrl ? (
-              <p className="break-all rounded-md border border-border bg-secondary p-3 text-xs text-muted-foreground">
-                Link público: {approvalUrl}
-              </p>
-            ) : null}
-            {pedido?.pdf_url ? (
-              <Button asChild variant="outline" className="w-full">
-                <a href={pedido.pdf_url} target="_blank" rel="noreferrer">
-                  Abrir PDF do pedido
-                </a>
-              </Button>
-            ) : null}
-            {pedido?.local_entrega ? (
-              <p className="text-xs text-muted-foreground">
-                Entrega:{" "}
-                {pedido.local_entrega === "retirada"
-                  ? `Retirada autorizada${pedido.retirada_autorizado_nome ? ` (${pedido.retirada_autorizado_nome})` : ""}`
-                  : pedido.local_entrega === "deposito"
-                    ? "Depósito"
-                    : "Obra"}
-              </p>
-            ) : null}
-            {solicitacao.status === "pdf_gerado" ? (
-              <ProgramarPedidoForm id={solicitacao.id} />
-            ) : null}
-            {solicitacao.status === "pedido_programado" ? (
-              <FlowButton
-                id={solicitacao.id}
-                etapa="pedido_enviado"
-                label="Marcar pedido enviado"
-              />
-            ) : null}
-            {solicitacao.status === "pedido_enviado" ? (
-              <ConfirmarRecebimentoForm
-                id={solicitacao.id}
-                localEntrega={pedido?.local_entrega ?? null}
-                retiradaAutorizadoNome={pedido?.retirada_autorizado_nome}
-              />
+            {canViewProcesso ? (
+              <>
+                {(solicitacao.status === "aberta" ||
+                  solicitacao.status === "rascunho") &&
+                !precisaDecidirEstoque ? (
+                  <form action={iniciarCotacao}>
+                    <input
+                      type="hidden"
+                      name="solicitacao_id"
+                      value={solicitacao.id}
+                    />
+                    <Button type="submit" className="w-full">
+                      Iniciar cotação
+                    </Button>
+                  </form>
+                ) : null}
+                {STATUSES_EM_COTACAO.includes(solicitacao.status) ? (
+                  <CotacaoUploadForm
+                    solicitacaoId={solicitacao.id}
+                    fornecedores={options.fornecedores}
+                    itens={solicitacao.itens ?? []}
+                  />
+                ) : null}
+                {STATUSES_AGUARDANDO_APROVACAO.includes(solicitacao.status) &&
+                (solicitacao.cotacoes ?? []).length > 0 ? (
+                  <ApprovalForm
+                    solicitacao={solicitacao}
+                    approvalUrl={approvalUrl}
+                  />
+                ) : null}
+                {approvalUrl ? (
+                  <p className="break-all rounded-md border border-border bg-secondary p-3 text-xs text-muted-foreground">
+                    Link público: {approvalUrl}
+                  </p>
+                ) : null}
+                {pedido?.pdf_url ? (
+                  <Button asChild variant="outline" className="w-full">
+                    <a href={pedido.pdf_url} target="_blank" rel="noreferrer">
+                      Abrir PDF do pedido
+                    </a>
+                  </Button>
+                ) : null}
+                {pedido?.local_entrega ? (
+                  <p className="text-xs text-muted-foreground">
+                    Entrega:{" "}
+                    {pedido.local_entrega === "retirada"
+                      ? `Retirada autorizada${pedido.retirada_autorizado_nome ? ` (${pedido.retirada_autorizado_nome})` : ""}`
+                      : pedido.local_entrega === "deposito"
+                        ? "Depósito"
+                        : "Obra"}
+                  </p>
+                ) : null}
+                {solicitacao.status === "pdf_gerado" ? (
+                  <ProgramarPedidoForm id={solicitacao.id} />
+                ) : null}
+                {solicitacao.status === "pedido_programado" ? (
+                  <FlowButton
+                    id={solicitacao.id}
+                    etapa="pedido_enviado"
+                    label="Marcar pedido enviado"
+                  />
+                ) : null}
+                {solicitacao.status === "pedido_enviado" ? (
+                  <ConfirmarRecebimentoForm
+                    id={solicitacao.id}
+                    localEntrega={pedido?.local_entrega ?? null}
+                    retiradaAutorizadoNome={pedido?.retirada_autorizado_nome}
+                  />
+                ) : null}
+              </>
             ) : null}
             {!STATUSES_TERMINAIS.includes(solicitacao.status) ? (
               <FlowButton
@@ -302,7 +247,7 @@ export default async function CompraDetailPage({
         </Card>
       </div>
 
-      {precisaDecidirEstoque ? (
+      {canViewProcesso && precisaDecidirEstoque ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
@@ -325,7 +270,7 @@ export default async function CompraDetailPage({
           <CardTitle className="text-base">Materiais</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-hidden rounded-lg border border-border bg-card">
+          <div className="hidden overflow-x-auto rounded-lg border border-border bg-card md:block">
             <table className="w-full text-sm">
               <thead className="bg-secondary">
                 <tr>
@@ -349,88 +294,126 @@ export default async function CompraDetailPage({
               </tbody>
             </table>
           </div>
+
+          {(solicitacao.itens ?? []).length === 0 ? (
+            <MobileCardEmpty>Nenhum item nesta solicitação.</MobileCardEmpty>
+          ) : (
+            <MobileCardList>
+              {(solicitacao.itens ?? []).map((item: any) => (
+                <MobileCard key={item.id}>
+                  <MobileCardRow label="Descrição">
+                    {item.descricao}
+                  </MobileCardRow>
+                  <MobileCardRow label="Quantidade">
+                    {Number(item.quantidade).toLocaleString("pt-BR")}
+                  </MobileCardRow>
+                  <MobileCardRow label="Unidade">{item.unidade}</MobileCardRow>
+                  <MobileCardRow label="Observação">
+                    {item.observacao ?? "-"}
+                  </MobileCardRow>
+                </MobileCard>
+              ))}
+            </MobileCardList>
+          )}
         </CardContent>
       </Card>
 
-      {(solicitacao.cotacoes ?? []).some(
-        (cotacao: any) => cotacao.arquivo_path && !cotacao.validado_at,
-      ) ? (
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold tracking-tight">
-            Cotações recebidas aguardando validação
-          </h2>
-          {(solicitacao.cotacoes ?? [])
-            .filter(
-              (cotacao: any) => cotacao.arquivo_path && !cotacao.validado_at,
-            )
-            .map((cotacao: any) => (
-              <CotacaoReviewForm
-                key={cotacao.id}
-                solicitacaoId={solicitacao.id}
-                cotacao={cotacao}
-                itens={(solicitacao.itens ?? []).filter((item: any) =>
-                  (cotacao.itens ?? []).some(
-                    (cotacaoItem: any) =>
-                      cotacaoItem.solicitacao_item_id === item.id,
-                  ),
-                )}
-              />
-            ))}
-        </div>
+      {canViewProcesso ? (
+        <>
+          {(solicitacao.cotacoes ?? []).some(
+            (cotacao: any) => cotacao.arquivo_path && !cotacao.validado_at,
+          ) ? (
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold tracking-tight">
+                Cotações recebidas aguardando validação
+              </h2>
+              {(solicitacao.cotacoes ?? [])
+                .filter(
+                  (cotacao: any) =>
+                    cotacao.arquivo_path && !cotacao.validado_at,
+                )
+                .map((cotacao: any) => (
+                  <CotacaoReviewForm
+                    key={cotacao.id}
+                    solicitacaoId={solicitacao.id}
+                    cotacao={cotacao}
+                    itens={(solicitacao.itens ?? []).filter((item: any) =>
+                      (cotacao.itens ?? []).some(
+                        (cotacaoItem: any) =>
+                          cotacaoItem.solicitacao_item_id === item.id,
+                      ),
+                    )}
+                  />
+                ))}
+            </div>
+          ) : null}
+
+          {!precisaDecidirEstoque ? (
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">
+                    Pedir cotação a um fornecedor
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CotacaoRequestForm
+                    solicitacao={solicitacao}
+                    fornecedores={options.fornecedores}
+                  />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">
+                    Cotações por fornecedor (manual)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CotacaoForm
+                    solicitacao={solicitacao}
+                    fornecedores={options.fornecedores}
+                  />
+                </CardContent>
+              </Card>
+            </>
+          ) : null}
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                Comparativo lado a lado
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Comparativo solicitacao={solicitacao} />
+            </CardContent>
+          </Card>
+        </>
       ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            Pedir cotação a um fornecedor
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <CotacaoRequestForm
-            solicitacao={solicitacao}
-            fornecedores={options.fornecedores}
-          />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            Cotações por fornecedor (manual)
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <CotacaoForm
-            solicitacao={solicitacao}
-            fornecedores={options.fornecedores}
-          />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Comparativo lado a lado</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Comparativo solicitacao={solicitacao} />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Histórico auditável</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {(solicitacao.historico ?? []).map((entry: any) => (
-            <div key={entry.id} className="rounded-md border p-3 text-sm">
-              <div className="font-medium">{entry.acao}</div>
-              <div className="text-xs text-muted-foreground">
-                {new Date(entry.created_at).toLocaleString("pt-BR")}
+      {canViewProcesso ? (
+        <Card>
+          <CardContent className="py-4">
+            <details>
+              <summary className="inline-flex h-9 cursor-pointer select-none items-center rounded-md border px-3 text-sm hover:bg-secondary">
+                Histórico
+              </summary>
+              <div className="mt-3 space-y-3">
+                {(solicitacao.historico ?? []).map((entry: any) => (
+                  <div key={entry.id} className="rounded-md border p-3 text-sm">
+                    <div className="font-medium">{entry.acao}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {new Date(entry.created_at).toLocaleString("pt-BR")}
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+            </details>
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }

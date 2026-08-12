@@ -3,6 +3,13 @@ import { redirect } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  MobileCard,
+  MobileCardActions,
+  MobileCardEmpty,
+  MobileCardList,
+  MobileCardRow,
+} from "@/components/ui/mobile-card-list";
 import { confirmarDesmobilizacao } from "@/features/servicos-obra/actions";
 import { DesmobilizacaoForm } from "@/features/servicos-obra/components/desmobilizacao-form";
 import {
@@ -67,6 +74,34 @@ export default async function DesmobilizacaoPage({
     ? obrasData.filter((obra: any) => linkedObraIds.includes(obra.id))
     : obrasData;
 
+  function StatusDesmobilizacao({ solicitacao }: { solicitacao: any }) {
+    return (
+      <Badge
+        variant={solicitacao.status === "concluida" ? "default" : "secondary"}
+      >
+        {solicitacao.status === "concluida" ? "Concluída" : "Pendente"}
+      </Badge>
+    );
+  }
+
+  function AcoesDesmobilizacao({ solicitacao }: { solicitacao: any }) {
+    if (!canConfirm || solicitacao.status !== "pendente") {
+      return null;
+    }
+
+    return (
+      <form action={confirmarDesmobilizacao}>
+        <input type="hidden" name="id" value={solicitacao.id} />
+        <button
+          type="submit"
+          className="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-secondary"
+        >
+          Concluir
+        </button>
+      </form>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
@@ -96,7 +131,7 @@ export default async function DesmobilizacaoPage({
           <CardTitle className="text-base">Solicitações</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto rounded-lg border border-border bg-card">
+          <div className="hidden overflow-x-auto rounded-lg border border-border bg-card md:block">
             <table className="w-full min-w-[700px] text-sm">
               <thead className="bg-secondary">
                 <tr>
@@ -122,35 +157,11 @@ export default async function DesmobilizacaoPage({
                       {solicitacao.observacao ?? "-"}
                     </td>
                     <td className="px-3 py-2">
-                      <Badge
-                        variant={
-                          solicitacao.status === "concluida"
-                            ? "default"
-                            : "secondary"
-                        }
-                      >
-                        {solicitacao.status === "concluida"
-                          ? "Concluída"
-                          : "Pendente"}
-                      </Badge>
+                      <StatusDesmobilizacao solicitacao={solicitacao} />
                     </td>
                     {canConfirm ? (
                       <td className="px-3 py-2">
-                        {solicitacao.status === "pendente" ? (
-                          <form action={confirmarDesmobilizacao}>
-                            <input
-                              type="hidden"
-                              name="id"
-                              value={solicitacao.id}
-                            />
-                            <button
-                              type="submit"
-                              className="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-secondary"
-                            >
-                              Concluir
-                            </button>
-                          </form>
-                        ) : null}
+                        <AcoesDesmobilizacao solicitacao={solicitacao} />
                       </td>
                     ) : null}
                   </tr>
@@ -168,6 +179,38 @@ export default async function DesmobilizacaoPage({
               </tbody>
             </table>
           </div>
+
+          {desmobilizacoes.length === 0 ? (
+            <MobileCardEmpty>
+              Nenhuma desmobilização solicitada ainda.
+            </MobileCardEmpty>
+          ) : (
+            <MobileCardList>
+              {desmobilizacoes.map((solicitacao: any) => (
+                <MobileCard key={solicitacao.id}>
+                  <MobileCardRow label="Obra">
+                    {solicitacao.obra?.nome}
+                  </MobileCardRow>
+                  <MobileCardRow label="Data desejada">
+                    {new Date(
+                      `${solicitacao.data_desmobilizacao}T00:00:00`,
+                    ).toLocaleDateString("pt-BR")}
+                  </MobileCardRow>
+                  <MobileCardRow label="Observação">
+                    {solicitacao.observacao ?? "-"}
+                  </MobileCardRow>
+                  <MobileCardRow label="Status">
+                    <StatusDesmobilizacao solicitacao={solicitacao} />
+                  </MobileCardRow>
+                  {canConfirm && solicitacao.status === "pendente" ? (
+                    <MobileCardActions>
+                      <AcoesDesmobilizacao solicitacao={solicitacao} />
+                    </MobileCardActions>
+                  ) : null}
+                </MobileCard>
+              ))}
+            </MobileCardList>
+          )}
         </CardContent>
       </Card>
     </div>

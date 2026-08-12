@@ -50,11 +50,6 @@ export default async function PublicApprovalPage({
                 name="solicitacao_id"
                 value={solicitacao.id}
               />
-              <input
-                type="hidden"
-                name="cliente_id"
-                value={solicitacao.cliente_id}
-              />
               <div className="grid gap-4 md:grid-cols-2">
                 <input
                   name="gestor_nome"

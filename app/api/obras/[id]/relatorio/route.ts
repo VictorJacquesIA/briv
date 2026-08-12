@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 
-import { hasPermission, getPermissionsForUser } from "@/lib/permissions";
+import {
+  hasPermission,
+  getPermissionsForUser,
+  canAccessObra,
+  getLinkedObrasForUser,
+} from "@/lib/permissions";
 import { getCurrentProfile } from "@/services/profiles-service";
 import { getObraDetail, getOrcamentoRealizado } from "@/services/obras-service";
 import {
@@ -23,6 +28,14 @@ export async function GET(
 
   if (
     !hasPermission(currentProfile.role, permissions, "obras.orcamento.view")
+  ) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
+  const linkedObras = await getLinkedObrasForUser(currentProfile.id);
+
+  if (
+    !(await canAccessObra(currentProfile.role, permissions, id, linkedObras))
   ) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }

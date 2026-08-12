@@ -6,6 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  MobileCard,
+  MobileCardActions,
+  MobileCardEmpty,
+  MobileCardList,
+  MobileCardRow,
+} from "@/components/ui/mobile-card-list";
+import {
   createUnidade,
   toggleUnidadeAtivo,
 } from "@/features/materiais/actions/materiais-actions";
@@ -42,6 +49,19 @@ export default async function UnidadesPage() {
     .from("unidades")
     .select("id,nome,codigo,ativo")
     .order("nome");
+
+  function AcoesUnidade({ unidade }: { unidade: any }) {
+    if (!canEdit) return null;
+    return (
+      <form action={toggleUnidadeAtivo}>
+        <input type="hidden" name="id" value={unidade.id} />
+        <input type="hidden" name="ativo" value={String(unidade.ativo)} />
+        <Button type="submit" variant="outline" size="sm">
+          {unidade.ativo ? "Desativar" : "Ativar"}
+        </Button>
+      </form>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -95,7 +115,7 @@ export default async function UnidadesPage() {
           <CardTitle className="text-base">Unidades cadastradas</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-hidden rounded-lg border border-border bg-card">
+          <div className="hidden overflow-x-auto rounded-lg border border-border bg-card md:block">
             <table className="w-full text-sm">
               <thead className="bg-secondary">
                 <tr>
@@ -117,17 +137,7 @@ export default async function UnidadesPage() {
                     </td>
                     {canEdit ? (
                       <td className="px-3 py-2">
-                        <form action={toggleUnidadeAtivo}>
-                          <input type="hidden" name="id" value={unidade.id} />
-                          <input
-                            type="hidden"
-                            name="ativo"
-                            value={String(unidade.ativo)}
-                          />
-                          <Button type="submit" variant="outline" size="sm">
-                            {unidade.ativo ? "Desativar" : "Ativar"}
-                          </Button>
-                        </form>
+                        <AcoesUnidade unidade={unidade} />
                       </td>
                     ) : null}
                   </tr>
@@ -145,6 +155,29 @@ export default async function UnidadesPage() {
               </tbody>
             </table>
           </div>
+
+          {(unidades ?? []).length === 0 ? (
+            <MobileCardEmpty>Nenhuma unidade cadastrada.</MobileCardEmpty>
+          ) : (
+            <MobileCardList>
+              {(unidades ?? []).map((unidade: any) => (
+                <MobileCard key={unidade.id}>
+                  <MobileCardRow label="Nome">{unidade.nome}</MobileCardRow>
+                  <MobileCardRow label="Código">
+                    {unidade.codigo ?? "-"}
+                  </MobileCardRow>
+                  <MobileCardRow label="Status">
+                    {unidade.ativo ? "Ativa" : "Inativa"}
+                  </MobileCardRow>
+                  {canEdit ? (
+                    <MobileCardActions>
+                      <AcoesUnidade unidade={unidade} />
+                    </MobileCardActions>
+                  ) : null}
+                </MobileCard>
+              ))}
+            </MobileCardList>
+          )}
         </CardContent>
       </Card>
     </div>

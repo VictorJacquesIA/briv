@@ -72,30 +72,26 @@ export function CotacaoForm({
         <Input id="forma_pagamento" name="forma_pagamento" />
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-border bg-card">
-        <table className="w-full min-w-[780px] text-sm">
-          <thead className="bg-secondary">
+      {/* Tabela vira lista de blocos no mobile via CSS (mesmos inputs, sem
+          duplicar "name" — os campos ficam dentro de um único <form>). */}
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
+        <table className="block w-full text-sm md:table">
+          <thead className="hidden bg-secondary md:table-header-group">
             <tr>
-              <th className="px-3 py-2 text-left">Incluir</th>
-              <th className="px-3 py-2 text-left">Item</th>
+              <th className="px-3 py-2 text-left">Incluir / Item</th>
               <th className="px-3 py-2 text-left">Qtd.</th>
               <th className="px-3 py-2 text-left">Valor unitário</th>
               <th className="px-3 py-2 text-left">Não cotado</th>
               <th className="px-3 py-2 text-left">Observação</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="block md:table-row-group">
             {itensParaCotar.map((item: any, index: number) => (
-              <tr key={item.id} className="border-t">
-                <td className="px-3 py-2">
-                  <input
-                    type="checkbox"
-                    name={`cotacao_item_${index}_incluir`}
-                    defaultChecked
-                    className="size-4 rounded border"
-                  />
-                </td>
-                <td className="px-3 py-2">
+              <tr
+                key={item.id}
+                className="block space-y-3 border-t border-border p-4 md:table-row md:space-y-0 md:p-0"
+              >
+                <td className="block md:table-cell md:px-3 md:py-2">
                   <input
                     type="hidden"
                     name={`cotacao_item_${index}_solicitacao_item_id`}
@@ -106,33 +102,63 @@ export function CotacaoForm({
                     name={`cotacao_item_${index}_quantidade`}
                     value={item.quantidadeCotar}
                   />
-                  <div className="font-medium">{item.descricao}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {item.unidade}
-                    {item.quantidade_estoque > 0
-                      ? ` · ${Number(item.quantidade_estoque).toLocaleString("pt-BR")} já saíram do estoque`
-                      : ""}
-                  </div>
+                  <label className="flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      name={`cotacao_item_${index}_incluir`}
+                      defaultChecked
+                      className="mt-0.5 size-4 shrink-0 rounded border"
+                    />
+                    <span>
+                      <span className="font-medium">{item.descricao}</span>
+                      <div className="text-xs text-muted-foreground">
+                        {item.unidade}
+                        {item.quantidade_estoque > 0
+                          ? ` · ${Number(item.quantidade_estoque).toLocaleString("pt-BR")} já saíram do estoque`
+                          : ""}
+                      </div>
+                    </span>
+                  </label>
                 </td>
-                <td className="px-3 py-2">
+                <td className="block text-sm text-muted-foreground md:table-cell md:px-3 md:py-2 md:text-foreground">
+                  <span className="md:hidden">Qtd.: </span>
                   {Number(item.quantidadeCotar).toLocaleString("pt-BR")}
                 </td>
-                <td className="px-3 py-2">
+                <td className="block md:table-cell md:px-3 md:py-2">
+                  <Label
+                    htmlFor={`cotacao_item_${index}_valor_unitario`}
+                    className="md:hidden"
+                  >
+                    Valor unitário
+                  </Label>
                   <Input
+                    id={`cotacao_item_${index}_valor_unitario`}
                     name={`cotacao_item_${index}_valor_unitario`}
                     inputMode="decimal"
                     placeholder="0,00"
                   />
                 </td>
-                <td className="px-3 py-2">
-                  <input
-                    type="checkbox"
-                    name={`cotacao_item_${index}_nao_cotado`}
-                    className="size-4 rounded border"
-                  />
+                <td className="block md:table-cell md:px-3 md:py-2">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      name={`cotacao_item_${index}_nao_cotado`}
+                      className="size-4 rounded border"
+                    />
+                    Não cotado
+                  </label>
                 </td>
-                <td className="px-3 py-2">
-                  <Input name={`cotacao_item_${index}_observacao`} />
+                <td className="block md:table-cell md:px-3 md:py-2">
+                  <Label
+                    htmlFor={`cotacao_item_${index}_observacao`}
+                    className="md:hidden"
+                  >
+                    Observação
+                  </Label>
+                  <Input
+                    id={`cotacao_item_${index}_observacao`}
+                    name={`cotacao_item_${index}_observacao`}
+                  />
                 </td>
               </tr>
             ))}

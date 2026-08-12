@@ -14,6 +14,13 @@ import { FormToast } from "@/components/ui/form-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  MobileCard,
+  MobileCardActions,
+  MobileCardEmpty,
+  MobileCardList,
+  MobileCardRow,
+} from "@/components/ui/mobile-card-list";
+import {
   deleteColaborador,
   toggleColaboradorAtivo,
   updateColaborador,
@@ -55,9 +62,42 @@ export function ColaboradoresTable({
     }
   }, [updateState]);
 
+  function AcoesColaborador({ colaborador }: { colaborador: Colaborador }) {
+    return (
+      <>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setEditing(colaborador)}
+        >
+          Editar
+        </Button>
+        <form action={toggleColaboradorAtivo}>
+          <input type="hidden" name="id" value={colaborador.id} />
+          <input type="hidden" name="ativo" value={String(colaborador.ativo)} />
+          <Button type="submit" variant="outline" size="sm">
+            {colaborador.ativo ? "Desativar" : "Ativar"}
+          </Button>
+        </form>
+        <form action={deleteAction}>
+          <input type="hidden" name="id" value={colaborador.id} />
+          <ConfirmSubmitButton
+            type="submit"
+            variant="destructive"
+            size="sm"
+            message={`Apagar "${colaborador.nome}"? Essa ação não pode ser desfeita.`}
+          >
+            Apagar
+          </ConfirmSubmitButton>
+        </form>
+      </>
+    );
+  }
+
   return (
     <>
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="hidden overflow-x-auto rounded-lg border border-border bg-card md:block">
         <table className="w-full text-sm">
           <thead className="bg-secondary">
             <tr>
@@ -91,36 +131,7 @@ export function ColaboradoresTable({
                 {canManage ? (
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setEditing(colaborador)}
-                      >
-                        Editar
-                      </Button>
-                      <form action={toggleColaboradorAtivo}>
-                        <input type="hidden" name="id" value={colaborador.id} />
-                        <input
-                          type="hidden"
-                          name="ativo"
-                          value={String(colaborador.ativo)}
-                        />
-                        <Button type="submit" variant="outline" size="sm">
-                          {colaborador.ativo ? "Desativar" : "Ativar"}
-                        </Button>
-                      </form>
-                      <form action={deleteAction}>
-                        <input type="hidden" name="id" value={colaborador.id} />
-                        <ConfirmSubmitButton
-                          type="submit"
-                          variant="destructive"
-                          size="sm"
-                          message={`Apagar "${colaborador.nome}"? Essa ação não pode ser desfeita.`}
-                        >
-                          Apagar
-                        </ConfirmSubmitButton>
-                      </form>
+                      <AcoesColaborador colaborador={colaborador} />
                     </div>
                   </td>
                 ) : null}
@@ -139,6 +150,46 @@ export function ColaboradoresTable({
           </tbody>
         </table>
       </div>
+
+      {colaboradores.length === 0 ? (
+        <MobileCardEmpty>
+          Nenhum colaborador/prestador cadastrado.
+        </MobileCardEmpty>
+      ) : (
+        <MobileCardList>
+          {colaboradores.map((colaborador) => (
+            <MobileCard key={colaborador.id}>
+              <MobileCardRow label="Nome">
+                <div>
+                  <div>{colaborador.nome}</div>
+                  {colaborador.observacao ? (
+                    <div className="text-xs font-normal text-muted-foreground">
+                      {colaborador.observacao}
+                    </div>
+                  ) : null}
+                </div>
+              </MobileCardRow>
+              <MobileCardRow label="Função">
+                {colaborador.funcao ?? "-"}
+              </MobileCardRow>
+              <MobileCardRow label="Telefone">
+                {colaborador.telefone ?? "-"}
+              </MobileCardRow>
+              <MobileCardRow label="Chave Pix">
+                {colaborador.chave_pix ?? "-"}
+              </MobileCardRow>
+              <MobileCardRow label="Status">
+                {colaborador.ativo ? "Ativo" : "Inativo"}
+              </MobileCardRow>
+              {canManage ? (
+                <MobileCardActions>
+                  <AcoesColaborador colaborador={colaborador} />
+                </MobileCardActions>
+              ) : null}
+            </MobileCard>
+          ))}
+        </MobileCardList>
+      )}
 
       <Dialog
         open={Boolean(editing)}

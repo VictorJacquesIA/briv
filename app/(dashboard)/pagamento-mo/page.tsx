@@ -6,6 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
+  MobileCard,
+  MobileCardActions,
+  MobileCardEmpty,
+  MobileCardList,
+  MobileCardRow,
+} from "@/components/ui/mobile-card-list";
+import {
   confirmarLancamento,
   darBaixaVale,
 } from "@/features/pagamento-mo/actions/mo-actions";
@@ -113,6 +120,99 @@ export default async function PagamentoMoPage({
     }
   }
 
+  function DarBaixaVale({ vale }: { vale: any }) {
+    const opcoes = pagamentosPorColaborador[vale.colaborador?.id] ?? [];
+
+    if (opcoes.length === 0) {
+      return (
+        <span className="text-xs text-muted-foreground">
+          Sem pagamento deste colaborador pra vincular ainda
+        </span>
+      );
+    }
+
+    return (
+      <form action={darBaixaVale} className="flex flex-wrap items-center gap-2">
+        <input type="hidden" name="id" value={vale.id} />
+        <select
+          name="pagamento_id"
+          required
+          className="h-9 rounded-md border bg-background px-2 text-sm"
+        >
+          <option value="">Vincular a pagamento</option>
+          {opcoes.map((opcao) => (
+            <option key={opcao.id} value={opcao.id}>
+              {opcao.label}
+            </option>
+          ))}
+        </select>
+        <Button type="submit" size="sm" variant="outline">
+          Dar baixa
+        </Button>
+      </form>
+    );
+  }
+
+  function AcaoLancamento({ lancamento }: { lancamento: any }) {
+    if (lancamento.status !== "pendente") return null;
+
+    return (
+      <form
+        action={confirmarLancamento}
+        className="flex flex-wrap items-center gap-2"
+      >
+        <input type="hidden" name="id" value={lancamento.id} />
+        {lancamento.valor == null ? (
+          <Input
+            name="valor_diaria"
+            inputMode="decimal"
+            placeholder="Valor da diária"
+            required
+            className="h-9 w-32"
+          />
+        ) : null}
+        {lancamento.tipo === "solicitacao" && !lancamento.orcamento_item_id ? (
+          <select
+            name="orcamento_item_id"
+            required
+            className="h-9 rounded-md border bg-background px-2 text-sm"
+          >
+            <option value="">Centro de custo</option>
+            {(orcamentoItensByObra[lancamento.obra?.id] ?? []).map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.descricao}
+              </option>
+            ))}
+          </select>
+        ) : null}
+        <Button type="submit" size="sm" variant="outline">
+          Confirmar pagamento
+        </Button>
+      </form>
+    );
+  }
+
+  function StatusLancamento({ lancamento }: { lancamento: any }) {
+    return (
+      <>
+        <Badge
+          variant={lancamento.status === "confirmado" ? "default" : "secondary"}
+        >
+          {lancamento.status === "confirmado" ? "Confirmado" : "Pendente"}
+        </Badge>
+        {lancamento.tipo === "vale" && lancamento.status === "confirmado" ? (
+          <div className="mt-1">
+            <Badge
+              variant={lancamento.vale_aplicado_em ? "default" : "warning"}
+            >
+              {lancamento.vale_aplicado_em ? "Baixado" : "Em aberto"}
+            </Badge>
+          </div>
+        ) : null}
+      </>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
@@ -149,7 +249,7 @@ export default async function PagamentoMoPage({
           <CardTitle className="text-base">Saldo por colaborador</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto rounded-lg border border-border bg-card">
+          <div className="hidden overflow-x-auto rounded-lg border border-border bg-card md:block">
             <table className="w-full min-w-[600px] text-sm">
               <thead className="bg-secondary">
                 <tr>
@@ -196,6 +296,38 @@ export default async function PagamentoMoPage({
               </tbody>
             </table>
           </div>
+
+          {saldos.length === 0 ? (
+            <MobileCardEmpty>Nenhum colaborador cadastrado.</MobileCardEmpty>
+          ) : (
+            <MobileCardList>
+              {saldos.map((saldo: any) => (
+                <MobileCard key={saldo.colaborador_id}>
+                  <MobileCardRow label="Colaborador/Prestador">
+                    {saldo.nome}
+                  </MobileCardRow>
+                  <MobileCardRow label="Saldo confirmado">
+                    R${" "}
+                    {Number(saldo.saldo_confirmado).toLocaleString("pt-BR", {
+                      minimumFractionDigits: 2,
+                    })}
+                  </MobileCardRow>
+                  <MobileCardRow label="Saldo pendente">
+                    {Number(saldo.saldo_pendente) !== 0 ? (
+                      <Badge variant="warning">
+                        R${" "}
+                        {Number(saldo.saldo_pendente).toLocaleString("pt-BR", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </Badge>
+                    ) : (
+                      "R$ 0,00"
+                    )}
+                  </MobileCardRow>
+                </MobileCard>
+              ))}
+            </MobileCardList>
+          )}
         </CardContent>
       </Card>
 
@@ -204,7 +336,7 @@ export default async function PagamentoMoPage({
           <CardTitle className="text-base">Vales em aberto</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto rounded-lg border border-border bg-card">
+          <div className="hidden overflow-x-auto rounded-lg border border-border bg-card md:block">
             <table className="w-full min-w-[640px] text-sm">
               <thead className="bg-secondary">
                 <tr>
@@ -217,56 +349,25 @@ export default async function PagamentoMoPage({
                 </tr>
               </thead>
               <tbody>
-                {valesAbertos.map((vale: any) => {
-                  const opcoes =
-                    pagamentosPorColaborador[vale.colaborador?.id] ?? [];
-
-                  return (
-                    <tr key={vale.id} className="border-t">
-                      <td className="px-3 py-2">{vale.colaborador?.nome}</td>
+                {valesAbertos.map((vale: any) => (
+                  <tr key={vale.id} className="border-t">
+                    <td className="px-3 py-2">{vale.colaborador?.nome}</td>
+                    <td className="px-3 py-2">
+                      R${" "}
+                      {Number(vale.valor).toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                      })}
+                    </td>
+                    <td className="px-3 py-2">
+                      {new Date(vale.created_at).toLocaleDateString("pt-BR")}
+                    </td>
+                    {canConfirm ? (
                       <td className="px-3 py-2">
-                        R${" "}
-                        {Number(vale.valor).toLocaleString("pt-BR", {
-                          minimumFractionDigits: 2,
-                        })}
+                        <DarBaixaVale vale={vale} />
                       </td>
-                      <td className="px-3 py-2">
-                        {new Date(vale.created_at).toLocaleDateString("pt-BR")}
-                      </td>
-                      {canConfirm ? (
-                        <td className="px-3 py-2">
-                          {opcoes.length > 0 ? (
-                            <form
-                              action={darBaixaVale}
-                              className="flex flex-wrap items-center gap-2"
-                            >
-                              <input type="hidden" name="id" value={vale.id} />
-                              <select
-                                name="pagamento_id"
-                                required
-                                className="h-9 rounded-md border bg-background px-2 text-sm"
-                              >
-                                <option value="">Vincular a pagamento</option>
-                                {opcoes.map((opcao) => (
-                                  <option key={opcao.id} value={opcao.id}>
-                                    {opcao.label}
-                                  </option>
-                                ))}
-                              </select>
-                              <Button type="submit" size="sm" variant="outline">
-                                Dar baixa
-                              </Button>
-                            </form>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">
-                              Sem pagamento deste colaborador pra vincular ainda
-                            </span>
-                          )}
-                        </td>
-                      ) : null}
-                    </tr>
-                  );
-                })}
+                    ) : null}
+                  </tr>
+                ))}
                 {valesAbertos.length === 0 ? (
                   <tr>
                     <td
@@ -280,6 +381,34 @@ export default async function PagamentoMoPage({
               </tbody>
             </table>
           </div>
+
+          {valesAbertos.length === 0 ? (
+            <MobileCardEmpty>Nenhum vale em aberto.</MobileCardEmpty>
+          ) : (
+            <MobileCardList>
+              {valesAbertos.map((vale: any) => (
+                <MobileCard key={vale.id}>
+                  <MobileCardRow label="Colaborador/Prestador">
+                    {vale.colaborador?.nome}
+                  </MobileCardRow>
+                  <MobileCardRow label="Valor">
+                    R${" "}
+                    {Number(vale.valor).toLocaleString("pt-BR", {
+                      minimumFractionDigits: 2,
+                    })}
+                  </MobileCardRow>
+                  <MobileCardRow label="Data">
+                    {new Date(vale.created_at).toLocaleDateString("pt-BR")}
+                  </MobileCardRow>
+                  {canConfirm ? (
+                    <MobileCardActions>
+                      <DarBaixaVale vale={vale} />
+                    </MobileCardActions>
+                  ) : null}
+                </MobileCard>
+              ))}
+            </MobileCardList>
+          )}
         </CardContent>
       </Card>
 
@@ -288,7 +417,7 @@ export default async function PagamentoMoPage({
           <CardTitle className="text-base">Lançamentos</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto rounded-lg border border-border bg-card">
+          <div className="hidden overflow-x-auto rounded-lg border border-border bg-card md:block">
             <table className="w-full min-w-[760px] text-sm">
               <thead className="bg-secondary">
                 <tr>
@@ -362,48 +491,7 @@ export default async function PagamentoMoPage({
                     </td>
                     {canConfirm ? (
                       <td className="px-3 py-2">
-                        {lancamento.status === "pendente" ? (
-                          <form
-                            action={confirmarLancamento}
-                            className="flex flex-wrap items-center gap-2"
-                          >
-                            <input
-                              type="hidden"
-                              name="id"
-                              value={lancamento.id}
-                            />
-                            {lancamento.valor == null ? (
-                              <Input
-                                name="valor_diaria"
-                                inputMode="decimal"
-                                placeholder="Valor da diária"
-                                required
-                                className="h-9 w-32"
-                              />
-                            ) : null}
-                            {lancamento.tipo === "solicitacao" &&
-                            !lancamento.orcamento_item_id ? (
-                              <select
-                                name="orcamento_item_id"
-                                required
-                                className="h-9 rounded-md border bg-background px-2 text-sm"
-                              >
-                                <option value="">Centro de custo</option>
-                                {(
-                                  orcamentoItensByObra[lancamento.obra?.id] ??
-                                  []
-                                ).map((item) => (
-                                  <option key={item.id} value={item.id}>
-                                    {item.descricao}
-                                  </option>
-                                ))}
-                              </select>
-                            ) : null}
-                            <Button type="submit" size="sm" variant="outline">
-                              Confirmar pagamento
-                            </Button>
-                          </form>
-                        ) : null}
+                        <AcaoLancamento lancamento={lancamento} />
                       </td>
                     ) : null}
                   </tr>
@@ -421,6 +509,52 @@ export default async function PagamentoMoPage({
               </tbody>
             </table>
           </div>
+
+          {lancamentos.length === 0 ? (
+            <MobileCardEmpty>Nenhum lançamento registrado.</MobileCardEmpty>
+          ) : (
+            <MobileCardList>
+              {lancamentos.map((lancamento: any) => (
+                <MobileCard key={lancamento.id}>
+                  <MobileCardRow label="Colaborador/Prestador">
+                    {lancamento.colaborador?.nome}
+                  </MobileCardRow>
+                  <MobileCardRow label="Obra">
+                    {lancamento.obra?.nome}
+                  </MobileCardRow>
+                  <MobileCardRow label="Tipo">
+                    {TIPO_LABELS[lancamento.tipo] ?? lancamento.tipo}
+                  </MobileCardRow>
+                  <MobileCardRow label="Valor">
+                    {lancamento.valor == null ? (
+                      <Badge variant="warning">
+                        Aguardando valor ({lancamento.qtd_diarias}{" "}
+                        {Number(lancamento.qtd_diarias) === 1
+                          ? "diária"
+                          : "diárias"}
+                        )
+                      </Badge>
+                    ) : (
+                      `R$ ${Number(lancamento.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+                    )}
+                  </MobileCardRow>
+                  <MobileCardRow label="Status">
+                    <StatusLancamento lancamento={lancamento} />
+                  </MobileCardRow>
+                  <MobileCardRow label="Data">
+                    {new Date(lancamento.created_at).toLocaleDateString(
+                      "pt-BR",
+                    )}
+                  </MobileCardRow>
+                  {canConfirm && lancamento.status === "pendente" ? (
+                    <MobileCardActions>
+                      <AcaoLancamento lancamento={lancamento} />
+                    </MobileCardActions>
+                  ) : null}
+                </MobileCard>
+              ))}
+            </MobileCardList>
+          )}
         </CardContent>
       </Card>
     </div>

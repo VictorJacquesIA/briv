@@ -4,6 +4,12 @@ import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  MobileCard,
+  MobileCardEmpty,
+  MobileCardList,
+  MobileCardRow,
+} from "@/components/ui/mobile-card-list";
 import { hasPermission, getPermissionsForUser } from "@/lib/permissions";
 import { getCurrentProfile } from "@/services/profiles-service";
 import { listContratos } from "@/services/pagamento-mo-service";
@@ -37,6 +43,14 @@ export default async function ContratosMoPage({
       : undefined;
   const contratos = await listContratos({ status });
 
+  function StatusContrato({ contrato }: { contrato: any }) {
+    return (
+      <Badge variant={contrato.status === "quitado" ? "default" : "secondary"}>
+        {contrato.status === "quitado" ? "Quitado" : "Aberto"}
+      </Badge>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
@@ -67,7 +81,7 @@ export default async function ContratosMoPage({
           <CardTitle className="text-base">Contratos</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto rounded-lg border border-border bg-card">
+          <div className="hidden overflow-x-auto rounded-lg border border-border bg-card md:block">
             <table className="w-full min-w-[760px] text-sm">
               <thead className="bg-secondary">
                 <tr>
@@ -98,15 +112,7 @@ export default async function ContratosMoPage({
                       })}
                     </td>
                     <td className="px-3 py-2">
-                      <Badge
-                        variant={
-                          contrato.status === "quitado"
-                            ? "default"
-                            : "secondary"
-                        }
-                      >
-                        {contrato.status === "quitado" ? "Quitado" : "Aberto"}
-                      </Badge>
+                      <StatusContrato contrato={contrato} />
                     </td>
                   </tr>
                 ))}
@@ -123,6 +129,41 @@ export default async function ContratosMoPage({
               </tbody>
             </table>
           </div>
+
+          {contratos.length === 0 ? (
+            <MobileCardEmpty>Nenhum contrato cadastrado.</MobileCardEmpty>
+          ) : (
+            <MobileCardList>
+              {contratos.map((contrato: any) => (
+                <MobileCard key={contrato.contrato_id}>
+                  <MobileCardRow label="Prestador">
+                    {contrato.colaborador_nome}
+                  </MobileCardRow>
+                  <MobileCardRow label="Obra">
+                    {contrato.obra_nome}
+                  </MobileCardRow>
+                  <MobileCardRow label="Serviço">
+                    {contrato.descricao}
+                  </MobileCardRow>
+                  <MobileCardRow label="Valor total">
+                    R${" "}
+                    {Number(contrato.valor_total).toLocaleString("pt-BR", {
+                      minimumFractionDigits: 2,
+                    })}
+                  </MobileCardRow>
+                  <MobileCardRow label="Saldo restante">
+                    R${" "}
+                    {Number(contrato.saldo_restante).toLocaleString("pt-BR", {
+                      minimumFractionDigits: 2,
+                    })}
+                  </MobileCardRow>
+                  <MobileCardRow label="Status">
+                    <StatusContrato contrato={contrato} />
+                  </MobileCardRow>
+                </MobileCard>
+              ))}
+            </MobileCardList>
+          )}
         </CardContent>
       </Card>
     </div>

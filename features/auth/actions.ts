@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import { friendlyErrorMessage } from "@/lib/error-message";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { getRequestContext } from "@/services/request-context";
 import { loginSchema } from "@/features/auth/schemas/login-schema";
 
 export type AuthState = {
@@ -22,6 +24,15 @@ export async function login(
 
   if (!parsed.success) {
     return { message: parsed.error.issues[0]?.message ?? "Dados invalidos." };
+  }
+
+  const { ip } = await getRequestContext();
+  const allowed = await checkRateLimit(`login:${ip ?? "unknown"}`, 15, 10 * 60);
+  if (!allowed) {
+    return {
+      message:
+        "Muitas tentativas de login. Aguarde alguns minutos e tente novamente.",
+    };
   }
 
   const supabase = await createClient();

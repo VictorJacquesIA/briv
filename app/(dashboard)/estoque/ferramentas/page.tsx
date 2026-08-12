@@ -3,6 +3,13 @@ import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  MobileCard,
+  MobileCardActions,
+  MobileCardEmpty,
+  MobileCardList,
+  MobileCardRow,
+} from "@/components/ui/mobile-card-list";
+import {
   registrarEntradaFerramenta,
   registrarSaidaFerramenta,
 } from "@/features/ferramentas/actions";
@@ -46,6 +53,61 @@ export default async function FerramentasPage() {
     canEmprestar ? listObras() : Promise.resolve([]),
   ]);
 
+  function StatusFerramenta({ ferramenta }: { ferramenta: any }) {
+    return ferramenta.status === "emprestada" ? (
+      <Badge variant="warning">
+        Emprestada — {ferramenta.obra_atual?.nome ?? "-"}
+      </Badge>
+    ) : (
+      <Badge variant="secondary">No depósito</Badge>
+    );
+  }
+
+  function AcoesFerramenta({ ferramenta }: { ferramenta: any }) {
+    if (!canEmprestar && !canDevolver) return null;
+    return (
+      <>
+        {ferramenta.status === "deposito" && canEmprestar ? (
+          <form
+            action={registrarSaidaFerramenta}
+            className="flex flex-wrap items-center gap-2"
+          >
+            <input type="hidden" name="ferramenta_id" value={ferramenta.id} />
+            <select
+              name="obra_id"
+              required
+              className="h-9 rounded-md border bg-background px-2 text-sm"
+            >
+              <option value="">Obra de destino</option>
+              {obras.map((obra: any) => (
+                <option key={obra.id} value={obra.id}>
+                  {obra.nome}
+                </option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              className="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-secondary"
+            >
+              Emprestar
+            </button>
+          </form>
+        ) : null}
+        {ferramenta.status === "emprestada" && canDevolver ? (
+          <form action={registrarEntradaFerramenta}>
+            <input type="hidden" name="ferramenta_id" value={ferramenta.id} />
+            <button
+              type="submit"
+              className="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-secondary"
+            >
+              Devolver
+            </button>
+          </form>
+        ) : null}
+      </>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
@@ -64,7 +126,7 @@ export default async function FerramentasPage() {
           <CardTitle className="text-base">Ferramentas</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto rounded-lg border border-border bg-card">
+          <div className="hidden overflow-x-auto rounded-lg border border-border bg-card md:block">
             <table className="w-full min-w-[700px] text-sm">
               <thead className="bg-secondary">
                 <tr>
@@ -82,61 +144,11 @@ export default async function FerramentasPage() {
                     <td className="px-3 py-2">{ferramenta.nome}</td>
                     <td className="px-3 py-2">{ferramenta.codigo ?? "-"}</td>
                     <td className="px-3 py-2">
-                      {ferramenta.status === "emprestada" ? (
-                        <Badge variant="warning">
-                          Emprestada — {ferramenta.obra_atual?.nome ?? "-"}
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary">No depósito</Badge>
-                      )}
+                      <StatusFerramenta ferramenta={ferramenta} />
                     </td>
                     {canEmprestar || canDevolver ? (
                       <td className="px-3 py-2">
-                        {ferramenta.status === "deposito" && canEmprestar ? (
-                          <form
-                            action={registrarSaidaFerramenta}
-                            className="flex flex-wrap items-center gap-2"
-                          >
-                            <input
-                              type="hidden"
-                              name="ferramenta_id"
-                              value={ferramenta.id}
-                            />
-                            <select
-                              name="obra_id"
-                              required
-                              className="h-9 rounded-md border bg-background px-2 text-sm"
-                            >
-                              <option value="">Obra de destino</option>
-                              {obras.map((obra: any) => (
-                                <option key={obra.id} value={obra.id}>
-                                  {obra.nome}
-                                </option>
-                              ))}
-                            </select>
-                            <button
-                              type="submit"
-                              className="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-secondary"
-                            >
-                              Emprestar
-                            </button>
-                          </form>
-                        ) : null}
-                        {ferramenta.status === "emprestada" && canDevolver ? (
-                          <form action={registrarEntradaFerramenta}>
-                            <input
-                              type="hidden"
-                              name="ferramenta_id"
-                              value={ferramenta.id}
-                            />
-                            <button
-                              type="submit"
-                              className="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-secondary"
-                            >
-                              Devolver
-                            </button>
-                          </form>
-                        ) : null}
+                        <AcoesFerramenta ferramenta={ferramenta} />
                       </td>
                     ) : null}
                   </tr>
@@ -154,6 +166,29 @@ export default async function FerramentasPage() {
               </tbody>
             </table>
           </div>
+
+          {ferramentas.length === 0 ? (
+            <MobileCardEmpty>Nenhuma ferramenta cadastrada.</MobileCardEmpty>
+          ) : (
+            <MobileCardList>
+              {ferramentas.map((ferramenta: any) => (
+                <MobileCard key={ferramenta.id}>
+                  <MobileCardRow label="Nome">{ferramenta.nome}</MobileCardRow>
+                  <MobileCardRow label="Código">
+                    {ferramenta.codigo ?? "-"}
+                  </MobileCardRow>
+                  <MobileCardRow label="Status">
+                    <StatusFerramenta ferramenta={ferramenta} />
+                  </MobileCardRow>
+                  {canEmprestar || canDevolver ? (
+                    <MobileCardActions>
+                      <AcoesFerramenta ferramenta={ferramenta} />
+                    </MobileCardActions>
+                  ) : null}
+                </MobileCard>
+              ))}
+            </MobileCardList>
+          )}
         </CardContent>
       </Card>
     </div>

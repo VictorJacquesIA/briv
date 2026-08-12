@@ -4,6 +4,12 @@ import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  MobileCard,
+  MobileCardEmpty,
+  MobileCardList,
+  MobileCardRow,
+} from "@/components/ui/mobile-card-list";
 import { ConfirmarSeparacaoForm } from "@/features/estoque/components/confirmar-separacao-form";
 import { PrintButton } from "@/features/estoque/components/print-button";
 import { hasPermission, getPermissionsForUser } from "@/lib/permissions";
@@ -122,36 +128,65 @@ function ItensReadOnly({
   separado?: boolean;
 }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-card">
-      <table className="w-full text-sm">
-        <thead className="bg-secondary">
-          <tr>
-            <th className="px-3 py-2 text-left">Insumo</th>
-            <th className="px-3 py-2 text-left">Solicitado</th>
-            {separado ? (
-              <th className="px-3 py-2 text-left">Separado</th>
-            ) : null}
-          </tr>
-        </thead>
-        <tbody>
+    <>
+      <div className="hidden overflow-hidden rounded-lg border border-border bg-card md:block">
+        <table className="w-full text-sm">
+          <thead className="bg-secondary">
+            <tr>
+              <th className="px-3 py-2 text-left">Insumo</th>
+              <th className="px-3 py-2 text-left">Solicitado</th>
+              {separado ? (
+                <th className="px-3 py-2 text-left">Separado</th>
+              ) : null}
+            </tr>
+          </thead>
+          <tbody>
+            {itens.map((item: any) => (
+              <tr key={item.id} className="border-t">
+                <td className="px-3 py-2">
+                  {item.solicitacao_item?.descricao}
+                </td>
+                <td className="px-3 py-2">
+                  {Number(item.quantidade_solicitada).toLocaleString("pt-BR")}{" "}
+                  {item.solicitacao_item?.unidade}
+                </td>
+                {separado ? (
+                  <td className="px-3 py-2">
+                    {item.quantidade_separada != null
+                      ? Number(item.quantidade_separada).toLocaleString("pt-BR")
+                      : "-"}
+                  </td>
+                ) : null}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {itens.length === 0 ? (
+        <MobileCardEmpty>Nenhum item nesta requisição.</MobileCardEmpty>
+      ) : (
+        <MobileCardList>
           {itens.map((item: any) => (
-            <tr key={item.id} className="border-t">
-              <td className="px-3 py-2">{item.solicitacao_item?.descricao}</td>
-              <td className="px-3 py-2">
+            <MobileCard key={item.id}>
+              <MobileCardRow label="Insumo">
+                {item.solicitacao_item?.descricao}
+              </MobileCardRow>
+              <MobileCardRow label="Solicitado">
                 {Number(item.quantidade_solicitada).toLocaleString("pt-BR")}{" "}
                 {item.solicitacao_item?.unidade}
-              </td>
+              </MobileCardRow>
               {separado ? (
-                <td className="px-3 py-2">
+                <MobileCardRow label="Separado">
                   {item.quantidade_separada != null
                     ? Number(item.quantidade_separada).toLocaleString("pt-BR")
                     : "-"}
-                </td>
+                </MobileCardRow>
               ) : null}
-            </tr>
+            </MobileCard>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </MobileCardList>
+      )}
+    </>
   );
 }

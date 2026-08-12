@@ -1,8 +1,17 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  MobileCard,
+  MobileCardEmpty,
+  MobileCardList,
+  MobileCardRow,
+} from "@/components/ui/mobile-card-list";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { hasPermission, getPermissionsForUser } from "@/lib/permissions";
+import { getCurrentProfile } from "@/services/profiles-service";
 import { listSolicitacoes, statusLabels } from "@/services/compras-service";
 import type { Database } from "@/types/database";
 
@@ -18,6 +27,18 @@ export default async function ComprasPage({
     sort?: "created_at" | "prioridade" | "status";
   }>;
 }) {
+  const currentProfile = await getCurrentProfile();
+
+  if (!currentProfile?.id) {
+    redirect("/login");
+  }
+
+  const permissions = await getPermissionsForUser(currentProfile.id);
+
+  if (!hasPermission(currentProfile.role, permissions, "solicitacoes.view")) {
+    redirect("/dashboard");
+  }
+
   const params = await searchParams;
   const result = await listSolicitacoes({
     search: params.q,
@@ -83,7 +104,7 @@ export default async function ComprasPage({
             </Button>
           </form>
 
-          <div className="overflow-hidden rounded-lg border border-border bg-card">
+          <div className="hidden overflow-x-auto rounded-lg border border-border bg-card md:block">
             <table className="w-full text-sm">
               <thead className="bg-secondary">
                 <tr>
@@ -142,6 +163,46 @@ export default async function ComprasPage({
               </tbody>
             </table>
           </div>
+
+          {solicitacoes.length === 0 ? (
+            <MobileCardEmpty>
+              Nenhuma solicitacao encontrada para os filtros atuais.
+            </MobileCardEmpty>
+          ) : (
+            <MobileCardList>
+              {solicitacoes.map((solicitacao: any) => (
+                <MobileCard key={solicitacao.id}>
+                  <MobileCardRow label="Codigo">
+                    <Link
+                      href={`/compras/${solicitacao.id}`}
+                      className="hover:underline"
+                    >
+                      {solicitacao.codigo ?? solicitacao.id.slice(0, 8)}
+                    </Link>
+                  </MobileCardRow>
+                  <MobileCardRow label="Obra">
+                    {solicitacao.obra?.nome ?? "-"}
+                  </MobileCardRow>
+                  <MobileCardRow label="Prioridade">
+                    <span className="capitalize">{solicitacao.prioridade}</span>
+                  </MobileCardRow>
+                  <MobileCardRow label="Status">
+                    <StatusBadge
+                      status={solicitacao.status}
+                      label={
+                        statusLabels[solicitacao.status] ?? solicitacao.status
+                      }
+                    />
+                  </MobileCardRow>
+                  <MobileCardRow label="Criada em">
+                    {new Date(solicitacao.created_at).toLocaleDateString(
+                      "pt-BR",
+                    )}
+                  </MobileCardRow>
+                </MobileCard>
+              ))}
+            </MobileCardList>
+          )}
 
           <div className="flex flex-col justify-between gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center">
             <span>

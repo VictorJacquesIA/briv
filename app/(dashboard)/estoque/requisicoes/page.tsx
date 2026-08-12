@@ -4,6 +4,13 @@ import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  MobileCard,
+  MobileCardActions,
+  MobileCardEmpty,
+  MobileCardList,
+  MobileCardRow,
+} from "@/components/ui/mobile-card-list";
 import { hasPermission, getPermissionsForUser } from "@/lib/permissions";
 import { getCurrentProfile } from "@/services/profiles-service";
 import { listRequisicoes } from "@/services/estoque-service";
@@ -39,6 +46,16 @@ export default async function RequisicoesPage({
     redirect("/dashboard");
   }
 
+  function StatusRequisicao({ requisicao }: { requisicao: any }) {
+    return (
+      <Badge
+        variant={requisicao.status === "separado" ? "default" : "secondary"}
+      >
+        {requisicao.status === "separado" ? "Separado" : "Pendente"}
+      </Badge>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
@@ -68,7 +85,7 @@ export default async function RequisicoesPage({
           <CardTitle className="text-base">Fila</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto rounded-lg border border-border bg-card">
+          <div className="hidden overflow-x-auto rounded-lg border border-border bg-card md:block">
             <table className="w-full min-w-[640px] text-sm">
               <thead className="bg-secondary">
                 <tr>
@@ -88,17 +105,7 @@ export default async function RequisicoesPage({
                     </td>
                     <td className="px-3 py-2">{requisicao.obra?.nome}</td>
                     <td className="px-3 py-2">
-                      <Badge
-                        variant={
-                          requisicao.status === "separado"
-                            ? "default"
-                            : "secondary"
-                        }
-                      >
-                        {requisicao.status === "separado"
-                          ? "Separado"
-                          : "Pendente"}
-                      </Badge>
+                      <StatusRequisicao requisicao={requisicao} />
                     </td>
                     <td className="px-3 py-2">
                       {new Date(requisicao.created_at).toLocaleDateString(
@@ -127,6 +134,39 @@ export default async function RequisicoesPage({
               </tbody>
             </table>
           </div>
+
+          {requisicoes.length === 0 ? (
+            <MobileCardEmpty>Nenhuma requisição registrada.</MobileCardEmpty>
+          ) : (
+            <MobileCardList>
+              {requisicoes.map((requisicao: any) => (
+                <MobileCard key={requisicao.id}>
+                  <MobileCardRow label="Solicitação">
+                    {requisicao.solicitacao?.codigo ??
+                      requisicao.solicitacao?.id?.slice(0, 8)}
+                  </MobileCardRow>
+                  <MobileCardRow label="Obra">
+                    {requisicao.obra?.nome}
+                  </MobileCardRow>
+                  <MobileCardRow label="Status">
+                    <StatusRequisicao requisicao={requisicao} />
+                  </MobileCardRow>
+                  <MobileCardRow label="Criada em">
+                    {new Date(requisicao.created_at).toLocaleDateString(
+                      "pt-BR",
+                    )}
+                  </MobileCardRow>
+                  <MobileCardActions>
+                    <Button asChild variant="outline" size="sm">
+                      <Link href={`/estoque/requisicoes/${requisicao.id}`}>
+                        Abrir
+                      </Link>
+                    </Button>
+                  </MobileCardActions>
+                </MobileCard>
+              ))}
+            </MobileCardList>
+          )}
         </CardContent>
       </Card>
     </div>

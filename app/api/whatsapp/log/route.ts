@@ -1,19 +1,25 @@
 import { NextResponse } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { registrarHistorico } from "@/services/historico-service";
 import { getRequestContext } from "@/services/request-context";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
   const context = await getRequestContext();
-  const body = await request.json();
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  const allowed = await checkRateLimit(`whatsapp-log:${user.id}`, 30, 60);
+  if (!allowed) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
 
   const { data: profile } = await supabase
@@ -25,6 +31,8 @@ export async function POST(request: Request) {
   if (!profile?.cliente_id) {
     return NextResponse.json({ error: "profile_not_found" }, { status: 403 });
   }
+
+  const body = await request.json();
 
   await registrarHistorico({
     clienteId: profile.cliente_id,

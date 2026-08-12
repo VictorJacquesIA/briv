@@ -1,6 +1,3 @@
-// Tipos gerados via mcp__supabase__generate_typescript_types (Supabase project iguixokrvatlyajnldqv)
-// Não editar manualmente — regenerar quando o schema mudar.
-
 export type Json =
   | string
   | number
@@ -1529,6 +1526,24 @@ export type Database = {
           },
         ];
       };
+      rate_limit_hits: {
+        Row: {
+          created_at: string;
+          id: number;
+          rl_key: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: never;
+          rl_key: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: never;
+          rl_key?: string;
+        };
+        Relationships: [];
+      };
       requisicao_almox_itens: {
         Row: {
           created_at: string;
@@ -1851,6 +1866,8 @@ export type Database = {
           cancelada_at: string | null;
           cliente_id: string;
           codigo: string | null;
+          cotacao_request_pdf_gerado_em: string | null;
+          cotacao_request_pdf_url: string | null;
           created_at: string;
           data_necessidade: string | null;
           divergencia_estoque_at: string | null;
@@ -1875,6 +1892,8 @@ export type Database = {
           cancelada_at?: string | null;
           cliente_id: string;
           codigo?: string | null;
+          cotacao_request_pdf_gerado_em?: string | null;
+          cotacao_request_pdf_url?: string | null;
           created_at?: string;
           data_necessidade?: string | null;
           divergencia_estoque_at?: string | null;
@@ -1899,6 +1918,8 @@ export type Database = {
           cancelada_at?: string | null;
           cliente_id?: string;
           codigo?: string | null;
+          cotacao_request_pdf_gerado_em?: string | null;
+          cotacao_request_pdf_url?: string | null;
           created_at?: string;
           data_necessidade?: string | null;
           divergencia_estoque_at?: string | null;
@@ -2213,6 +2234,10 @@ export type Database = {
     };
     Functions: {
       can_access_solicitacao: { Args: { sol_id: string }; Returns: boolean };
+      check_rate_limit: {
+        Args: { p_key: string; p_max_hits: number; p_window_seconds: number };
+        Returns: boolean;
+      };
       current_profile_cliente_id: { Args: never; Returns: string };
       current_profile_role: {
         Args: never;
@@ -2448,5 +2473,3 @@ export const Constants = {
     },
   },
 } as const;
-
-export type UserRole = Database["public"]["Enums"]["user_role"];

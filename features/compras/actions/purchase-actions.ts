@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { friendlyErrorMessage } from "@/lib/error-message";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { money, text } from "@/lib/form-data";
 import {
   assertPermission,
@@ -27,6 +28,7 @@ import {
   type CotacaoExtraction,
 } from "@/services/ai-extraction-service";
 import { getEstoqueDisponivelPorItem } from "@/services/estoque-service";
+import { STATUSES_AGUARDANDO_COTACAO } from "@/services/compras-service";
 import {
   createShortLink,
   createShortLinkWithClient,
@@ -35,6 +37,7 @@ import type { Database } from "@/types/database";
 
 type ActionState = {
   message?: string;
+  approvalUrl?: string;
 };
 
 type PrioridadeSolicitacao =
@@ -553,9 +556,23 @@ export async function iniciarCotacao(formData: FormData) {
   const context = await getRequestContext();
   const { data: current } = await supabase
     .from("solicitacoes")
-    .select("status")
+    .select("status, estoque_decidido_at")
     .eq("id", id)
     .single();
+
+  // Espelha a trava da tela (precisaDecidirEstoque em compras/[id]/page.tsx)
+  // no servidor: sem isso, dava pra pular a decisão de estoque via POST
+  // direto e o pedido saía cotando/pedindo a quantidade cheia do item em vez
+  // de (quantidade - quantidade_estoque).
+  if (
+    current &&
+    STATUSES_AGUARDANDO_COTACAO.includes(current.status) &&
+    !current.estoque_decidido_at
+  ) {
+    throw new Error(
+      "Decida estoque x cotação de cada item (e o centro de custo) antes de iniciar a cotação.",
+    );
+  }
 
   await supabase
     .from("solicitacoes")
@@ -776,20 +793,33 @@ export async function uploadCotacao(
     let extracaoIa: CotacaoExtraction | null = null;
     let extractionMessage: string | null = null;
 
-    try {
-      const buffer = Buffer.from(await file.arrayBuffer());
-      extracaoIa = await extractCotacaoFromFile({
-        fileBuffer: buffer,
-        contentType: file.type,
-        solicitacaoItens: (itens ?? []).map((item: any) => ({
-          descricao: item.descricao,
-          quantidade: Number(item.quantidade),
-          unidade: item.unidade,
-        })),
-      });
-    } catch {
+    // Teto de uso por tenant — sem isso, uma conta comprometida (ou um loop
+    // de upload) chama a IA sem limite, drenando o crédito da Anthropic.
+    const iaAllowed = await checkRateLimit(
+      `ia-extracao:${profile.cliente_id}`,
+      30,
+      60 * 60,
+    );
+
+    if (!iaAllowed) {
       extractionMessage =
-        "Arquivo enviado, mas não foi possível extrair os valores automaticamente. Preencha manualmente.";
+        "Arquivo enviado. Limite de extrações automáticas por IA atingido nesta hora — preencha os valores manualmente.";
+    } else {
+      try {
+        const buffer = Buffer.from(await file.arrayBuffer());
+        extracaoIa = await extractCotacaoFromFile({
+          fileBuffer: buffer,
+          contentType: file.type,
+          solicitacaoItens: (itens ?? []).map((item: any) => ({
+            descricao: item.descricao,
+            quantidade: Number(item.quantidade),
+            unidade: item.unidade,
+          })),
+        });
+      } catch {
+        extractionMessage =
+          "Arquivo enviado, mas não foi possível extrair os valores automaticamente. Preencha manualmente.";
+      }
     }
 
     await supabase
@@ -876,12 +906,12 @@ export async function gerarCotacaoRequestPdf(
     const [{ data: solicitacao }, { data: itens }] = await Promise.all([
       supabase
         .from("solicitacoes")
-        .select("codigo,obra:obras(nome)")
+        .select("codigo,status,estoque_decidido_at,obra:obras(nome)")
         .eq("id", solicitacaoId)
         .single(),
       supabase
         .from("solicitacao_itens")
-        .select("descricao,quantidade,unidade,observacao")
+        .select("descricao,quantidade,quantidade_estoque,unidade,observacao")
         .eq("solicitacao_id", solicitacaoId)
         .in("id", itemIdsSelecionados),
     ]);
@@ -890,14 +920,42 @@ export async function gerarCotacaoRequestPdf(
       return { message: "Dados não encontrados." };
     }
 
+    // Mesma trava de iniciarCotacao: sem a decisão estoque x cotação, a
+    // quantidade daqui sairia cheia (sem descontar o que já vai sair do
+    // estoque) — o fornecedor cotaria mais do que realmente falta comprar.
+    if (
+      STATUSES_AGUARDANDO_COTACAO.includes(solicitacao.status) &&
+      !solicitacao.estoque_decidido_at
+    ) {
+      return {
+        message:
+          "Decida estoque x cotação de cada item (e o centro de custo) antes de gerar o PDF de cotação.",
+      };
+    }
+
+    const itensParaCotar = (itens ?? [])
+      .map((item) => ({
+        ...item,
+        quantidadeCotar:
+          Number(item.quantidade) - Number(item.quantidade_estoque ?? 0),
+      }))
+      .filter((item) => item.quantidadeCotar > 0);
+
+    if (itensParaCotar.length === 0) {
+      return {
+        message:
+          "Nenhum item selecionado precisa ir para cotação (tudo já sai do estoque).",
+      };
+    }
+
     const pdfBytes = await generateCotacaoRequestPdf({
       solicitacao: {
         codigo: solicitacao.codigo,
         obra: solicitacao.obra?.nome ?? null,
       },
-      itens: (itens ?? []).map((item) => ({
+      itens: itensParaCotar.map((item) => ({
         descricao: item.descricao,
-        quantidade: Number(item.quantidade),
+        quantidade: item.quantidadeCotar,
         unidade: item.unidade,
         observacao: item.observacao,
       })),
@@ -933,6 +991,16 @@ export async function gerarCotacaoRequestPdf(
       clienteId: profile.cliente_id,
       createdBy: user.id,
     });
+
+    // Persiste o link pra não precisar gerar de novo toda vez que a página é
+    // revisitada — CotacaoRequestForm mostra esse valor como estado inicial.
+    await supabase
+      .from("solicitacoes")
+      .update({
+        cotacao_request_pdf_url: shortUrl,
+        cotacao_request_pdf_gerado_em: new Date().toISOString(),
+      })
+      .eq("id", solicitacaoId);
 
     await registrarHistorico({
       clienteId: profile.cliente_id,
@@ -1400,7 +1468,10 @@ export async function enviarParaAprovacao(
     });
 
     revalidatePath(`/compras/${solicitacaoId}`);
-    return { message: `Link publico gerado: /aprovacao/${token}` };
+    return {
+      message: "Link de aprovação gerado.",
+      approvalUrl: `/aprovacao/${token}`,
+    };
   } catch (error) {
     return {
       message: friendlyErrorMessage(error),
@@ -1409,18 +1480,26 @@ export async function enviarParaAprovacao(
 }
 
 export async function registrarDecisaoPublica(formData: FormData) {
-  const supabase = createAdminClient();
   const context = await getRequestContext();
+  const allowed = await checkRateLimit(
+    `aprovacao:${context.ip ?? "unknown"}`,
+    20,
+    10 * 60,
+  );
+  if (!allowed) {
+    throw new Error("Muitas tentativas. Aguarde alguns minutos.");
+  }
+
+  const supabase = createAdminClient();
   const token = text(formData, "token");
   const decisao = text(formData, "decisao");
   const solicitacaoId = text(formData, "solicitacao_id");
-  const clienteId = text(formData, "cliente_id");
   const fornecedorId = text(formData, "fornecedor_id");
   const comentario = text(formData, "comentario");
   const gestorNome = text(formData, "gestor_nome");
   const gestorEmail = text(formData, "gestor_email");
 
-  if (!token || !solicitacaoId || !clienteId || !gestorNome) {
+  if (!token || !solicitacaoId || !gestorNome) {
     throw new Error("Dados de aprovacao incompletos.");
   }
 
@@ -1428,6 +1507,11 @@ export async function registrarDecisaoPublica(formData: FormData) {
     throw new Error("Selecione o fornecedor autorizado.");
   }
 
+  // cliente_id nunca vem do formulário (campo oculto adulterável) — é
+  // sempre derivado da solicitação carregada pelo token, junto com os
+  // mesmos filtros de status/expiração que a página de leitura já aplica
+  // (getPublicApprovalByToken), pra um token vencido não continuar
+  // aprovando compra por essa action.
   const { data: solicitacao } = await supabase
     .from("solicitacoes")
     .select(
@@ -1436,15 +1520,29 @@ export async function registrarDecisaoPublica(formData: FormData) {
       cliente:clientes(*),
       obra:obras(*),
       responsavel_obra:profiles!solicitacoes_responsavel_obra_id_fkey(id,nome,telefone),
-      itens:solicitacao_itens(*)
+      itens:solicitacao_itens(*),
+      cotacoes:cotacoes(fornecedor_id)
       `,
     )
     .eq("id", solicitacaoId)
     .eq("aprovacao_token", token)
+    .in("status", ["aguardando_aprovacao", "aprovacao"])
+    .gt("aprovacao_token_expires_at", new Date().toISOString())
     .single();
 
   if (!solicitacao) {
     throw new Error("Token de aprovacao invalido ou expirado.");
+  }
+
+  const clienteId = solicitacao.cliente_id;
+
+  if (
+    decisao === "autorizar" &&
+    !solicitacao.cotacoes?.some(
+      (c: { fornecedor_id: string }) => c.fornecedor_id === fornecedorId,
+    )
+  ) {
+    throw new Error("Fornecedor selecionado não cotou esta solicitação.");
   }
 
   const status = decisao === "autorizar" ? "aprovada" : "rejeitada";
@@ -1480,6 +1578,10 @@ export async function registrarDecisaoPublica(formData: FormData) {
       .eq("solicitacao_id", solicitacaoId)
       .eq("fornecedor_id", fornecedorId)
       .single();
+
+    if (!cotacao) {
+      throw new Error("Cotação do fornecedor selecionado não encontrada.");
+    }
 
     const pdfBytes = await generatePedidoCompraPdf({
       pedidoNumero,

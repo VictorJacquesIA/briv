@@ -4,6 +4,13 @@ import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  MobileCard,
+  MobileCardActions,
+  MobileCardEmpty,
+  MobileCardList,
+  MobileCardRow,
+} from "@/components/ui/mobile-card-list";
+import {
   confirmarDevolucaoCacamba,
   confirmarEntregaCacamba,
   confirmarTrocaCacamba,
@@ -110,6 +117,116 @@ export default async function CacambaPage({
     return !isGestor || linkedObraIds.includes(obraId);
   }
 
+  function StatusCacamba({ cacamba }: { cacamba: any }) {
+    return (
+      <>
+        <Badge
+          variant={
+            cacamba.status === "ativa"
+              ? "default"
+              : cacamba.status === "encerrada"
+                ? "outline"
+                : "secondary"
+          }
+        >
+          {STATUS_LABELS[cacamba.status] ?? cacamba.status}
+        </Badge>
+        {cacamba.acao_pendente ? (
+          <div className="mt-1">
+            <Badge variant="warning">
+              {ACAO_LABELS[cacamba.acao_pendente] ?? cacamba.acao_pendente}
+            </Badge>
+          </div>
+        ) : null}
+      </>
+    );
+  }
+
+  function AcoesCacamba({
+    cacamba,
+    podeAgirNestaObra,
+  }: {
+    cacamba: any;
+    podeAgirNestaObra: boolean;
+  }) {
+    return (
+      <>
+        {cacamba.status === "solicitada" && canConfirm ? (
+          <form action={confirmarEntregaCacamba}>
+            <input type="hidden" name="cacamba_id" value={cacamba.id} />
+            <button
+              type="submit"
+              className="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-secondary"
+            >
+              Confirmar entrega
+            </button>
+          </form>
+        ) : null}
+
+        {cacamba.status === "ativa" &&
+        !cacamba.acao_pendente &&
+        canCreate &&
+        podeAgirNestaObra ? (
+          <div className="flex flex-wrap gap-2">
+            <form action={solicitarTrocaCacamba}>
+              <input type="hidden" name="cacamba_id" value={cacamba.id} />
+              <button
+                type="submit"
+                className="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-secondary"
+              >
+                Solicitar troca
+              </button>
+            </form>
+            <form action={solicitarDevolucaoCacamba}>
+              <input type="hidden" name="cacamba_id" value={cacamba.id} />
+              <button
+                type="submit"
+                className="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-secondary"
+              >
+                Solicitar devolução
+              </button>
+            </form>
+          </div>
+        ) : null}
+
+        {cacamba.acao_pendente === "troca" && canConfirm ? (
+          <form action={confirmarTrocaCacamba}>
+            <input type="hidden" name="cacamba_id" value={cacamba.id} />
+            <button
+              type="submit"
+              className="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-secondary"
+            >
+              Confirmar troca
+            </button>
+          </form>
+        ) : null}
+
+        {cacamba.acao_pendente === "devolucao" && canConfirm ? (
+          <form action={confirmarDevolucaoCacamba}>
+            <input type="hidden" name="cacamba_id" value={cacamba.id} />
+            <button
+              type="submit"
+              className="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-secondary"
+            >
+              Confirmar devolução
+            </button>
+          </form>
+        ) : null}
+
+        {canConfirm ? (
+          <div className="mt-2">
+            <CacambaOrcamentoForm
+              cacambaId={cacamba.id}
+              orcamentoItemId={cacamba.orcamento_item?.id ?? null}
+              valor={cacamba.valor != null ? Number(cacamba.valor) : null}
+              orcamentoItens={orcamentoItensByObra[cacamba.obra?.id] ?? []}
+            />
+          </div>
+        ) : null}
+      </>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
@@ -139,7 +256,7 @@ export default async function CacambaPage({
           <CardTitle className="text-base">Solicitações</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto rounded-lg border border-border bg-card">
+          <div className="hidden overflow-x-auto rounded-lg border border-border bg-card md:block">
             <table className="w-full min-w-[760px] text-sm">
               <thead className="bg-secondary">
                 <tr>
@@ -172,128 +289,14 @@ export default async function CacambaPage({
                           : "-"}
                       </td>
                       <td className="px-3 py-2">
-                        <Badge
-                          variant={
-                            cacamba.status === "ativa"
-                              ? "default"
-                              : cacamba.status === "encerrada"
-                                ? "outline"
-                                : "secondary"
-                          }
-                        >
-                          {STATUS_LABELS[cacamba.status] ?? cacamba.status}
-                        </Badge>
-                        {cacamba.acao_pendente ? (
-                          <div className="mt-1">
-                            <Badge variant="warning">
-                              {ACAO_LABELS[cacamba.acao_pendente] ??
-                                cacamba.acao_pendente}
-                            </Badge>
-                          </div>
-                        ) : null}
+                        <StatusCacamba cacamba={cacamba} />
                       </td>
                       <td className="px-3 py-2">{cacamba.observacao ?? "-"}</td>
                       <td className="px-3 py-2">
-                        {cacamba.status === "solicitada" && canConfirm ? (
-                          <form action={confirmarEntregaCacamba}>
-                            <input
-                              type="hidden"
-                              name="cacamba_id"
-                              value={cacamba.id}
-                            />
-                            <button
-                              type="submit"
-                              className="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-secondary"
-                            >
-                              Confirmar entrega
-                            </button>
-                          </form>
-                        ) : null}
-
-                        {cacamba.status === "ativa" &&
-                        !cacamba.acao_pendente &&
-                        canCreate &&
-                        podeAgirNestaObra ? (
-                          <div className="flex flex-wrap gap-2">
-                            <form action={solicitarTrocaCacamba}>
-                              <input
-                                type="hidden"
-                                name="cacamba_id"
-                                value={cacamba.id}
-                              />
-                              <button
-                                type="submit"
-                                className="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-secondary"
-                              >
-                                Solicitar troca
-                              </button>
-                            </form>
-                            <form action={solicitarDevolucaoCacamba}>
-                              <input
-                                type="hidden"
-                                name="cacamba_id"
-                                value={cacamba.id}
-                              />
-                              <button
-                                type="submit"
-                                className="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-secondary"
-                              >
-                                Solicitar devolução
-                              </button>
-                            </form>
-                          </div>
-                        ) : null}
-
-                        {cacamba.acao_pendente === "troca" && canConfirm ? (
-                          <form action={confirmarTrocaCacamba}>
-                            <input
-                              type="hidden"
-                              name="cacamba_id"
-                              value={cacamba.id}
-                            />
-                            <button
-                              type="submit"
-                              className="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-secondary"
-                            >
-                              Confirmar troca
-                            </button>
-                          </form>
-                        ) : null}
-
-                        {cacamba.acao_pendente === "devolucao" && canConfirm ? (
-                          <form action={confirmarDevolucaoCacamba}>
-                            <input
-                              type="hidden"
-                              name="cacamba_id"
-                              value={cacamba.id}
-                            />
-                            <button
-                              type="submit"
-                              className="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-secondary"
-                            >
-                              Confirmar devolução
-                            </button>
-                          </form>
-                        ) : null}
-
-                        {canConfirm ? (
-                          <div className="mt-2">
-                            <CacambaOrcamentoForm
-                              cacambaId={cacamba.id}
-                              orcamentoItemId={
-                                cacamba.orcamento_item?.id ?? null
-                              }
-                              valor={
-                                cacamba.valor != null
-                                  ? Number(cacamba.valor)
-                                  : null
-                              }
-                              orcamentoItens={
-                                orcamentoItensByObra[cacamba.obra?.id] ?? []
-                              }
-                            />
-                          </div>
-                        ) : null}
+                        <AcoesCacamba
+                          cacamba={cacamba}
+                          podeAgirNestaObra={podeAgirNestaObra}
+                        />
                       </td>
                     </tr>
                   );
@@ -311,6 +314,48 @@ export default async function CacambaPage({
               </tbody>
             </table>
           </div>
+
+          {cacambas.length === 0 ? (
+            <MobileCardEmpty>Nenhuma caçamba solicitada ainda.</MobileCardEmpty>
+          ) : (
+            <MobileCardList>
+              {cacambas.map((cacamba: any) => {
+                const podeAgirNestaObra = podeGerenciar(cacamba.obra?.id);
+
+                return (
+                  <MobileCard key={cacamba.id}>
+                    <MobileCardRow label="Obra">
+                      {cacamba.obra?.nome}
+                    </MobileCardRow>
+                    <MobileCardRow label="Tipo">{cacamba.tipo}</MobileCardRow>
+                    <MobileCardRow label="Centro de custo">
+                      {cacamba.orcamento_item?.descricao ?? "-"}
+                    </MobileCardRow>
+                    <MobileCardRow label="Valor">
+                      {cacamba.valor != null
+                        ? Number(cacamba.valor).toLocaleString("pt-BR", {
+                            style: "currency",
+                            currency: "BRL",
+                          })
+                        : "-"}
+                    </MobileCardRow>
+                    <MobileCardRow label="Status">
+                      <StatusCacamba cacamba={cacamba} />
+                    </MobileCardRow>
+                    <MobileCardRow label="Observação">
+                      {cacamba.observacao ?? "-"}
+                    </MobileCardRow>
+                    <MobileCardActions>
+                      <AcoesCacamba
+                        cacamba={cacamba}
+                        podeAgirNestaObra={podeAgirNestaObra}
+                      />
+                    </MobileCardActions>
+                  </MobileCard>
+                );
+              })}
+            </MobileCardList>
+          )}
         </CardContent>
       </Card>
     </div>

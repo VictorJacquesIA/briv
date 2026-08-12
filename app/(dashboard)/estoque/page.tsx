@@ -4,6 +4,12 @@ import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  MobileCard,
+  MobileCardEmpty,
+  MobileCardList,
+  MobileCardRow,
+} from "@/components/ui/mobile-card-list";
 import { EntradaForm } from "@/features/estoque/components/entrada-form";
 import { SaidaForm } from "@/features/estoque/components/saida-form";
 import { hasPermission, getPermissionsForUser } from "@/lib/permissions";
@@ -39,6 +45,20 @@ export default async function EstoquePage() {
     canRegistrarSaida ? listObras() : Promise.resolve([]),
   ]);
 
+  function QuantidadeAtual({ item }: { item: any }) {
+    const abaixoDoMinimo =
+      item.quantidade_minima != null &&
+      Number(item.quantidade_atual) < Number(item.quantidade_minima);
+
+    return abaixoDoMinimo ? (
+      <Badge variant="warning">
+        {Number(item.quantidade_atual).toLocaleString("pt-BR")}
+      </Badge>
+    ) : (
+      <>{Number(item.quantidade_atual).toLocaleString("pt-BR")}</>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
@@ -62,7 +82,7 @@ export default async function EstoquePage() {
           <CardTitle className="text-base">Itens em depósito</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto rounded-lg border border-border bg-card">
+          <div className="hidden overflow-x-auto rounded-lg border border-border bg-card md:block">
             <table className="w-full min-w-[600px] text-sm">
               <thead className="bg-secondary">
                 <tr>
@@ -72,30 +92,15 @@ export default async function EstoquePage() {
                 </tr>
               </thead>
               <tbody>
-                {itens.map((item: any) => {
-                  const abaixoDoMinimo =
-                    item.quantidade_minima != null &&
-                    Number(item.quantidade_atual) <
-                      Number(item.quantidade_minima);
-
-                  return (
-                    <tr key={item.estoque_item_id} className="border-t">
-                      <td className="px-3 py-2">{item.item_nome}</td>
-                      <td className="px-3 py-2">{item.unidade_nome ?? "-"}</td>
-                      <td className="px-3 py-2">
-                        {abaixoDoMinimo ? (
-                          <Badge variant="warning">
-                            {Number(item.quantidade_atual).toLocaleString(
-                              "pt-BR",
-                            )}
-                          </Badge>
-                        ) : (
-                          Number(item.quantidade_atual).toLocaleString("pt-BR")
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                {itens.map((item: any) => (
+                  <tr key={item.estoque_item_id} className="border-t">
+                    <td className="px-3 py-2">{item.item_nome}</td>
+                    <td className="px-3 py-2">{item.unidade_nome ?? "-"}</td>
+                    <td className="px-3 py-2">
+                      <QuantidadeAtual item={item} />
+                    </td>
+                  </tr>
+                ))}
                 {itens.length === 0 ? (
                   <tr>
                     <td
@@ -109,6 +114,26 @@ export default async function EstoquePage() {
               </tbody>
             </table>
           </div>
+
+          {itens.length === 0 ? (
+            <MobileCardEmpty>
+              Nenhum item rastreado em estoque ainda.
+            </MobileCardEmpty>
+          ) : (
+            <MobileCardList>
+              {itens.map((item: any) => (
+                <MobileCard key={item.estoque_item_id}>
+                  <MobileCardRow label="Insumo">{item.item_nome}</MobileCardRow>
+                  <MobileCardRow label="Unidade">
+                    {item.unidade_nome ?? "-"}
+                  </MobileCardRow>
+                  <MobileCardRow label="Quantidade atual">
+                    <QuantidadeAtual item={item} />
+                  </MobileCardRow>
+                </MobileCard>
+              ))}
+            </MobileCardList>
+          )}
         </CardContent>
       </Card>
     </div>

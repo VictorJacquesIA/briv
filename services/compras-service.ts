@@ -123,12 +123,22 @@ export async function listSolicitacoes(input?: {
   }
 
   if (input?.search) {
+    // Valor entre aspas duplas neutraliza vírgula/parênteses no filtro do
+    // PostgREST (senão dá pra reescrever a expressão .or() inteira); "\" e
+    // '"' embutidos são escapados pra não fechar a string antes da hora.
+    const safeSearch = input.search.replace(/["\\]/g, (c) => `\\${c}`);
     query = query.or(
-      `codigo.ilike.%${input.search}%,observacao.ilike.%${input.search}%`,
+      `codigo.ilike."%${safeSearch}%",observacao.ilike."%${safeSearch}%"`,
     );
   }
 
-  query = query.order(input?.sort ?? "created_at", { ascending: false });
+  const allowedSorts = ["created_at", "prioridade", "status"] as const;
+  const sort = allowedSorts.includes(
+    input?.sort as (typeof allowedSorts)[number],
+  )
+    ? (input!.sort as (typeof allowedSorts)[number])
+    : "created_at";
+  query = query.order(sort, { ascending: false });
 
   const { data, count } = await query;
 

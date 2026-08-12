@@ -5,6 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  MobileCard,
+  MobileCardActions,
+  MobileCardEmpty,
+  MobileCardList,
+  MobileCardRow,
+} from "@/components/ui/mobile-card-list";
+import {
   createFornecedor,
   toggleFornecedorAtivo,
 } from "@/features/fornecedores/actions/fornecedores-actions";
@@ -43,6 +50,19 @@ export default async function FornecedoresPage() {
       "id,razao_social,nome_fantasia,cnpj,contato,telefone,whatsapp,email,ativo",
     )
     .order("razao_social");
+
+  function AcoesFornecedor({ fornecedor }: { fornecedor: any }) {
+    if (!canEdit) return null;
+    return (
+      <form action={toggleFornecedorAtivo}>
+        <input type="hidden" name="id" value={fornecedor.id} />
+        <input type="hidden" name="ativo" value={String(fornecedor.ativo)} />
+        <Button type="submit" variant="outline" size="sm">
+          {fornecedor.ativo ? "Desativar" : "Ativar"}
+        </Button>
+      </form>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -122,7 +142,7 @@ export default async function FornecedoresPage() {
           <CardTitle className="text-base">Cadastro</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-hidden rounded-lg border border-border bg-card">
+          <div className="hidden overflow-x-auto rounded-lg border border-border bg-card md:block">
             <table className="w-full text-sm">
               <thead className="bg-secondary">
                 <tr>
@@ -160,21 +180,7 @@ export default async function FornecedoresPage() {
                     </td>
                     {canEdit ? (
                       <td className="px-3 py-2">
-                        <form action={toggleFornecedorAtivo}>
-                          <input
-                            type="hidden"
-                            name="id"
-                            value={fornecedor.id}
-                          />
-                          <input
-                            type="hidden"
-                            name="ativo"
-                            value={String(fornecedor.ativo)}
-                          />
-                          <Button type="submit" variant="outline" size="sm">
-                            {fornecedor.ativo ? "Desativar" : "Ativar"}
-                          </Button>
-                        </form>
+                        <AcoesFornecedor fornecedor={fornecedor} />
                       </td>
                     ) : null}
                   </tr>
@@ -192,6 +198,48 @@ export default async function FornecedoresPage() {
               </tbody>
             </table>
           </div>
+
+          {(fornecedores ?? []).length === 0 ? (
+            <MobileCardEmpty>Nenhum fornecedor cadastrado.</MobileCardEmpty>
+          ) : (
+            <MobileCardList>
+              {(fornecedores ?? []).map((fornecedor) => (
+                <MobileCard key={fornecedor.id}>
+                  <MobileCardRow label="Fornecedor">
+                    <div>
+                      <div>
+                        {fornecedor.nome_fantasia ?? fornecedor.razao_social}
+                      </div>
+                      {fornecedor.nome_fantasia ? (
+                        <div className="text-xs font-normal text-muted-foreground">
+                          {fornecedor.razao_social}
+                        </div>
+                      ) : null}
+                    </div>
+                  </MobileCardRow>
+                  <MobileCardRow label="CNPJ">
+                    {fornecedor.cnpj ?? "-"}
+                  </MobileCardRow>
+                  <MobileCardRow label="Contato">
+                    <div>
+                      <div>{fornecedor.contato ?? "-"}</div>
+                      <div className="text-xs font-normal text-muted-foreground">
+                        {fornecedor.whatsapp ?? fornecedor.telefone ?? ""}
+                      </div>
+                    </div>
+                  </MobileCardRow>
+                  <MobileCardRow label="Status">
+                    {fornecedor.ativo ? "Ativo" : "Inativo"}
+                  </MobileCardRow>
+                  {canEdit ? (
+                    <MobileCardActions>
+                      <AcoesFornecedor fornecedor={fornecedor} />
+                    </MobileCardActions>
+                  ) : null}
+                </MobileCard>
+              ))}
+            </MobileCardList>
+          )}
         </CardContent>
       </Card>
     </div>

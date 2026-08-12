@@ -16,6 +16,32 @@ const nextConfig: NextConfig = {
     },
     optimizePackageImports: ["lucide-react"],
   },
+  // Headers de segurança ausentes eram um achado da auditoria — grave em
+  // particular pra /aprovacao/[token], página pública que executa aprovação
+  // de compra e ficava exposta a clickjacking sem X-Frame-Options.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
+          },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+          {
+            key: "Referrer-Policy",
+            value: "strict-origin-when-cross-origin",
+          },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=()",
+          },
+        ],
+      },
+    ];
+  },
   // O projeto vive dentro de uma pasta sincronizada pelo OneDrive, que trava
   // arquivos temporários durante o sync e quebra o rename do cache persistente
   // do webpack (ENOENT em .next/cache/webpack/**/*.pack.gz_). Desligar o cache

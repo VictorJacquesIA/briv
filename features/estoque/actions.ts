@@ -9,7 +9,7 @@ import { money, text } from "@/lib/form-data";
 import { requireActor } from "@/lib/require-actor";
 import { registrarHistorico } from "@/services/historico-service";
 import { getRequestContext } from "@/services/request-context";
-import { findOrCreateByName } from "@/features/compras/actions/item-actions";
+import { findOrCreateByName } from "@/services/catalogo-service";
 
 export type EstoqueActionState = {
   message?: string;

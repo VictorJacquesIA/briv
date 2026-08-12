@@ -52,17 +52,3 @@ export function aprovacaoMessage(input: {
       : "Link ainda não gerado.",
   ].join("\n");
 }
-
-export function pedidoMessage(input: {
-  pedido: string;
-  fornecedor: string;
-  pdfUrl?: string | null;
-}) {
-  return [
-    `Olá, ${input.fornecedor}.`,
-    `Segue Pedido de Compra ${input.pedido}.`,
-    input.pdfUrl
-      ? `PDF: ${input.pdfUrl}`
-      : "PDF disponível no painel UNA Compras.",
-  ].join("\n");
-}

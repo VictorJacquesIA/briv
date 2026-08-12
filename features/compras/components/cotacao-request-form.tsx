@@ -17,6 +17,11 @@ export function CotacaoRequestForm({
   fornecedores: any[];
 }) {
   const [state, action] = useActionState(gerarCotacaoRequestPdf, {});
+  // Último PDF gerado fica persistido em solicitacoes.cotacao_request_pdf_url
+  // (ver purchase-actions.ts::gerarCotacaoRequestPdf) — assim não precisa
+  // gerar de novo toda vez que a página é revisitada.
+  const pdfUrl: string | null =
+    state.pdfUrl ?? solicitacao.cotacao_request_pdf_url ?? null;
   // Só decide pra quem mandar por WhatsApp depois do PDF pronto — o
   // documento é o mesmo pra todos, não precisa escolher fornecedor pra
   // gerar (ver purchase-actions.ts::gerarCotacaoRequestPdf).
@@ -66,17 +71,19 @@ export function CotacaoRequestForm({
       <FormToast message={state.message} />
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="submit">Gerar PDF para pedir cotação</Button>
-        {state.pdfUrl ? (
+        <Button type="submit" variant={pdfUrl ? "outline" : "default"}>
+          {pdfUrl ? "Gerar novo PDF" : "Gerar PDF para pedir cotação"}
+        </Button>
+        {pdfUrl ? (
           <Button asChild variant="outline">
-            <a href={state.pdfUrl} target="_blank" rel="noreferrer">
+            <a href={pdfUrl} target="_blank" rel="noreferrer">
               Baixar PDF
             </a>
           </Button>
         ) : null}
       </div>
 
-      {state.pdfUrl ? (
+      {pdfUrl ? (
         <div className="space-y-2 rounded-lg border p-3">
           <Label>Enviar para quais fornecedores?</Label>
           <div className="max-h-52 space-y-1 overflow-y-auto rounded-md border p-2">
@@ -106,7 +113,7 @@ export function CotacaoRequestForm({
                       fornecedor:
                         fornecedor.nome_fantasia ?? fornecedor.razao_social,
                       template: fornecedor.mensagem_template,
-                      pdfUrl: state.pdfUrl,
+                      pdfUrl,
                     }),
                   )}
                   tipo="cotacao"

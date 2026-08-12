@@ -3,6 +3,12 @@ import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  MobileCard,
+  MobileCardEmpty,
+  MobileCardList,
+  MobileCardRow,
+} from "@/components/ui/mobile-card-list";
 import { DateRangeFilter } from "@/features/dashboard/components/date-range-filter";
 import { resolveDateRange } from "@/lib/date-range";
 import { hasPermission, getPermissionsForUser } from "@/lib/permissions";
@@ -60,6 +66,20 @@ export default async function EstoqueRelatorioPage({
   }
   if (obraSelecionada?.nome) {
     pdfQuery.set("obra_nome", obraSelecionada.nome);
+  }
+
+  function QuantidadeAtual({ item }: { item: any }) {
+    const abaixoDoMinimo =
+      item.quantidade_minima != null &&
+      Number(item.quantidade_atual) < Number(item.quantidade_minima);
+
+    return abaixoDoMinimo ? (
+      <Badge variant="warning">
+        {Number(item.quantidade_atual).toLocaleString("pt-BR")}
+      </Badge>
+    ) : (
+      <>{Number(item.quantidade_atual).toLocaleString("pt-BR")}</>
+    );
   }
 
   return (
@@ -131,7 +151,7 @@ export default async function EstoqueRelatorioPage({
           <CardTitle className="text-base">Itens em estoque</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto rounded-lg border border-border bg-card">
+          <div className="hidden overflow-x-auto rounded-lg border border-border bg-card md:block">
             <table className="w-full min-w-[600px] text-sm">
               <thead className="bg-secondary">
                 <tr>
@@ -141,30 +161,15 @@ export default async function EstoqueRelatorioPage({
                 </tr>
               </thead>
               <tbody>
-                {itens.map((item: any) => {
-                  const abaixoDoMinimo =
-                    item.quantidade_minima != null &&
-                    Number(item.quantidade_atual) <
-                      Number(item.quantidade_minima);
-
-                  return (
-                    <tr key={item.estoque_item_id} className="border-t">
-                      <td className="px-3 py-2">{item.item_nome}</td>
-                      <td className="px-3 py-2">{item.unidade_nome ?? "-"}</td>
-                      <td className="px-3 py-2">
-                        {abaixoDoMinimo ? (
-                          <Badge variant="warning">
-                            {Number(item.quantidade_atual).toLocaleString(
-                              "pt-BR",
-                            )}
-                          </Badge>
-                        ) : (
-                          Number(item.quantidade_atual).toLocaleString("pt-BR")
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                {itens.map((item: any) => (
+                  <tr key={item.estoque_item_id} className="border-t">
+                    <td className="px-3 py-2">{item.item_nome}</td>
+                    <td className="px-3 py-2">{item.unidade_nome ?? "-"}</td>
+                    <td className="px-3 py-2">
+                      <QuantidadeAtual item={item} />
+                    </td>
+                  </tr>
+                ))}
                 {itens.length === 0 ? (
                   <tr>
                     <td
@@ -178,6 +183,24 @@ export default async function EstoqueRelatorioPage({
               </tbody>
             </table>
           </div>
+
+          {itens.length === 0 ? (
+            <MobileCardEmpty>Nenhum item rastreado em estoque.</MobileCardEmpty>
+          ) : (
+            <MobileCardList>
+              {itens.map((item: any) => (
+                <MobileCard key={item.estoque_item_id}>
+                  <MobileCardRow label="Insumo">{item.item_nome}</MobileCardRow>
+                  <MobileCardRow label="Unidade">
+                    {item.unidade_nome ?? "-"}
+                  </MobileCardRow>
+                  <MobileCardRow label="Quantidade atual">
+                    <QuantidadeAtual item={item} />
+                  </MobileCardRow>
+                </MobileCard>
+              ))}
+            </MobileCardList>
+          )}
         </CardContent>
       </Card>
 
@@ -186,7 +209,7 @@ export default async function EstoqueRelatorioPage({
           <CardTitle className="text-base">Entradas</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto rounded-lg border border-border bg-card">
+          <div className="hidden overflow-x-auto rounded-lg border border-border bg-card md:block">
             <table className="w-full min-w-[600px] text-sm">
               <thead className="bg-secondary">
                 <tr>
@@ -224,6 +247,29 @@ export default async function EstoqueRelatorioPage({
               </tbody>
             </table>
           </div>
+
+          {entradas.length === 0 ? (
+            <MobileCardEmpty>Nenhuma entrada no período.</MobileCardEmpty>
+          ) : (
+            <MobileCardList>
+              {entradas.map((mov: any) => (
+                <MobileCard key={mov.id}>
+                  <MobileCardRow label="Data">
+                    {new Date(mov.created_at).toLocaleDateString("pt-BR")}
+                  </MobileCardRow>
+                  <MobileCardRow label="Item">
+                    {mov.estoque_item?.item?.nome ?? "-"}
+                  </MobileCardRow>
+                  <MobileCardRow label="Quantidade">
+                    {Number(mov.quantidade).toLocaleString("pt-BR")}
+                  </MobileCardRow>
+                  <MobileCardRow label="Motivo">
+                    {mov.motivo ?? "-"}
+                  </MobileCardRow>
+                </MobileCard>
+              ))}
+            </MobileCardList>
+          )}
         </CardContent>
       </Card>
 
@@ -232,7 +278,7 @@ export default async function EstoqueRelatorioPage({
           <CardTitle className="text-base">Saídas</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto rounded-lg border border-border bg-card">
+          <div className="hidden overflow-x-auto rounded-lg border border-border bg-card md:block">
             <table className="w-full min-w-[700px] text-sm">
               <thead className="bg-secondary">
                 <tr>
@@ -272,6 +318,34 @@ export default async function EstoqueRelatorioPage({
               </tbody>
             </table>
           </div>
+
+          {saidas.length === 0 ? (
+            <MobileCardEmpty>
+              Nenhuma saída no período/obra selecionados.
+            </MobileCardEmpty>
+          ) : (
+            <MobileCardList>
+              {saidas.map((mov: any) => (
+                <MobileCard key={mov.id}>
+                  <MobileCardRow label="Data">
+                    {new Date(mov.created_at).toLocaleDateString("pt-BR")}
+                  </MobileCardRow>
+                  <MobileCardRow label="Item">
+                    {mov.estoque_item?.item?.nome ?? "-"}
+                  </MobileCardRow>
+                  <MobileCardRow label="Quantidade">
+                    {Number(mov.quantidade).toLocaleString("pt-BR")}
+                  </MobileCardRow>
+                  <MobileCardRow label="Obra">
+                    {mov.obra?.nome ?? "-"}
+                  </MobileCardRow>
+                  <MobileCardRow label="Motivo">
+                    {mov.motivo ?? "-"}
+                  </MobileCardRow>
+                </MobileCard>
+              ))}
+            </MobileCardList>
+          )}
         </CardContent>
       </Card>
     </div>

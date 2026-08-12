@@ -6,6 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  MobileCard,
+  MobileCardActions,
+  MobileCardEmpty,
+  MobileCardList,
+  MobileCardRow,
+} from "@/components/ui/mobile-card-list";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   createDespesaManual,
@@ -15,7 +22,12 @@ import {
   updateObraFase,
   updateObraGestor,
 } from "@/features/obras/actions/obra-actions";
-import { hasPermission, getPermissionsForUser } from "@/lib/permissions";
+import {
+  hasPermission,
+  getPermissionsForUser,
+  canAccessObra,
+  getLinkedObrasForUser,
+} from "@/lib/permissions";
 import { FASE_LABELS, ORCAMENTO_TIPO_LABELS } from "@/lib/obras-constants";
 import {
   getObraDetail,
@@ -38,14 +50,26 @@ export default async function ObraDetailPage({
     redirect("/login");
   }
 
-  const [permissions, obra, orcamento, obraGestor, despesasManuais] =
-    await Promise.all([
-      getPermissionsForUser(currentProfile.id),
-      getObraDetail(id),
-      getOrcamentoRealizado(id),
-      getObraGestor(id),
-      listDespesasManuais(id),
-    ]);
+  const permissions = await getPermissionsForUser(currentProfile.id);
+
+  if (!hasPermission(currentProfile.role, permissions, "obras.view")) {
+    redirect("/dashboard");
+  }
+
+  const linkedObras = await getLinkedObrasForUser(currentProfile.id);
+
+  if (
+    !(await canAccessObra(currentProfile.role, permissions, id, linkedObras))
+  ) {
+    redirect("/obras");
+  }
+
+  const [obra, orcamento, obraGestor, despesasManuais] = await Promise.all([
+    getObraDetail(id),
+    getOrcamentoRealizado(id),
+    getObraGestor(id),
+    listDespesasManuais(id),
+  ]);
 
   const canManageObra = hasPermission(
     currentProfile.role,
@@ -350,7 +374,7 @@ export default async function ObraDetailPage({
                     </form>
                   ) : null}
 
-                  <div className="overflow-x-auto rounded-lg border border-border bg-card">
+                  <div className="hidden overflow-x-auto rounded-lg border border-border bg-card md:block">
                     <table className="w-full min-w-[700px] text-sm">
                       <thead className="bg-secondary">
                         <tr>
@@ -435,6 +459,72 @@ export default async function ObraDetailPage({
                       </tbody>
                     </table>
                   </div>
+
+                  {despesasManuais.length === 0 ? (
+                    <MobileCardEmpty>
+                      Nenhuma despesa manual lançada.
+                    </MobileCardEmpty>
+                  ) : (
+                    <MobileCardList>
+                      {despesasManuais.map((despesa: any) => (
+                        <MobileCard key={despesa.id}>
+                          <MobileCardRow label="Data">
+                            {new Date(
+                              `${despesa.data_despesa}T00:00:00`,
+                            ).toLocaleDateString("pt-BR")}
+                          </MobileCardRow>
+                          <MobileCardRow label="Centro de custo">
+                            <div>
+                              {despesa.orcamento_item?.descricao ?? "-"}
+                              <div className="text-xs font-normal text-muted-foreground">
+                                {despesa.orcamento_item?.tipo
+                                  ? ORCAMENTO_TIPO_LABELS[
+                                      despesa.orcamento_item.tipo
+                                    ]
+                                  : "-"}
+                              </div>
+                            </div>
+                          </MobileCardRow>
+                          <MobileCardRow label="Descrição">
+                            {despesa.descricao}
+                          </MobileCardRow>
+                          <MobileCardRow label="Valor">
+                            R${" "}
+                            {Number(despesa.valor).toLocaleString("pt-BR", {
+                              minimumFractionDigits: 2,
+                            })}
+                          </MobileCardRow>
+                          <MobileCardRow label="Lançado por">
+                            {despesa.profile?.nome ?? "-"}
+                          </MobileCardRow>
+                          {canEditOrcamento ? (
+                            <MobileCardActions>
+                              <form action={deleteDespesaManual}>
+                                <input
+                                  type="hidden"
+                                  name="obra_id"
+                                  value={obra.id}
+                                />
+                                <input
+                                  type="hidden"
+                                  name="despesa_id"
+                                  value={despesa.id}
+                                />
+                                <ConfirmSubmitButton
+                                  type="submit"
+                                  variant="destructive"
+                                  size="sm"
+                                  message="Remover esta despesa manual?"
+                                >
+                                  Remover
+                                </ConfirmSubmitButton>
+                              </form>
+                            </MobileCardActions>
+                          ) : null}
+                        </MobileCard>
+                      ))}
+                    </MobileCardList>
+                  )}
                 </CardContent>
               </Card>
 
@@ -515,98 +605,160 @@ function OrcamentoTable({
   canEditOrcamento: boolean;
   emptyMessage: string;
 }) {
+  function realizadoDoItem(item: any) {
+    return (
+      Number(item.material_realizado ?? 0) +
+      Number(item.mo_realizado ?? 0) +
+      Number(item.servicos_realizado ?? 0) +
+      Number(item.despesas_realizado ?? 0)
+    );
+  }
+
+  function AcoesOrcamentoItem({ item }: { item: any }) {
+    return (
+      <form action={deleteOrcamentoItem}>
+        <input type="hidden" name="obra_id" value={obraId} />
+        <input
+          type="hidden"
+          name="orcamento_item_id"
+          value={item.orcamento_item_id}
+        />
+        <ConfirmSubmitButton
+          type="submit"
+          variant="destructive"
+          size="sm"
+          message="Remover este item de orçamento?"
+        >
+          Remover
+        </ConfirmSubmitButton>
+      </form>
+    );
+  }
+
   return (
-    <div className="overflow-x-auto rounded-lg border border-border bg-card">
-      <table className="w-full min-w-[600px] text-sm">
-        <thead className="bg-secondary">
-          <tr>
-            <th className="px-3 py-2 text-left">Item</th>
-            <th className="px-3 py-2 text-left">Orçado</th>
-            <th className="px-3 py-2 text-left">Realizado</th>
-            {canEditOrcamento ? (
-              <th className="px-3 py-2 text-left">Ações</th>
+    <>
+      <div className="hidden overflow-x-auto rounded-lg border border-border bg-card md:block">
+        <table className="w-full min-w-[600px] text-sm">
+          <thead className="bg-secondary">
+            <tr>
+              <th className="px-3 py-2 text-left">Item</th>
+              <th className="px-3 py-2 text-left">Orçado</th>
+              <th className="px-3 py-2 text-left">Realizado</th>
+              {canEditOrcamento ? (
+                <th className="px-3 py-2 text-left">Ações</th>
+              ) : null}
+            </tr>
+          </thead>
+          <tbody>
+            {itens.map((item: any) => (
+              <tr key={item.orcamento_item_id} className="border-t">
+                <td className="px-3 py-2">
+                  <div className="font-medium">{item.descricao}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {item.categoria ?? "-"}
+                  </div>
+                </td>
+                <td className="px-3 py-2">
+                  R${" "}
+                  {Number(item.valor_orcado).toLocaleString("pt-BR", {
+                    minimumFractionDigits: 2,
+                  })}
+                </td>
+                <td className="px-3 py-2">
+                  R${" "}
+                  {realizadoDoItem(item).toLocaleString("pt-BR", {
+                    minimumFractionDigits: 2,
+                  })}
+                </td>
+                {canEditOrcamento ? (
+                  <td className="px-3 py-2">
+                    <AcoesOrcamentoItem item={item} />
+                  </td>
+                ) : null}
+              </tr>
+            ))}
+            {itens.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={canEditOrcamento ? 4 : 3}
+                  className="h-20 px-3 text-center text-muted-foreground"
+                >
+                  {emptyMessage}
+                </td>
+              </tr>
             ) : null}
-          </tr>
-        </thead>
-        <tbody>
+          </tbody>
+          {itens.length > 0 ? (
+            <tfoot>
+              <tr className="border-t font-medium">
+                <td className="px-3 py-2">Total</td>
+                <td className="px-3 py-2">
+                  R${" "}
+                  {totals.orcado.toLocaleString("pt-BR", {
+                    minimumFractionDigits: 2,
+                  })}
+                </td>
+                <td className="px-3 py-2" colSpan={canEditOrcamento ? 2 : 1}>
+                  R${" "}
+                  {totals.realizado.toLocaleString("pt-BR", {
+                    minimumFractionDigits: 2,
+                  })}
+                </td>
+              </tr>
+            </tfoot>
+          ) : null}
+        </table>
+      </div>
+
+      {itens.length === 0 ? (
+        <MobileCardEmpty>{emptyMessage}</MobileCardEmpty>
+      ) : (
+        <MobileCardList>
           {itens.map((item: any) => (
-            <tr key={item.orcamento_item_id} className="border-t">
-              <td className="px-3 py-2">
-                <div className="font-medium">{item.descricao}</div>
-                <div className="text-xs text-muted-foreground">
-                  {item.categoria ?? "-"}
+            <MobileCard key={item.orcamento_item_id}>
+              <MobileCardRow label="Item">
+                <div>
+                  {item.descricao}
+                  <div className="text-xs font-normal text-muted-foreground">
+                    {item.categoria ?? "-"}
+                  </div>
                 </div>
-              </td>
-              <td className="px-3 py-2">
+              </MobileCardRow>
+              <MobileCardRow label="Orçado">
                 R${" "}
                 {Number(item.valor_orcado).toLocaleString("pt-BR", {
                   minimumFractionDigits: 2,
                 })}
-              </td>
-              <td className="px-3 py-2">
+              </MobileCardRow>
+              <MobileCardRow label="Realizado">
                 R${" "}
-                {(
-                  Number(item.material_realizado ?? 0) +
-                  Number(item.mo_realizado ?? 0) +
-                  Number(item.servicos_realizado ?? 0) +
-                  Number(item.despesas_realizado ?? 0)
-                ).toLocaleString("pt-BR", {
+                {realizadoDoItem(item).toLocaleString("pt-BR", {
                   minimumFractionDigits: 2,
                 })}
-              </td>
+              </MobileCardRow>
               {canEditOrcamento ? (
-                <td className="px-3 py-2">
-                  <form action={deleteOrcamentoItem}>
-                    <input type="hidden" name="obra_id" value={obraId} />
-                    <input
-                      type="hidden"
-                      name="orcamento_item_id"
-                      value={item.orcamento_item_id}
-                    />
-                    <ConfirmSubmitButton
-                      type="submit"
-                      variant="destructive"
-                      size="sm"
-                      message="Remover este item de orçamento?"
-                    >
-                      Remover
-                    </ConfirmSubmitButton>
-                  </form>
-                </td>
+                <MobileCardActions>
+                  <AcoesOrcamentoItem item={item} />
+                </MobileCardActions>
               ) : null}
-            </tr>
+            </MobileCard>
           ))}
-          {itens.length === 0 ? (
-            <tr>
-              <td
-                colSpan={canEditOrcamento ? 4 : 3}
-                className="h-20 px-3 text-center text-muted-foreground"
-              >
-                {emptyMessage}
-              </td>
-            </tr>
-          ) : null}
-        </tbody>
-        {itens.length > 0 ? (
-          <tfoot>
-            <tr className="border-t font-medium">
-              <td className="px-3 py-2">Total</td>
-              <td className="px-3 py-2">
-                R${" "}
-                {totals.orcado.toLocaleString("pt-BR", {
-                  minimumFractionDigits: 2,
-                })}
-              </td>
-              <td className="px-3 py-2" colSpan={canEditOrcamento ? 2 : 1}>
-                R${" "}
-                {totals.realizado.toLocaleString("pt-BR", {
-                  minimumFractionDigits: 2,
-                })}
-              </td>
-            </tr>
-          </tfoot>
-        ) : null}
-      </table>
-    </div>
+          <MobileCard className="font-medium">
+            <MobileCardRow label="Total orçado">
+              R${" "}
+              {totals.orcado.toLocaleString("pt-BR", {
+                minimumFractionDigits: 2,
+              })}
+            </MobileCardRow>
+            <MobileCardRow label="Total realizado">
+              R${" "}
+              {totals.realizado.toLocaleString("pt-BR", {
+                minimumFractionDigits: 2,
+              })}
+            </MobileCardRow>
+          </MobileCard>
+        </MobileCardList>
+      )}
+    </>
   );
 }

@@ -14,6 +14,13 @@ import { FormToast } from "@/components/ui/form-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  MobileCard,
+  MobileCardActions,
+  MobileCardEmpty,
+  MobileCardList,
+  MobileCardRow,
+} from "@/components/ui/mobile-card-list";
+import {
   bulkDeleteItensCatalogo,
   bulkUpdateItensCatalogo,
   deleteItemCatalogo,
@@ -111,6 +118,39 @@ export function CatalogoTable({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bulkUpdateState, bulkDeleteState]);
 
+  function AcoesItem({ item }: { item: Item }) {
+    return (
+      <>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setEditingItem(item)}
+        >
+          Editar
+        </Button>
+        <form action={toggleItemAtivo}>
+          <input type="hidden" name="id" value={item.id} />
+          <input type="hidden" name="ativo" value={String(item.ativo)} />
+          <Button type="submit" variant="outline" size="sm">
+            {item.ativo ? "Desativar" : "Ativar"}
+          </Button>
+        </form>
+        <form action={deleteAction}>
+          <input type="hidden" name="id" value={item.id} />
+          <ConfirmSubmitButton
+            type="submit"
+            variant="destructive"
+            size="sm"
+            message={`Apagar "${item.nome}"? Essa ação não pode ser desfeita.`}
+          >
+            Apagar
+          </ConfirmSubmitButton>
+        </form>
+      </>
+    );
+  }
+
   return (
     <div className="space-y-3">
       <datalist id="unidades-sugestoes-catalogo">
@@ -175,7 +215,7 @@ export function CatalogoTable({
         </div>
       ) : null}
 
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="hidden overflow-x-auto rounded-lg border border-border bg-card md:block">
         <table className="w-full text-sm">
           <thead className="bg-secondary">
             <tr>
@@ -223,36 +263,7 @@ export function CatalogoTable({
                 {canEdit ? (
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setEditingItem(item)}
-                      >
-                        Editar
-                      </Button>
-                      <form action={toggleItemAtivo}>
-                        <input type="hidden" name="id" value={item.id} />
-                        <input
-                          type="hidden"
-                          name="ativo"
-                          value={String(item.ativo)}
-                        />
-                        <Button type="submit" variant="outline" size="sm">
-                          {item.ativo ? "Desativar" : "Ativar"}
-                        </Button>
-                      </form>
-                      <form action={deleteAction}>
-                        <input type="hidden" name="id" value={item.id} />
-                        <ConfirmSubmitButton
-                          type="submit"
-                          variant="destructive"
-                          size="sm"
-                          message={`Apagar "${item.nome}"? Essa ação não pode ser desfeita.`}
-                        >
-                          Apagar
-                        </ConfirmSubmitButton>
-                      </form>
+                      <AcoesItem item={item} />
                     </div>
                   </td>
                 ) : null}
@@ -271,6 +282,48 @@ export function CatalogoTable({
           </tbody>
         </table>
       </div>
+
+      {items.length === 0 ? (
+        <MobileCardEmpty>Nenhum item cadastrado.</MobileCardEmpty>
+      ) : (
+        <MobileCardList>
+          {items.map((item) => (
+            <MobileCard key={item.id}>
+              <MobileCardRow label="Nome">
+                <div className="flex items-center justify-end gap-2">
+                  {canEdit ? (
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(item.id)}
+                      onChange={() => toggleSelected(item.id)}
+                      aria-label={`Selecionar ${item.nome}`}
+                    />
+                  ) : null}
+                  <div>
+                    <div>{item.nome}</div>
+                    {item.descricao ? (
+                      <div className="text-xs font-normal text-muted-foreground">
+                        {item.descricao}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </MobileCardRow>
+              <MobileCardRow label="Unidade">
+                {item.unidade?.nome ?? "-"}
+              </MobileCardRow>
+              <MobileCardRow label="Status">
+                {item.ativo ? "Ativo" : "Inativo"}
+              </MobileCardRow>
+              {canEdit ? (
+                <MobileCardActions>
+                  <AcoesItem item={item} />
+                </MobileCardActions>
+              ) : null}
+            </MobileCard>
+          ))}
+        </MobileCardList>
+      )}
 
       <Dialog
         open={Boolean(editingItem)}

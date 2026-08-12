@@ -15,6 +15,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  MobileCard,
+  MobileCardEmpty,
+  MobileCardList,
+  MobileCardRow,
+} from "@/components/ui/mobile-card-list";
 import { resolveDateRange } from "@/lib/date-range";
 import {
   getLinkedObrasForUser,
@@ -141,7 +147,7 @@ export default async function DashboardPage({
             <CardTitle className="text-base">Itens abaixo do mínimo</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto rounded-lg border border-border bg-card">
+            <div className="hidden overflow-x-auto rounded-lg border border-border bg-card md:block">
               <table className="w-full min-w-[500px] text-sm">
                 <thead className="bg-secondary">
                   <tr>
@@ -177,6 +183,28 @@ export default async function DashboardPage({
                 </tbody>
               </table>
             </div>
+
+            {itensAbaixoDoMinimo.length === 0 ? (
+              <MobileCardEmpty>Nenhum item abaixo do mínimo.</MobileCardEmpty>
+            ) : (
+              <MobileCardList>
+                {itensAbaixoDoMinimo.map((item: any) => (
+                  <MobileCard key={item.estoque_item_id}>
+                    <MobileCardRow label="Insumo">
+                      {item.item_nome}
+                    </MobileCardRow>
+                    <MobileCardRow label="Unidade">
+                      {item.unidade_nome ?? "-"}
+                    </MobileCardRow>
+                    <MobileCardRow label="Quantidade atual">
+                      <Badge variant="warning">
+                        {Number(item.quantidade_atual).toLocaleString("pt-BR")}
+                      </Badge>
+                    </MobileCardRow>
+                  </MobileCard>
+                ))}
+              </MobileCardList>
+            )}
           </CardContent>
         </Card>
       </div>

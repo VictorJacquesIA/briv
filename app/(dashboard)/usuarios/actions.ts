@@ -315,6 +315,21 @@ export async function updateUserAccount(
   }
 
   const { nome, email, senha } = parsed.data;
+
+  // Confirma que o alvo é do mesmo tenant do ator ANTES de usar o admin
+  // client (service role, ignora RLS) — sem isso, qualquer adm_geral trocaria
+  // e-mail/senha de usuário de outra empresa só sabendo o UUID dele.
+  const supabaseRls = await createClient();
+  const { data: target } = await supabaseRls
+    .from("profiles")
+    .select("id,cliente_id")
+    .eq("id", targetId)
+    .single();
+
+  if (!target || target.cliente_id !== currentProfile.cliente_id) {
+    return { message: "Usuário não encontrado." };
+  }
+
   const admin = createAdminClient();
 
   if (email || senha) {
