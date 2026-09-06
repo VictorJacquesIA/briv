@@ -15,6 +15,28 @@ function normalize(text: string) {
 
 function matchExtractedItem(descricao: string, extractedItens: any[]) {
   const normalizedDescricao = normalize(descricao);
+
+  // 1ª tentativa: a própria IA já diz a qual item da solicitação essa linha
+  // corresponde (solicitacao_item_descricao) — ela entende que "QUARTZOLIT
+  // PREMIUM FLEX CINZA AC3 20KG" é o mesmo produto que "ARGAMASSA COLANTE
+  // AC3", mesmo sem nenhuma palavra em comum. Bem mais confiável que
+  // comparar texto.
+  const porCorrespondenciaDaIa = extractedItens.find((item: any) => {
+    const normalizedCorrespondencia = normalize(
+      String(item.solicitacao_item_descricao ?? ""),
+    );
+    return (
+      normalizedCorrespondencia.length > 0 &&
+      normalizedCorrespondencia === normalizedDescricao
+    );
+  });
+
+  if (porCorrespondenciaDaIa) {
+    return porCorrespondenciaDaIa;
+  }
+
+  // Fallback: cotações antigas (extraídas antes desse campo existir) ou
+  // linhas em que a IA não preencheu a correspondência — tenta por texto.
   return extractedItens.find((item: any) => {
     const normalizedExtracted = normalize(String(item.descricao ?? ""));
     return (
@@ -51,40 +73,6 @@ export function CotacaoReviewForm({
         <form action={action} className="space-y-4">
           <input type="hidden" name="solicitacao_id" value={solicitacaoId} />
           <input type="hidden" name="cotacao_id" value={cotacao.id} />
-
-          <div className="grid gap-4 lg:grid-cols-3">
-            <div className="space-y-2">
-              <Label htmlFor={`frete-${cotacao.id}`}>Frete</Label>
-              <Input
-                id={`frete-${cotacao.id}`}
-                name="frete"
-                inputMode="decimal"
-                defaultValue={extracao.frete ?? cotacao.frete ?? ""}
-                placeholder="0,00"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor={`prazo-${cotacao.id}`}>Prazo (dias)</Label>
-              <Input
-                id={`prazo-${cotacao.id}`}
-                name="prazo_dias"
-                inputMode="numeric"
-                defaultValue={extracao.prazo_dias ?? cotacao.prazo_dias ?? ""}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor={`pagamento-${cotacao.id}`}>
-                Forma de pagamento
-              </Label>
-              <Input
-                id={`pagamento-${cotacao.id}`}
-                name="forma_pagamento"
-                defaultValue={
-                  extracao.forma_pagamento ?? cotacao.forma_pagamento ?? ""
-                }
-              />
-            </div>
-          </div>
 
           {/* Tabela vira lista de blocos no mobile via CSS (mesmos inputs,
               sem duplicar "name" — os campos ficam num único <form>). */}

@@ -6,6 +6,7 @@ const client = new Anthropic();
 
 const extractedItemSchema = z.object({
   descricao: z.string(),
+  solicitacao_item_descricao: z.string().nullable(),
   quantidade: z.number().nullable(),
   valor_unitario: z.number().nullable(),
   observacao: z.string().nullable(),
@@ -13,9 +14,6 @@ const extractedItemSchema = z.object({
 
 const extractionResultSchema = z.object({
   fornecedor_identificado: z.string().nullable(),
-  frete: z.number().nullable(),
-  prazo_dias: z.number().nullable(),
-  forma_pagamento: z.string().nullable(),
   itens: z.array(extractedItemSchema),
 });
 
@@ -71,7 +69,9 @@ export async function extractCotacaoFromFile(input: {
               "Os itens solicitados foram:",
               itensList,
               "",
-              "Extraia os valores cotados pelo fornecedor: para cada item, tente casar com a lista acima pela descrição e informe preço unitário e quantidade. Extraia também frete, prazo de entrega em dias, forma de pagamento e o nome do fornecedor se identificável.",
+              "Extraia cada linha de produto/preço do documento. Para cada linha extraída, preencha 'solicitacao_item_descricao' com o texto EXATO (copiado literalmente, igual está na lista acima) do item da lista que ela corresponde — mesmo que o nome do fornecedor seja bem diferente (marca, modelo, sigla do fabricante, especificação técnica). O que importa é ser o mesmo material/produto, não o texto ser parecido: por exemplo 'QUARTZOLIT PREMIUM FLEX CINZA AC3 20KG' deve casar com 'ARGAMASSA COLANTE AC3' da lista, porque é o mesmo produto (argamassa colante tipo AC3) vendido por uma marca específica. Se a linha do documento não corresponder a nenhum item da lista (item extra que não foi pedido), deixe 'solicitacao_item_descricao' como null.",
+              "'descricao' continua sendo o texto do produto exatamente como está escrito no documento do fornecedor (não altere).",
+              "Extraia também o nome do fornecedor se identificável.",
               "Se um valor não estiver visível no documento, retorne null para ele — nunca invente ou estime um valor que não esteja escrito no documento.",
             ].join("\n"),
           },

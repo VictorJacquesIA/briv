@@ -207,28 +207,14 @@ export async function getPublicApprovalByToken(token: string) {
 }
 
 export function fornecedorTotal(cotacao: any) {
-  const itensTotal = (cotacao.itens ?? []).reduce(
+  return (cotacao.itens ?? []).reduce(
     (sum: number, item: any) => sum + Number(item.valor_total ?? 0),
     0,
   );
-
-  return itensTotal + Number(cotacao.frete ?? 0);
 }
 
 export function cotacaoPendencias(cotacao: any) {
   const pendencias: string[] = [];
-
-  if (cotacao.frete === null || cotacao.frete === undefined) {
-    pendencias.push("frete ausente");
-  }
-
-  if (cotacao.prazo_dias === null || cotacao.prazo_dias === undefined) {
-    pendencias.push("prazo ausente");
-  }
-
-  if (!cotacao.forma_pagamento) {
-    pendencias.push("forma de pagamento ausente");
-  }
 
   const hasNaoCotado = (cotacao.itens ?? []).some(
     (item: any) => item.item_nao_cotado,

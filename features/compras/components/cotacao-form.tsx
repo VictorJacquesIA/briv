@@ -30,46 +30,21 @@ export function CotacaoForm({
   return (
     <form action={action} className="space-y-4">
       <input type="hidden" name="solicitacao_id" value={solicitacao.id} />
-      <div className="grid gap-4 lg:grid-cols-4">
-        <div className="space-y-2 lg:col-span-2">
-          <Label htmlFor="fornecedor_id">Fornecedor</Label>
-          <select
-            id="fornecedor_id"
-            name="fornecedor_id"
-            className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-            required
-          >
-            <option value="">Selecione</option>
-            {fornecedores.map((fornecedor) => (
-              <option key={fornecedor.id} value={fornecedor.id}>
-                {fornecedor.nome_fantasia ?? fornecedor.razao_social}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="frete">Frete</Label>
-          <Input
-            id="frete"
-            name="frete"
-            inputMode="decimal"
-            placeholder="0,00"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="prazo_dias">Prazo</Label>
-          <Input
-            id="prazo_dias"
-            name="prazo_dias"
-            inputMode="numeric"
-            placeholder="dias"
-          />
-        </div>
-      </div>
-
       <div className="space-y-2">
-        <Label htmlFor="forma_pagamento">Forma de pagamento</Label>
-        <Input id="forma_pagamento" name="forma_pagamento" />
+        <Label htmlFor="fornecedor_id">Fornecedor</Label>
+        <select
+          id="fornecedor_id"
+          name="fornecedor_id"
+          className="h-10 w-full rounded-md border bg-background px-3 text-sm lg:w-1/2"
+          required
+        >
+          <option value="">Selecione</option>
+          {fornecedores.map((fornecedor) => (
+            <option key={fornecedor.id} value={fornecedor.id}>
+              {fornecedor.nome_fantasia ?? fornecedor.razao_social}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Tabela vira lista de blocos no mobile via CSS (mesmos inputs, sem

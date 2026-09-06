@@ -230,12 +230,6 @@ export async function generatePedidoCompraPdf(input: {
 
   y -= 8;
   draw(
-    `Frete: R$ ${money(input.cotacao.frete)} | Prazo: ${line(input.cotacao.prazo_dias)} dias | Pagamento: ${line(input.cotacao.forma_pagamento)}`,
-    48,
-    10,
-    bold,
-  );
-  draw(
     `Total do fornecedor: R$ ${money(input.cotacao.total_fornecedor)}`,
     48,
     12,
@@ -274,6 +268,9 @@ export async function generateCotacaoRequestPdf(input: {
   solicitacao: {
     codigo: string | null;
     obra: string | null;
+    obraEndereco?: string | null;
+    clienteNome?: string | null;
+    clienteCnpj?: string | null;
   };
   itens: Array<{
     descricao: string;
@@ -293,14 +290,19 @@ export async function generateCotacaoRequestPdf(input: {
   // WhatsApp que acompanha o link é personalizada).
   let y = drawHeader(page, { regular, bold }, logo, "SOLICITAÇÃO DE COTAÇÃO", [
     `Solicitação: ${line(input.solicitacao.codigo)}`,
+    `Empresa: ${line(input.solicitacao.clienteNome)} — CNPJ: ${line(input.solicitacao.clienteCnpj)}`,
     `Obra: ${line(input.solicitacao.obra)}`,
+    `Endereço: ${line(input.solicitacao.obraEndereco)}`,
     `Data: ${new Date().toLocaleDateString("pt-BR")}`,
   ]);
 
-  page.drawText(
-    "Por favor, informe valores por item, frete, prazo de entrega e forma de pagamento.",
-    { x: 48, y, size: 9, font: regular, color: TEXT_MUTED },
-  );
+  page.drawText("Por favor, informe o valor unitário de cada item.", {
+    x: 48,
+    y,
+    size: 9,
+    font: regular,
+    color: TEXT_MUTED,
+  });
   y -= 22;
 
   page.drawText("Descricao", { x: 48, y, size: 9, font: bold });

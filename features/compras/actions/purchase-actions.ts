@@ -40,6 +40,13 @@ type ActionState = {
   approvalUrl?: string;
 };
 
+// Validade dos links compartilhados por WhatsApp/e-mail (aprovação e PDFs
+// de cotação/pedido). Os PDFs de cotação/pedido também são apagados do
+// Storage depois desse prazo pela limpeza automática (ver
+// app/api/cron/cleanup-pdfs/route.ts) — os dois têm que ficar iguais, senão
+// o link fica "vivo" apontando pra um arquivo que já não existe mais.
+const LINK_TTL_SECONDS = 60 * 60 * 24 * 90;
+
 type PrioridadeSolicitacao =
   Database["public"]["Enums"]["prioridade_solicitacao"];
 type SolicitacaoStatus = Database["public"]["Enums"]["solicitacao_status"];
@@ -174,15 +181,12 @@ function parseCotacaoItens(formData: FormData): CotacaoItemInput[] {
     .filter((item): item is CotacaoItemInput => item !== null);
 }
 
-function calcularTotalFornecedor(
-  itens: CotacaoItemInput[],
-  frete: number | null,
-) {
+function calcularTotalFornecedor(itens: CotacaoItemInput[]) {
   const totalItens = itens.reduce(
     (sum, item) => sum + Number(item.valor_total ?? 0),
     0,
   );
-  return Number((totalItens + Number(frete ?? 0)).toFixed(2));
+  return Number(totalItens.toFixed(2));
 }
 
 export async function createSolicitacao(
@@ -620,7 +624,6 @@ export async function salvarCotacao(
       return { message: "Este fornecedor ja possui orcamento registrado." };
     }
 
-    const frete = money(formData.get("frete"));
     const itens = parseCotacaoItens(formData);
 
     if (itens.length === 0) {
@@ -629,7 +632,7 @@ export async function salvarCotacao(
       };
     }
 
-    const totalFornecedor = calcularTotalFornecedor(itens, frete);
+    const totalFornecedor = calcularTotalFornecedor(itens);
 
     const { data: cotacao, error } = await supabase
       .from("cotacoes")
@@ -638,9 +641,6 @@ export async function salvarCotacao(
         solicitacao_id: solicitacaoId,
         fornecedor_id: fornecedorId,
         status: "respondida",
-        frete,
-        prazo_dias: money(formData.get("prazo_dias")),
-        forma_pagamento: text(formData, "forma_pagamento"),
         observacoes_gerais: text(formData, "observacoes_gerais"),
         observacao: text(formData, "observacoes_gerais"),
         total_fornecedor: totalFornecedor,
@@ -906,7 +906,9 @@ export async function gerarCotacaoRequestPdf(
     const [{ data: solicitacao }, { data: itens }] = await Promise.all([
       supabase
         .from("solicitacoes")
-        .select("codigo,status,estoque_decidido_at,obra:obras(nome)")
+        .select(
+          "codigo,status,estoque_decidido_at,obra:obras(nome,endereco),cliente:clientes(razao_social,nome_fantasia,cnpj)",
+        )
         .eq("id", solicitacaoId)
         .single(),
       supabase
@@ -952,6 +954,12 @@ export async function gerarCotacaoRequestPdf(
       solicitacao: {
         codigo: solicitacao.codigo,
         obra: solicitacao.obra?.nome ?? null,
+        obraEndereco: solicitacao.obra?.endereco ?? null,
+        clienteNome:
+          solicitacao.cliente?.nome_fantasia ??
+          solicitacao.cliente?.razao_social ??
+          null,
+        clienteCnpj: solicitacao.cliente?.cnpj ?? null,
       },
       itens: itensParaCotar.map((item) => ({
         descricao: item.descricao,
@@ -980,7 +988,7 @@ export async function gerarCotacaoRequestPdf(
 
     const { data: signed } = await supabase.storage
       .from("anexos")
-      .createSignedUrl(storagePath, 60 * 60 * 24 * 30);
+      .createSignedUrl(storagePath, LINK_TTL_SECONDS);
 
     if (!signed?.signedUrl) {
       return { message: "PDF gerado, mas não foi possível criar o link." };
@@ -998,6 +1006,7 @@ export async function gerarCotacaoRequestPdf(
       .from("solicitacoes")
       .update({
         cotacao_request_pdf_url: shortUrl,
+        cotacao_request_pdf_path: storagePath,
         cotacao_request_pdf_gerado_em: new Date().toISOString(),
       })
       .eq("id", solicitacaoId);
@@ -1036,14 +1045,13 @@ export async function validarCotacao(
       return { message: "Dados inválidos." };
     }
 
-    const frete = money(formData.get("frete"));
     const itens = parseCotacaoItens(formData);
 
     if (itens.length === 0) {
       return { message: "Informe ao menos um item cotado." };
     }
 
-    const totalFornecedor = calcularTotalFornecedor(itens, frete);
+    const totalFornecedor = calcularTotalFornecedor(itens);
 
     const { error: itensError } = await supabase.from("cotacao_itens").upsert(
       itens.map((item) => ({ ...item, cotacao_id: cotacaoId })),
@@ -1063,9 +1071,6 @@ export async function validarCotacao(
     const { error: cotacaoError } = await supabase
       .from("cotacoes")
       .update({
-        frete,
-        prazo_dias: money(formData.get("prazo_dias")),
-        forma_pagamento: text(formData, "forma_pagamento"),
         observacoes_gerais: text(formData, "observacoes_gerais"),
         observacao: text(formData, "observacoes_gerais"),
         total_fornecedor: totalFornecedor,
@@ -1447,7 +1452,7 @@ export async function enviarParaAprovacao(
         status: "aguardando_aprovacao",
         aprovacao_token: token,
         aprovacao_token_expires_at: new Date(
-          Date.now() + 1000 * 60 * 60 * 24 * 14,
+          Date.now() + LINK_TTL_SECONDS * 1000,
         ).toISOString(),
       })
       .eq("id", solicitacaoId);
@@ -1604,7 +1609,7 @@ export async function registrarDecisaoPublica(formData: FormData) {
 
     const { data: signed } = await supabase.storage
       .from("pedidos-pdf")
-      .createSignedUrl(pdfPath, 60 * 60 * 24 * 30);
+      .createSignedUrl(pdfPath, LINK_TTL_SECONDS);
 
     const pdfShortUrl = signed?.signedUrl
       ? await createShortLinkWithClient(supabase, {
@@ -1662,6 +1667,10 @@ const FLOW_TRANSITIONS: Record<string, string[]> = {
   cotacao_recebida: ["cancelada"],
   validado: ["cancelada"],
   aguardando_aprovacao: ["cancelada"],
+  // Recusada pelo gestor: Compras pode desistir (cancelar) ou tentar de
+  // novo — reenviarParaAprovacao volta o status pra "aguardando_aprovacao"
+  // diretamente, não passa por "cancelada" nesse caso.
+  rejeitada: ["cancelada"],
   pedido_programado: ["pedido_enviado", "cancelada"],
   // "finalizada" não é mais genérico: só sai daqui via
   // confirmarRecebimentoPedido, que exige escolher/confirmar o destino antes

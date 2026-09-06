@@ -13,6 +13,11 @@ import {
   generateOrcamentoRealizadoPdf,
 } from "@/services/pdf-service";
 
+// Relatório reflete dados financeiros ao vivo (orçado x realizado) — nunca
+// pode ser servido do cache do navegador/CDN, senão "Gerar PDF" de novo
+// depois de lançar uma despesa continua mostrando o valor antigo.
+export const dynamic = "force-dynamic";
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -68,6 +73,7 @@ export async function GET(
         rawName,
         "orcado-realizado.pdf",
       ),
+      "Cache-Control": "no-store, must-revalidate",
     },
   });
 }

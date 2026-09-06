@@ -74,7 +74,28 @@ export function ObraForm({
         </div>
         <div className="space-y-2 lg:col-span-2">
           <Label htmlFor="endereco">Endereço</Label>
-          <Input id="endereco" name="endereco" />
+          <Input id="endereco" name="endereco" required />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="contratante_nome">Nome/Razão social</Label>
+          <Input id="contratante_nome" name="contratante_nome" required />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="contratante_documento">CPF/CNPJ</Label>
+          <Input
+            id="contratante_documento"
+            name="contratante_documento"
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="contratante_email">E-mail</Label>
+          <Input
+            id="contratante_email"
+            name="contratante_email"
+            type="email"
+            required
+          />
         </div>
       </div>
       {state.message ? (

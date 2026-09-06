@@ -459,16 +459,22 @@ Casos especiais:
 
 ### 5.3 Variáveis de ambiente necessárias (nomes apenas)
 
-| Variável                        | Uso                                                                               |
-| ------------------------------- | --------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_APP_URL`           | URL base do app (usada para montar links absolutos, ex. WhatsApp)                 |
-| `NEXT_PUBLIC_SUPABASE_URL`      | URL do projeto Supabase                                                           |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Chave pública/anon do Supabase (cliente browser/SSR, respeita RLS)                |
-| `SUPABASE_SERVICE_ROLE_KEY`     | Chave service-role (cliente admin, ignora RLS — usado em `lib/supabase/admin.ts`) |
-| `ANTHROPIC_API_KEY`             | Chave da API da Anthropic (extração de cotações)                                  |
+| Variável                        | Uso                                                                                                    |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `NEXT_PUBLIC_APP_URL`           | URL base do app (usada para montar links absolutos, ex. WhatsApp)                                      |
+| `NEXT_PUBLIC_SUPABASE_URL`      | URL do projeto Supabase                                                                                |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Chave pública/anon do Supabase (cliente browser/SSR, respeita RLS)                                     |
+| `SUPABASE_SERVICE_ROLE_KEY`     | Chave service-role (cliente admin, ignora RLS — usado em `lib/supabase/admin.ts`)                      |
+| `ANTHROPIC_API_KEY`             | Chave da API da Anthropic (extração de cotações)                                                       |
+| `CRON_SECRET`                   | Autentica a chamada da Vercel Cron em `/api/cron/cleanup-pdfs` (opcional, mas recomendado em produção) |
 
 Template disponível em `.env.example` (sem valores). Nenhuma outra variável de ambiente é
 lida pelo código de aplicação (confirmado por busca de `process.env.*` em todo o repo).
+
+**Deploy/CI**: hospedado na Vercel (`https://una.v2digital.com.br`). Existe um
+`vercel.json` com um Cron Job diário (`/api/cron/cleanup-pdfs`, 03:00 UTC) que apaga do
+Storage os PDFs de cotação/pedido com mais de 90 dias — ver 8.4 mais abaixo, que ainda cita
+"nenhuma configuração de deploy encontrada": isso mudou em 2026-08-12.
 
 ---
 

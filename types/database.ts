@@ -1314,6 +1314,9 @@ export type Database = {
           ativo: boolean;
           cliente_id: string;
           codigo: string | null;
+          contratante_documento: string | null;
+          contratante_email: string | null;
+          contratante_nome: string | null;
           created_at: string;
           endereco: string | null;
           fase: Database["public"]["Enums"]["obra_fase"];
@@ -1326,6 +1329,9 @@ export type Database = {
           ativo?: boolean;
           cliente_id: string;
           codigo?: string | null;
+          contratante_documento?: string | null;
+          contratante_email?: string | null;
+          contratante_nome?: string | null;
           created_at?: string;
           endereco?: string | null;
           fase?: Database["public"]["Enums"]["obra_fase"];
@@ -1338,6 +1344,9 @@ export type Database = {
           ativo?: boolean;
           cliente_id?: string;
           codigo?: string | null;
+          contratante_documento?: string | null;
+          contratante_email?: string | null;
+          contratante_nome?: string | null;
           created_at?: string;
           endereco?: string | null;
           fase?: Database["public"]["Enums"]["obra_fase"];
@@ -1867,6 +1876,7 @@ export type Database = {
           cliente_id: string;
           codigo: string | null;
           cotacao_request_pdf_gerado_em: string | null;
+          cotacao_request_pdf_path: string | null;
           cotacao_request_pdf_url: string | null;
           created_at: string;
           data_necessidade: string | null;
@@ -1893,6 +1903,7 @@ export type Database = {
           cliente_id: string;
           codigo?: string | null;
           cotacao_request_pdf_gerado_em?: string | null;
+          cotacao_request_pdf_path?: string | null;
           cotacao_request_pdf_url?: string | null;
           created_at?: string;
           data_necessidade?: string | null;
@@ -1919,6 +1930,7 @@ export type Database = {
           cliente_id?: string;
           codigo?: string | null;
           cotacao_request_pdf_gerado_em?: string | null;
+          cotacao_request_pdf_path?: string | null;
           cotacao_request_pdf_url?: string | null;
           created_at?: string;
           data_necessidade?: string | null;

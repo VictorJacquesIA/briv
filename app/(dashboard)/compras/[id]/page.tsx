@@ -73,6 +73,16 @@ export default async function CompraDetailPage({
     ? `/aprovacao/${solicitacao.aprovacao_token}`
     : null;
   const pedido = solicitacao.pedidos?.[0];
+  const ultimaRecusa =
+    solicitacao.status === "rejeitada"
+      ? [...(solicitacao.aprovacoes ?? [])]
+          .filter((aprovacao: any) => aprovacao.status === "rejeitada")
+          .sort(
+            (a: any, b: any) =>
+              new Date(b.decided_at).getTime() -
+              new Date(a.decided_at).getTime(),
+          )[0]
+      : null;
 
   const precisaDecidirEstoque =
     STATUSES_AGUARDANDO_COTACAO.includes(solicitacao.status) &&
@@ -117,6 +127,29 @@ export default async function CompraDetailPage({
           <Link href="/compras">Voltar</Link>
         </Button>
       </div>
+
+      {canViewProcesso && ultimaRecusa ? (
+        <Card className="border-destructive/50 bg-destructive/10">
+          <CardHeader>
+            <CardTitle className="text-base">
+              Solicitação recusada pelo gestor
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1 text-sm">
+            <p>
+              <span className="text-muted-foreground">Recusado por:</span>{" "}
+              {ultimaRecusa.gestor_nome ?? "-"} em{" "}
+              {ultimaRecusa.decided_at
+                ? new Date(ultimaRecusa.decided_at).toLocaleString("pt-BR")
+                : "-"}
+            </p>
+            <p>
+              <span className="text-muted-foreground">Motivo:</span>{" "}
+              {ultimaRecusa.comentario || "Nenhum motivo informado."}
+            </p>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {solicitacao.divergencia_estoque_at ? (
         <Card className="border-warning/50 bg-warning/10">
@@ -188,7 +221,8 @@ export default async function CompraDetailPage({
                     itens={solicitacao.itens ?? []}
                   />
                 ) : null}
-                {STATUSES_AGUARDANDO_APROVACAO.includes(solicitacao.status) &&
+                {(STATUSES_AGUARDANDO_APROVACAO.includes(solicitacao.status) ||
+                  solicitacao.status === "rejeitada") &&
                 (solicitacao.cotacoes ?? []).length > 0 ? (
                   <ApprovalForm
                     solicitacao={solicitacao}

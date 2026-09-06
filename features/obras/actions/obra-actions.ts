@@ -30,9 +30,24 @@ export async function createObra(
   const profile = await requireActor("obras.create");
   const nome = text(formData, "nome");
   const gestorId = text(formData, "gestor_id");
+  const endereco = text(formData, "endereco");
+  const contratanteNome = text(formData, "contratante_nome");
+  const contratanteDocumento = text(formData, "contratante_documento");
+  const contratanteEmail = text(formData, "contratante_email");
 
   if (!nome) {
     return { message: "Informe o nome da obra." };
+  }
+
+  if (!endereco) {
+    return { message: "Informe o endereço da obra." };
+  }
+
+  if (!contratanteNome || !contratanteDocumento || !contratanteEmail) {
+    return {
+      message:
+        "Informe nome/razão social, CPF/CNPJ e e-mail do contratante da obra.",
+    };
   }
 
   const faseInput = text(formData, "fase");
@@ -46,9 +61,12 @@ export async function createObra(
       cliente_id: profile.cliente_id,
       nome,
       codigo: text(formData, "codigo"),
-      endereco: text(formData, "endereco"),
+      endereco,
       fase,
       telefone_responsavel: text(formData, "telefone_responsavel"),
+      contratante_nome: contratanteNome,
+      contratante_documento: contratanteDocumento,
+      contratante_email: contratanteEmail,
     })
     .select("id")
     .single();
@@ -105,6 +123,9 @@ export async function updateObra(formData: FormData) {
       endereco: text(formData, "endereco"),
       fase,
       telefone_responsavel: text(formData, "telefone_responsavel"),
+      contratante_nome: text(formData, "contratante_nome"),
+      contratante_documento: text(formData, "contratante_documento"),
+      contratante_email: text(formData, "contratante_email"),
     })
     .eq("id", obraId);
 

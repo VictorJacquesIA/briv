@@ -17,6 +17,7 @@ export function ApprovalForm({
 }) {
   const [state, action] = useActionState(enviarParaAprovacao, {});
   const approvalUrl = state.approvalUrl ?? linkExistente ?? null;
+  const isReenvio = solicitacao.status === "rejeitada";
 
   // Uma vez que o link existe, não faz sentido gerar de novo (invalidaria o
   // que já pode ter sido compartilhado) — só oferece o envio por WhatsApp.
@@ -48,7 +49,11 @@ export function ApprovalForm({
         <p className="text-sm text-muted-foreground">{state.message}</p>
       ) : null}
       <FormToast message={state.message} />
-      <Button type="submit">Enviar para aprovação</Button>
+      <Button type="submit">
+        {isReenvio
+          ? "Enviar novamente para aprovação"
+          : "Enviar para aprovação"}
+      </Button>
     </form>
   );
 }
