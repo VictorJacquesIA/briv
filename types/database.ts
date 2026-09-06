@@ -2277,7 +2277,7 @@ export type Database = {
       movimentacao_estoque_tipo: "entrada" | "saida";
       movimentacao_ferramenta_tipo: "saida" | "entrada";
       obra_fase: "fase_1" | "fase_2" | "fase_3" | "concluida";
-      obra_orcamento_tipo: "insumos" | "mao_de_obra" | "servicos";
+      obra_orcamento_tipo: "insumos" | "mao_de_obra" | "servicos" | "extra";
       pedido_local_entrega: "obra" | "deposito" | "retirada";
       pedido_status:
         "rascunho" | "emitido" | "enviado" | "recebido" | "cancelado";
@@ -2452,7 +2452,7 @@ export const Constants = {
       movimentacao_estoque_tipo: ["entrada", "saida"],
       movimentacao_ferramenta_tipo: ["saida", "entrada"],
       obra_fase: ["fase_1", "fase_2", "fase_3", "concluida"],
-      obra_orcamento_tipo: ["insumos", "mao_de_obra", "servicos"],
+      obra_orcamento_tipo: ["insumos", "mao_de_obra", "servicos", "extra"],
       pedido_local_entrega: ["obra", "deposito", "retirada"],
       pedido_status: [
         "rascunho",

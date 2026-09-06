@@ -8,4 +8,5 @@ export const FASE_LABELS: Record<string, string> = {
 export const ORCAMENTO_TIPO_LABELS: Record<string, string> = {
   insumos: "Insumos",
   mao_de_obra: "Mão de Obra",
+  extra: "Extra",
 };

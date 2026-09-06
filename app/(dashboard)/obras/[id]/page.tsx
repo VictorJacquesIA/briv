@@ -92,6 +92,7 @@ export default async function ObraDetailPage({
 
   const insumosItens = orcamento.filter((item: any) => item.tipo === "insumos");
   const moItens = orcamento.filter((item: any) => item.tipo === "mao_de_obra");
+  const extraItens = orcamento.filter((item: any) => item.tipo === "extra");
 
   function realizadoDoItem(item: any) {
     return (
@@ -117,6 +118,7 @@ export default async function ObraDetailPage({
 
   const insumosTotals = totals(insumosItens);
   const moTotals = totals(moItens);
+  const extraTotals = totals(extraItens);
 
   return (
     <div className="space-y-6">
@@ -259,6 +261,7 @@ export default async function ObraDetailPage({
                           </option>
                           <option value="insumos">Insumos</option>
                           <option value="mao_de_obra">Mão de Obra</option>
+                          <option value="extra">Extra</option>
                         </select>
                       </div>
                       <div className="space-y-2">
@@ -327,6 +330,16 @@ export default async function ObraDetailPage({
                           </optgroup>
                           <optgroup label="Mão de Obra">
                             {moItens.map((item: any) => (
+                              <option
+                                key={item.orcamento_item_id}
+                                value={item.orcamento_item_id}
+                              >
+                                {item.descricao}
+                              </option>
+                            ))}
+                          </optgroup>
+                          <optgroup label="Extra">
+                            {extraItens.map((item: any) => (
                               <option
                                 key={item.orcamento_item_id}
                                 value={item.orcamento_item_id}
@@ -558,6 +571,23 @@ export default async function ObraDetailPage({
                     obraId={obra.id}
                     canEditOrcamento={canEditOrcamento}
                     emptyMessage="Nenhum item de mão de obra cadastrado."
+                  />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">
+                    Extra — Orçado x Realizado
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <OrcamentoTable
+                    itens={extraItens}
+                    totals={extraTotals}
+                    obraId={obra.id}
+                    canEditOrcamento={canEditOrcamento}
+                    emptyMessage="Nenhum item extra cadastrado."
                   />
                 </CardContent>
               </Card>

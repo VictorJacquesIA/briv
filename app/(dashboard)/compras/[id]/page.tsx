@@ -31,7 +31,6 @@ import {
   getPurchaseFormOptions,
   getSolicitacaoDetail,
   statusLabels,
-  STATUSES_AGUARDANDO_APROVACAO,
   STATUSES_AGUARDANDO_COTACAO,
   STATUSES_EM_COTACAO,
   STATUSES_TERMINAIS,
@@ -73,6 +72,21 @@ export default async function CompraDetailPage({
     ? `/aprovacao/${solicitacao.aprovacao_token}`
     : null;
   const pedido = solicitacao.pedidos?.[0];
+  // Basta existir pelo menos 1 orçamento — não importa se foi cadastrado
+  // manualmente ou por foto/PDF (a IA), nem se já foi validado: o botão
+  // libera de qualquer forma, e enviarParaAprovacao (servidor) já recusa com
+  // mensagem clara se alguma cotação ainda não foi validada ou se algum
+  // item ficou sem cotação de nenhum fornecedor. Só não faz sentido depois
+  // que o fluxo já passou do ponto de aprovação (fornecedor já escolhido).
+  const podeEnviarAprovacao =
+    (solicitacao.cotacoes ?? []).length > 0 &&
+    ![
+      "pdf_gerado",
+      "pedido_programado",
+      "pedido_enviado",
+      "finalizada",
+      "cancelada",
+    ].includes(solicitacao.status);
   const ultimaRecusa =
     solicitacao.status === "rejeitada"
       ? [...(solicitacao.aprovacoes ?? [])]
@@ -221,9 +235,7 @@ export default async function CompraDetailPage({
                     itens={solicitacao.itens ?? []}
                   />
                 ) : null}
-                {(STATUSES_AGUARDANDO_APROVACAO.includes(solicitacao.status) ||
-                  solicitacao.status === "rejeitada") &&
-                (solicitacao.cotacoes ?? []).length > 0 ? (
+                {podeEnviarAprovacao ? (
                   <ApprovalForm
                     solicitacao={solicitacao}
                     approvalUrl={approvalUrl}

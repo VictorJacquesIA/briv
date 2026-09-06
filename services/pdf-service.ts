@@ -403,6 +403,7 @@ export async function generateOrcamentoRealizadoPdf(input: {
   // Insumos, não numa seção própria.
   const insumosItens = input.itens.filter((item) => item.tipo === "insumos");
   const moItens = input.itens.filter((item) => item.tipo === "mao_de_obra");
+  const extraItens = input.itens.filter((item) => item.tipo === "extra");
 
   // Despesas manuais contribuem pra QUALQUER seção (não é uma 4ª seção à
   // parte) — por isso cada chamada de drawSection soma sua própria chave
@@ -485,11 +486,15 @@ export async function generateOrcamentoRealizadoPdf(input: {
     "mo_realizado",
     "despesas_realizado",
   ]);
+  // Extra só recebe realizado via despesa manual — nenhuma solicitação de
+  // compra nem lançamento de MO pode linkar num item desse tipo (triggers
+  // check_*_orcamento_tipo restringem a insumos/mao_de_obra).
+  const extraTotals = drawSection("Extra", extraItens, ["despesas_realizado"]);
 
   ensureSpace();
   y -= 8;
   draw(
-    `Total orçado: R$ ${money(insumosTotals.totalOrcado + moTotals.totalOrcado)}  |  Total realizado: R$ ${money(insumosTotals.totalRealizado + moTotals.totalRealizado)}`,
+    `Total orçado: R$ ${money(insumosTotals.totalOrcado + moTotals.totalOrcado + extraTotals.totalOrcado)}  |  Total realizado: R$ ${money(insumosTotals.totalRealizado + moTotals.totalRealizado + extraTotals.totalRealizado)}`,
     48,
     11,
     bold,

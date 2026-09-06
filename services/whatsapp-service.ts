@@ -30,10 +30,8 @@ export function cotacaoMessage(input: {
   }
 
   return [
-    `Olá, ${input.fornecedor}.`,
-    `Solicitamos cotação para a solicitação ${input.codigo}, obra ${input.obra}.`,
-    "Por favor, informe o valor unitário de cada item.",
-    pdfLine,
+    `Olá, solicitamos cotação para a solicitação ${input.codigo}.`,
+    input.pdfUrl ? `Segue o link do PDF com os itens. ${input.pdfUrl}` : null,
   ]
     .filter(Boolean)
     .join("\n");
