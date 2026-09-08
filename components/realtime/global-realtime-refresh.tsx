@@ -38,6 +38,7 @@ const TABELAS = [
   // Ferramentas
   "ferramentas",
   "movimentacoes_ferramentas",
+  "ferramenta_solicitacoes",
   // Cadastros
   "fornecedores",
   "items",

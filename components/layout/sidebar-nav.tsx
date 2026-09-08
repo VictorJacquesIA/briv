@@ -33,7 +33,8 @@ type NavHref =
   | "/estoque/relatorio"
   | "/estoque/ferramentas"
   | "/servicos/cacamba"
-  | "/servicos/desmobilizacao";
+  | "/servicos/desmobilizacao"
+  | "/servicos/ferramentas";
 
 type NavChild = {
   label: string;
@@ -158,6 +159,11 @@ const navigation: NavItem[] = [
         label: "Desmobilização",
         href: "/servicos/desmobilizacao",
         requiredPermission: "desmobilizacao.view",
+      },
+      {
+        label: "Ferramentas",
+        href: "/servicos/ferramentas",
+        requiredPermission: "ferramentas.solicitacao.view",
       },
     ],
   },

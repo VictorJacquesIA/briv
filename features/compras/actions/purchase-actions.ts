@@ -927,7 +927,7 @@ export async function gerarCotacaoRequestPdf(
       supabase
         .from("solicitacoes")
         .select(
-          "codigo,status,estoque_decidido_at,obra:obras(nome,endereco),cliente:clientes(razao_social,nome_fantasia,cnpj)",
+          "codigo,status,estoque_decidido_at,obra:obras(nome,endereco,contratante_nome,contratante_documento)",
         )
         .eq("id", solicitacaoId)
         .single(),
@@ -975,11 +975,8 @@ export async function gerarCotacaoRequestPdf(
         codigo: solicitacao.codigo,
         obra: solicitacao.obra?.nome ?? null,
         obraEndereco: solicitacao.obra?.endereco ?? null,
-        clienteNome:
-          solicitacao.cliente?.nome_fantasia ??
-          solicitacao.cliente?.razao_social ??
-          null,
-        clienteCnpj: solicitacao.cliente?.cnpj ?? null,
+        contratanteNome: solicitacao.obra?.contratante_nome ?? null,
+        contratanteDocumento: solicitacao.obra?.contratante_documento ?? null,
       },
       itens: itensParaCotar.map((item) => ({
         descricao: item.descricao,

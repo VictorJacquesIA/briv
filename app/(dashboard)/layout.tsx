@@ -3,7 +3,9 @@ import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { GlobalRealtimeRefresh } from "@/components/realtime/global-realtime-refresh";
+import { FerramentaLembretePopup } from "@/features/ferramentas/components/ferramenta-lembrete-popup";
 import { CacambaLembretePopup } from "@/features/servicos-obra/components/cacamba-lembrete-popup";
+import { listFerramentasLocadasVencidas } from "@/services/ferramentas-service";
 import { getCurrentProfile } from "@/services/profiles-service";
 import { listCacambasVencidas } from "@/services/servicos-obra-service";
 import {
@@ -39,11 +41,34 @@ export default async function DashboardLayout({
     permissions,
     "cacamba.confirm",
   );
+  const isGestor = isGestorRole(profile.role);
+  const linkedObraIds = isGestor
+    ? await getLinkedObrasForUser(profile.id)
+    : undefined;
+
   const cacambasVencidas = canViewCacamba
     ? await listCacambasVencidas(
-        isGestorRole(profile.role)
-          ? { obraIds: await getLinkedObrasForUser(profile.id) }
-          : undefined,
+        linkedObraIds ? { obraIds: linkedObraIds } : undefined,
+      )
+    : [];
+
+  // Mesmo lembrete pra ferramenta locada (mensagem não enviada ou devolução
+  // vencida) — usa a permissão de solicitação de ferramenta, não a de
+  // gerenciar o catálogo (ferramentas.view), já que o gestor também precisa
+  // ver isso.
+  const canViewFerramentaSolicitacao = hasPermission(
+    profile.role,
+    permissions,
+    "ferramentas.solicitacao.view",
+  );
+  const canDecideFerramenta = hasPermission(
+    profile.role,
+    permissions,
+    "ferramentas.solicitacao.decide",
+  );
+  const ferramentasVencidas = canViewFerramentaSolicitacao
+    ? await listFerramentasLocadasVencidas(
+        linkedObraIds ? { obraIds: linkedObraIds } : undefined,
       )
     : [];
 
@@ -54,6 +79,12 @@ export default async function DashboardLayout({
         <CacambaLembretePopup
           cacambas={cacambasVencidas}
           canConfirm={canConfirmCacamba}
+        />
+      ) : null}
+      {ferramentasVencidas.length > 0 ? (
+        <FerramentaLembretePopup
+          ferramentas={ferramentasVencidas}
+          canConfirm={canDecideFerramenta}
         />
       ) : null}
       <AppSidebar profile={profile} permissions={permissions} />

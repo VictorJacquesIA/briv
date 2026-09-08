@@ -154,16 +154,10 @@ export async function generatePedidoCompraPdf(input: {
     `Data: ${new Date().toLocaleDateString("pt-BR")}`,
   ]);
 
-  draw("Dados da empresa", 48, 12, bold);
-  draw(`Cliente/NF: ${line(input.solicitacao.cliente?.razao_social)}`);
+  draw("Dados do cliente", 48, 12, bold);
+  draw(`Cliente: ${line(input.solicitacao.obra?.contratante_nome)}`);
   draw(
-    `CNPJ: ${line(input.solicitacao.cliente?.cnpj)} | IE: ${line(input.solicitacao.cliente?.inscricao_estadual)}`,
-  );
-  draw(
-    `E-mail NF: ${line(input.solicitacao.cliente?.email_nfe)} | Telefone: ${line(input.solicitacao.cliente?.telefone)}`,
-  );
-  draw(
-    `Endereco: ${line(input.solicitacao.cliente?.endereco)} ${line(input.solicitacao.cliente?.cidade)} ${line(input.solicitacao.cliente?.uf)} ${line(input.solicitacao.cliente?.cep)}`,
+    `CPF/CNPJ: ${line(input.solicitacao.obra?.contratante_documento)} | E-mail: ${line(input.solicitacao.obra?.contratante_email)}`,
   );
 
   y -= 8;
@@ -269,8 +263,8 @@ export async function generateCotacaoRequestPdf(input: {
     codigo: string | null;
     obra: string | null;
     obraEndereco?: string | null;
-    clienteNome?: string | null;
-    clienteCnpj?: string | null;
+    contratanteNome?: string | null;
+    contratanteDocumento?: string | null;
   };
   itens: Array<{
     descricao: string;
@@ -290,7 +284,7 @@ export async function generateCotacaoRequestPdf(input: {
   // WhatsApp que acompanha o link é personalizada).
   let y = drawHeader(page, { regular, bold }, logo, "SOLICITAÇÃO DE COTAÇÃO", [
     `Solicitação: ${line(input.solicitacao.codigo)}`,
-    `Empresa: ${line(input.solicitacao.clienteNome)} — CNPJ: ${line(input.solicitacao.clienteCnpj)}`,
+    `Cliente: ${line(input.solicitacao.contratanteNome)} — CPF/CNPJ: ${line(input.solicitacao.contratanteDocumento)}`,
     `Obra: ${line(input.solicitacao.obra)}`,
     `Endereço: ${line(input.solicitacao.obraEndereco)}`,
     `Data: ${new Date().toLocaleDateString("pt-BR")}`,

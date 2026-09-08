@@ -49,6 +49,9 @@ export type PermissionKey =
   | "ferramentas.create"
   | "ferramentas.saida.create"
   | "ferramentas.entrada.create"
+  | "ferramentas.solicitacao.view"
+  | "ferramentas.solicitacao.create"
+  | "ferramentas.solicitacao.decide"
   | "cacamba.view"
   | "cacamba.create"
   | "cacamba.confirm"
@@ -157,6 +160,10 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   "ferramentas.create": "Cadastrar ferramentas",
   "ferramentas.saida.create": "Emprestar ferramenta pra uma obra",
   "ferramentas.entrada.create": "Registrar devolução de ferramenta",
+  "ferramentas.solicitacao.view": "Ver solicitações de ferramenta",
+  "ferramentas.solicitacao.create": "Solicitar ferramenta pra obra",
+  "ferramentas.solicitacao.decide":
+    "Decidir locação/depósito e confirmar entrega/devolução de ferramenta locada",
   "cacamba.view": "Ver solicitações de caçamba de entulho",
   "cacamba.create": "Solicitar caçamba, troca ou devolução",
   "cacamba.confirm": "Confirmar entrega, troca ou devolução de caçamba",
@@ -208,6 +215,9 @@ export const DEFAULT_COMPRAS_PERMISSIONS: Record<PermissionKey, boolean> = {
   "ferramentas.create": true,
   "ferramentas.saida.create": true,
   "ferramentas.entrada.create": true,
+  "ferramentas.solicitacao.view": true,
+  "ferramentas.solicitacao.create": true,
+  "ferramentas.solicitacao.decide": true,
   "cacamba.view": true,
   "cacamba.create": true,
   "cacamba.confirm": true,
@@ -259,6 +269,9 @@ export const DEFAULT_GESTOR_PERMISSIONS: Record<PermissionKey, boolean> = {
   "ferramentas.create": false,
   "ferramentas.saida.create": false,
   "ferramentas.entrada.create": false,
+  "ferramentas.solicitacao.view": true,
+  "ferramentas.solicitacao.create": true,
+  "ferramentas.solicitacao.decide": false,
   "cacamba.view": true,
   "cacamba.create": true,
   "cacamba.confirm": false,
@@ -310,6 +323,9 @@ export const DEFAULT_ALMOX_PERMISSIONS: Record<PermissionKey, boolean> = {
   "ferramentas.create": true,
   "ferramentas.saida.create": true,
   "ferramentas.entrada.create": true,
+  "ferramentas.solicitacao.view": true,
+  "ferramentas.solicitacao.create": false,
+  "ferramentas.solicitacao.decide": false,
   "cacamba.view": false,
   "cacamba.create": false,
   "cacamba.confirm": false,

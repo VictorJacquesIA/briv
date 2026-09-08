@@ -52,6 +52,19 @@ export function cacambaMessage(input: {
     .join("\n");
 }
 
+export function ferramentaLocacaoMessage(input: {
+  ferramenta: string;
+  obra: string;
+  endereco?: string | null;
+}) {
+  return [
+    `Olá, gostaríamos de locar ${input.ferramenta} para a obra ${input.obra}.`,
+    input.endereco ? `Endereço: ${input.endereco}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 export function aprovacaoMessage(input: {
   codigo: string;
   obra: string;

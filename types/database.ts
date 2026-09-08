@@ -682,39 +682,144 @@ export type Database = {
           },
         ];
       };
+      ferramenta_solicitacoes: {
+        Row: {
+          atendido_at: string | null;
+          atendido_por: string | null;
+          cliente_id: string;
+          created_at: string;
+          decisao:
+            | Database["public"]["Enums"]["ferramenta_solicitacao_decisao"]
+            | null;
+          descricao: string;
+          ferramenta_id: string | null;
+          id: string;
+          obra_id: string;
+          observacao: string | null;
+          solicitado_por: string | null;
+          status: Database["public"]["Enums"]["ferramenta_solicitacao_status"];
+          updated_at: string;
+        };
+        Insert: {
+          atendido_at?: string | null;
+          atendido_por?: string | null;
+          cliente_id: string;
+          created_at?: string;
+          decisao?:
+            | Database["public"]["Enums"]["ferramenta_solicitacao_decisao"]
+            | null;
+          descricao: string;
+          ferramenta_id?: string | null;
+          id?: string;
+          obra_id: string;
+          observacao?: string | null;
+          solicitado_por?: string | null;
+          status?: Database["public"]["Enums"]["ferramenta_solicitacao_status"];
+          updated_at?: string;
+        };
+        Update: {
+          atendido_at?: string | null;
+          atendido_por?: string | null;
+          cliente_id?: string;
+          created_at?: string;
+          decisao?:
+            | Database["public"]["Enums"]["ferramenta_solicitacao_decisao"]
+            | null;
+          descricao?: string;
+          ferramenta_id?: string | null;
+          id?: string;
+          obra_id?: string;
+          observacao?: string | null;
+          solicitado_por?: string | null;
+          status?: Database["public"]["Enums"]["ferramenta_solicitacao_status"];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ferramenta_solicitacoes_atendido_por_fkey";
+            columns: ["atendido_por"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ferramenta_solicitacoes_cliente_id_fkey";
+            columns: ["cliente_id"];
+            isOneToOne: false;
+            referencedRelation: "clientes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ferramenta_solicitacoes_ferramenta_id_fkey";
+            columns: ["ferramenta_id"];
+            isOneToOne: false;
+            referencedRelation: "ferramentas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ferramenta_solicitacoes_obra_id_fkey";
+            columns: ["obra_id"];
+            isOneToOne: false;
+            referencedRelation: "obras";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ferramenta_solicitacoes_solicitado_por_fkey";
+            columns: ["solicitado_por"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       ferramentas: {
         Row: {
           ativo: boolean;
           cliente_id: string;
           codigo: string | null;
           created_at: string;
+          data_prevista_devolucao: string | null;
+          entregue_em: string | null;
+          fornecedor_id: string | null;
           id: string;
+          mensagem_enviada_em: string | null;
           nome: string;
           obra_atual_id: string | null;
           status: Database["public"]["Enums"]["ferramenta_status"];
           updated_at: string;
+          valor_locacao: number | null;
         };
         Insert: {
           ativo?: boolean;
           cliente_id: string;
           codigo?: string | null;
           created_at?: string;
+          data_prevista_devolucao?: string | null;
+          entregue_em?: string | null;
+          fornecedor_id?: string | null;
           id?: string;
+          mensagem_enviada_em?: string | null;
           nome: string;
           obra_atual_id?: string | null;
           status?: Database["public"]["Enums"]["ferramenta_status"];
           updated_at?: string;
+          valor_locacao?: number | null;
         };
         Update: {
           ativo?: boolean;
           cliente_id?: string;
           codigo?: string | null;
           created_at?: string;
+          data_prevista_devolucao?: string | null;
+          entregue_em?: string | null;
+          fornecedor_id?: string | null;
           id?: string;
+          mensagem_enviada_em?: string | null;
           nome?: string;
           obra_atual_id?: string | null;
           status?: Database["public"]["Enums"]["ferramenta_status"];
           updated_at?: string;
+          valor_locacao?: number | null;
         };
         Relationships: [
           {
@@ -722,6 +827,13 @@ export type Database = {
             columns: ["cliente_id"];
             isOneToOne: false;
             referencedRelation: "clientes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ferramentas_fornecedor_id_fkey";
+            columns: ["fornecedor_id"];
+            isOneToOne: false;
+            referencedRelation: "fornecedores";
             referencedColumns: ["id"];
           },
           {
@@ -2297,7 +2409,9 @@ export type Database = {
       contrato_mo_status: "aberto" | "quitado";
       cotacao_status:
         "rascunho" | "enviada" | "respondida" | "vencida" | "cancelada";
-      ferramenta_status: "deposito" | "emprestada";
+      ferramenta_solicitacao_decisao: "deposito" | "locacao";
+      ferramenta_solicitacao_status: "pendente" | "atendida" | "cancelada";
+      ferramenta_status: "deposito" | "emprestada" | "locada";
       lancamento_mo_status: "pendente" | "confirmado";
       lancamento_mo_tipo: "solicitacao" | "vale" | "reembolso";
       movimentacao_estoque_tipo: "entrada" | "saida";
@@ -2472,7 +2586,9 @@ export const Constants = {
         "vencida",
         "cancelada",
       ],
-      ferramenta_status: ["deposito", "emprestada"],
+      ferramenta_solicitacao_decisao: ["deposito", "locacao"],
+      ferramenta_solicitacao_status: ["pendente", "atendida", "cancelada"],
+      ferramenta_status: ["deposito", "emprestada", "locada"],
       lancamento_mo_status: ["pendente", "confirmado"],
       lancamento_mo_tipo: ["solicitacao", "vale", "reembolso"],
       movimentacao_estoque_tipo: ["entrada", "saida"],
