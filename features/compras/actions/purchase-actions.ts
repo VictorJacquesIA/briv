@@ -28,7 +28,10 @@ import {
   type CotacaoExtraction,
 } from "@/services/ai-extraction-service";
 import { getEstoqueDisponivelPorItem } from "@/services/estoque-service";
-import { STATUSES_AGUARDANDO_COTACAO } from "@/services/compras-service";
+import {
+  STATUSES_AGUARDANDO_COTACAO,
+  STATUSES_EM_COTACAO,
+} from "@/services/compras-service";
 import {
   createShortLink,
   createShortLinkWithClient,
@@ -663,10 +666,27 @@ export async function salvarCotacao(
       .from("cotacao_itens")
       .insert(itens.map((item) => ({ ...item, cotacao_id: cotacao.id })));
 
-    await supabase
+    // Só avança pra "em_cotacao" se ainda não passou dessa etapa — sem essa
+    // checagem, cadastrar mais um fornecedor manualmente depois de já ter
+    // mandado pra aprovação regredia o status, e o link de aprovação já
+    // compartilhado parava de funcionar (getPublicApprovalByToken exige
+    // status aguardando_aprovacao/aprovacao) mesmo com o token ainda válido.
+    const { data: current } = await supabase
       .from("solicitacoes")
-      .update({ status: "em_cotacao" })
-      .eq("id", solicitacaoId);
+      .select("status")
+      .eq("id", solicitacaoId)
+      .single();
+
+    if (
+      current &&
+      (STATUSES_AGUARDANDO_COTACAO.includes(current.status) ||
+        STATUSES_EM_COTACAO.includes(current.status))
+    ) {
+      await supabase
+        .from("solicitacoes")
+        .update({ status: "em_cotacao" })
+        .eq("id", solicitacaoId);
+    }
 
     await registrarHistorico({
       clienteId: profile.cliente_id,
@@ -1248,20 +1268,25 @@ export async function confirmarRecebimentoPedido(
       };
     }
 
-    const { data: pedido } = await supabase
+    // Uma solicitação dividida entre fornecedores gera um pedido POR
+    // fornecedor (registrarDecisaoPublica), mas o destino de entrega é
+    // decidido uma vez só pra solicitação inteira (programarPedido aplica o
+    // mesmo local_entrega a todos os pedidos dela) — por isso todos os
+    // pedidos aqui têm o mesmo local_entrega, e o destino final é lido de
+    // qualquer um deles.
+    const { data: pedidos } = await supabase
       .from("pedidos")
       .select("id,numero,fornecedor_id,local_entrega")
-      .eq("solicitacao_id", solicitacaoId)
-      .single();
+      .eq("solicitacao_id", solicitacaoId);
 
-    if (!pedido) {
+    if (!pedidos || pedidos.length === 0) {
       return { message: "Pedido não encontrado." };
     }
 
-    let destinoEfetivo: PedidoLocalEntrega | null = pedido.local_entrega;
+    let destinoEfetivo: PedidoLocalEntrega | null = pedidos[0].local_entrega;
     let retiradaDestinoFinal: PedidoLocalEntrega | null = null;
 
-    if (pedido.local_entrega === "retirada") {
+    if (pedidos[0].local_entrega === "retirada") {
       const destinoInput = text(formData, "destino_final");
 
       if (destinoInput !== "obra" && destinoInput !== "deposito") {
@@ -1280,7 +1305,7 @@ export async function confirmarRecebimentoPedido(
         recebido_por: profile.id,
         retirada_destino_final: retiradaDestinoFinal,
       })
-      .eq("id", pedido.id);
+      .eq("solicitacao_id", solicitacaoId);
 
     await supabase
       .from("solicitacoes")
@@ -1288,53 +1313,54 @@ export async function confirmarRecebimentoPedido(
       .eq("id", solicitacaoId);
 
     if (destinoEfetivo === "deposito") {
-      const { data: cotacao } = await supabase
-        .from("cotacoes")
-        .select(
-          "itens:cotacao_itens(solicitacao_item:solicitacao_itens(item_id,quantidade,quantidade_estoque))",
-        )
-        .eq("solicitacao_id", solicitacaoId)
-        .eq("fornecedor_id", pedido.fornecedor_id)
-        .single();
+      for (const pedido of pedidos) {
+        // Cada item só entra em estoque para o fornecedor que foi aprovado
+        // para ELE (fornecedor_aprovado_id), não pra todos os itens que esse
+        // fornecedor cotou — importante quando a solicitação foi dividida.
+        const { data: itensDoFornecedor } = await supabase
+          .from("solicitacao_itens")
+          .select("item_id,quantidade,quantidade_estoque")
+          .eq("solicitacao_id", solicitacaoId)
+          .eq("fornecedor_aprovado_id", pedido.fornecedor_id);
 
-      for (const cotacaoItem of cotacao?.itens ?? []) {
-        const solicitacaoItem = cotacaoItem.solicitacao_item;
-        const itemId = solicitacaoItem?.item_id;
+        for (const solicitacaoItem of itensDoFornecedor ?? []) {
+          const itemId = solicitacaoItem.item_id;
 
-        if (!itemId) {
-          continue;
+          if (!itemId) {
+            continue;
+          }
+
+          const quantidadeComprada =
+            (solicitacaoItem.quantidade ?? 0) -
+            (solicitacaoItem.quantidade_estoque ?? 0);
+
+          if (quantidadeComprada <= 0) {
+            continue;
+          }
+
+          const { data: estoqueItem } = await supabase
+            .from("estoque_itens")
+            .upsert(
+              { cliente_id: profile.cliente_id, item_id: itemId },
+              { onConflict: "cliente_id,item_id", ignoreDuplicates: false },
+            )
+            .select("id")
+            .single();
+
+          if (!estoqueItem) {
+            continue;
+          }
+
+          await supabase.from("movimentacoes_estoque").insert({
+            cliente_id: profile.cliente_id,
+            estoque_item_id: estoqueItem.id,
+            tipo: "entrada",
+            quantidade: quantidadeComprada,
+            motivo: `Recebimento do pedido ${pedido.numero ?? ""}`.trim(),
+            solicitacao_id: solicitacaoId,
+            responsavel_id: profile.id,
+          });
         }
-
-        const quantidadeComprada =
-          (solicitacaoItem.quantidade ?? 0) -
-          (solicitacaoItem.quantidade_estoque ?? 0);
-
-        if (quantidadeComprada <= 0) {
-          continue;
-        }
-
-        const { data: estoqueItem } = await supabase
-          .from("estoque_itens")
-          .upsert(
-            { cliente_id: profile.cliente_id, item_id: itemId },
-            { onConflict: "cliente_id,item_id", ignoreDuplicates: false },
-          )
-          .select("id")
-          .single();
-
-        if (!estoqueItem) {
-          continue;
-        }
-
-        await supabase.from("movimentacoes_estoque").insert({
-          cliente_id: profile.cliente_id,
-          estoque_item_id: estoqueItem.id,
-          tipo: "entrada",
-          quantidade: quantidadeComprada,
-          motivo: `Recebimento do pedido ${pedido.numero ?? ""}`.trim(),
-          solicitacao_id: solicitacaoId,
-          responsavel_id: profile.id,
-        });
       }
     }
 
@@ -1349,7 +1375,7 @@ export async function confirmarRecebimentoPedido(
       ip: context.ip,
       userAgent: context.userAgent,
       dados: {
-        local_entrega: pedido.local_entrega,
+        local_entrega: pedidos[0].local_entrega,
         destino_efetivo: destinoEfetivo,
       },
     });
@@ -1499,17 +1525,39 @@ export async function registrarDecisaoPublica(formData: FormData) {
   const token = text(formData, "token");
   const decisao = text(formData, "decisao");
   const solicitacaoId = text(formData, "solicitacao_id");
-  const fornecedorId = text(formData, "fornecedor_id");
   const comentario = text(formData, "comentario");
   const gestorNome = text(formData, "gestor_nome");
   const gestorEmail = text(formData, "gestor_email");
+  const assignmentsRaw = text(formData, "assignments");
 
   if (!token || !solicitacaoId || !gestorNome) {
     throw new Error("Dados de aprovacao incompletos.");
   }
 
-  if (decisao === "autorizar" && !fornecedorId) {
-    throw new Error("Selecione o fornecedor autorizado.");
+  // Cada item aprovado guarda o fornecedor pra quem foi (permite dividir a
+  // mesma solicitação entre fornecedores diferentes). O cliente manda essa
+  // atribuição, mas ela NUNCA é confiada às cegas: abaixo é revalidado que
+  // cada par item/fornecedor corresponde a uma cotação real, não expirada,
+  // com preço informado — como qualquer dado vindo de formulário público.
+  type Atribuicao = { solicitacao_item_id: string; fornecedor_id: string };
+  let assignments: Atribuicao[] = [];
+  if (decisao === "autorizar") {
+    try {
+      assignments = assignmentsRaw ? JSON.parse(assignmentsRaw) : [];
+    } catch {
+      throw new Error("Dados de aprovação inválidos.");
+    }
+    if (
+      !Array.isArray(assignments) ||
+      assignments.length === 0 ||
+      assignments.some(
+        (a) =>
+          typeof a?.solicitacao_item_id !== "string" ||
+          typeof a?.fornecedor_id !== "string",
+      )
+    ) {
+      throw new Error("Selecione o fornecedor de cada item.");
+    }
   }
 
   // cliente_id nunca vem do formulário (campo oculto adulterável) — é
@@ -1526,7 +1574,7 @@ export async function registrarDecisaoPublica(formData: FormData) {
       obra:obras(*),
       responsavel_obra:profiles!solicitacoes_responsavel_obra_id_fkey(id,nome,telefone),
       itens:solicitacao_itens(*),
-      cotacoes:cotacoes(fornecedor_id)
+      cotacoes:cotacoes(*, fornecedor:fornecedores(*), itens:cotacao_itens(*))
       `,
     )
     .eq("id", solicitacaoId)
@@ -1540,23 +1588,74 @@ export async function registrarDecisaoPublica(formData: FormData) {
   }
 
   const clienteId = solicitacao.cliente_id;
+  const itensDaSolicitacao = new Set(
+    (solicitacao.itens ?? []).map((item: { id: string }) => item.id),
+  );
+  const cotacoesPorFornecedor = new Map<string, any>(
+    (solicitacao.cotacoes ?? []).map((cotacao: any) => [
+      cotacao.fornecedor_id,
+      cotacao,
+    ]),
+  );
 
-  if (
-    decisao === "autorizar" &&
-    !solicitacao.cotacoes?.some(
-      (c: { fornecedor_id: string }) => c.fornecedor_id === fornecedorId,
-    )
-  ) {
-    throw new Error("Fornecedor selecionado não cotou esta solicitação.");
+  // Grupos: fornecedor_id -> ids dos itens aprovados para ele.
+  const grupos = new Map<string, Set<string>>();
+
+  if (decisao === "autorizar") {
+    // Só itens que realmente precisam ser comprados (quantidade além do que
+    // o estoque já cobre) exigem fornecedor — os demais nunca aparecem na
+    // tela de decisão (mesmo filtro do Comparativo) e não entram no pedido.
+    const itensParaComprar = (solicitacao.itens ?? []).filter(
+      (item: { quantidade: number; quantidade_estoque: number | null }) =>
+        Number(item.quantidade) - Number(item.quantidade_estoque ?? 0) > 0,
+    );
+
+    for (const item of itensParaComprar) {
+      if (!assignments.some((a) => a.solicitacao_item_id === item.id)) {
+        throw new Error("Todos os itens precisam ter um fornecedor escolhido.");
+      }
+    }
+
+    for (const atribuicao of assignments) {
+      if (!itensDaSolicitacao.has(atribuicao.solicitacao_item_id)) {
+        throw new Error("Item inválido na aprovação.");
+      }
+
+      const cotacao = cotacoesPorFornecedor.get(atribuicao.fornecedor_id);
+      const cotacaoItem = cotacao?.itens?.find(
+        (ci: any) => ci.solicitacao_item_id === atribuicao.solicitacao_item_id,
+      );
+
+      if (
+        !cotacao ||
+        !cotacaoItem ||
+        cotacaoItem.item_nao_cotado ||
+        cotacaoItem.preco_unitario == null
+      ) {
+        throw new Error("Fornecedor selecionado não cotou este item.");
+      }
+
+      const grupo = grupos.get(atribuicao.fornecedor_id) ?? new Set<string>();
+      grupo.add(atribuicao.solicitacao_item_id);
+      grupos.set(atribuicao.fornecedor_id, grupo);
+    }
   }
 
+  const fornecedoresAprovados = [...grupos.keys()];
   const status = decisao === "autorizar" ? "aprovada" : "rejeitada";
   const decidedAt = new Date().toISOString();
+  // Divisão entre fornecedores diferentes não cabe num único campo — o
+  // registro completo de quem ficou com o quê está nos itens (abaixo) e nos
+  // pedidos gerados (um por fornecedor). Aqui só fica preenchido quando não
+  // houve divisão, mantendo o caso simples idêntico ao comportamento antigo.
+  const fornecedorUnico =
+    fornecedoresAprovados.length === 1 ? fornecedoresAprovados[0] : null;
+
   await supabase.from("aprovacoes").insert({
     cliente_id: clienteId,
     solicitacao_id: solicitacaoId,
     aprovador_id: null,
-    fornecedor_escolhido_id: decisao === "autorizar" ? fornecedorId : null,
+    fornecedor_escolhido_id: decisao === "autorizar" ? fornecedorUnico : null,
     status,
     comentario,
     gestor_nome: gestorNome,
@@ -1568,70 +1667,91 @@ export async function registrarDecisaoPublica(formData: FormData) {
     .from("solicitacoes")
     .update({
       status: decisao === "autorizar" ? "pdf_gerado" : "rejeitada",
-      fornecedor_aprovado_id: decisao === "autorizar" ? fornecedorId : null,
+      fornecedor_aprovado_id: decisao === "autorizar" ? fornecedorUnico : null,
       aprovacao_token: null,
       pdf_gerado_at: decisao === "autorizar" ? decidedAt : null,
     })
     .eq("id", solicitacaoId)
     .eq("aprovacao_token", token);
 
-  if (decisao === "autorizar" && fornecedorId) {
-    const pedidoNumero = `PED-${solicitacao.codigo ?? Date.now()}`;
-    const { data: cotacao } = await supabase
-      .from("cotacoes")
-      .select("*, fornecedor:fornecedores(*), itens:cotacao_itens(*)")
-      .eq("solicitacao_id", solicitacaoId)
-      .eq("fornecedor_id", fornecedorId)
-      .single();
-
-    if (!cotacao) {
-      throw new Error("Cotação do fornecedor selecionado não encontrada.");
+  if (decisao === "autorizar") {
+    for (const atribuicao of assignments) {
+      await supabase
+        .from("solicitacao_itens")
+        .update({ fornecedor_aprovado_id: atribuicao.fornecedor_id })
+        .eq("id", atribuicao.solicitacao_item_id);
     }
 
-    const pdfBytes = await generatePedidoCompraPdf({
-      pedidoNumero,
-      solicitacao,
-      cotacao,
-      gestor: {
-        nome: gestorNome,
-        email: gestorEmail,
-        autorizadoAt: decidedAt,
-      },
-    });
-    const pdfPath = `${clienteId}/${solicitacaoId}/${pedidoNumero}.pdf`;
+    let sequencia = 0;
+    for (const fornecedorId of fornecedoresAprovados) {
+      sequencia += 1;
+      const itemIdsDoGrupo = grupos.get(fornecedorId)!;
+      const cotacao = cotacoesPorFornecedor.get(fornecedorId);
+      const itensDoGrupo = (solicitacao.itens ?? []).filter((item: any) =>
+        itemIdsDoGrupo.has(item.id),
+      );
+      const cotacaoItensDoGrupo = (cotacao.itens ?? []).filter((ci: any) =>
+        itemIdsDoGrupo.has(ci.solicitacao_item_id),
+      );
+      const totalGrupo = cotacaoItensDoGrupo.reduce(
+        (sum: number, ci: any) => sum + Number(ci.valor_total ?? 0),
+        0,
+      );
 
-    await supabase.storage
-      .from("pedidos-pdf")
-      .upload(pdfPath, Buffer.from(pdfBytes), {
-        contentType: "application/pdf",
-        upsert: true,
+      const pedidoNumero =
+        fornecedoresAprovados.length > 1
+          ? `PED-${solicitacao.codigo ?? Date.now()}-${sequencia}`
+          : `PED-${solicitacao.codigo ?? Date.now()}`;
+
+      const pdfBytes = await generatePedidoCompraPdf({
+        pedidoNumero,
+        solicitacao: { ...solicitacao, itens: itensDoGrupo },
+        cotacao: {
+          ...cotacao,
+          itens: cotacaoItensDoGrupo,
+          total_fornecedor: totalGrupo,
+        },
+        gestor: {
+          nome: gestorNome,
+          email: gestorEmail,
+          autorizadoAt: decidedAt,
+        },
       });
+      const pdfPath = `${clienteId}/${solicitacaoId}/${pedidoNumero}.pdf`;
 
-    const { data: signed } = await supabase.storage
-      .from("pedidos-pdf")
-      .createSignedUrl(pdfPath, LINK_TTL_SECONDS);
+      await supabase.storage
+        .from("pedidos-pdf")
+        .upload(pdfPath, Buffer.from(pdfBytes), {
+          contentType: "application/pdf",
+          upsert: true,
+        });
 
-    const pdfShortUrl = signed?.signedUrl
-      ? await createShortLinkWithClient(supabase, {
-          targetUrl: signed.signedUrl,
-          clienteId,
-        })
-      : null;
+      const { data: signed } = await supabase.storage
+        .from("pedidos-pdf")
+        .createSignedUrl(pdfPath, LINK_TTL_SECONDS);
 
-    await supabase.from("pedidos").insert({
-      cliente_id: clienteId,
-      solicitacao_id: solicitacaoId,
-      fornecedor_id: fornecedorId,
-      numero: pedidoNumero,
-      status: "emitido",
-      valor_total: cotacao?.total_fornecedor ?? 0,
-      pdf_path: pdfPath,
-      pdf_url: pdfShortUrl,
-      autorizado_por_nome: gestorNome,
-      autorizado_por_email: gestorEmail,
-      autorizado_at: decidedAt,
-      emitido_at: decidedAt,
-    });
+      const pdfShortUrl = signed?.signedUrl
+        ? await createShortLinkWithClient(supabase, {
+            targetUrl: signed.signedUrl,
+            clienteId,
+          })
+        : null;
+
+      await supabase.from("pedidos").insert({
+        cliente_id: clienteId,
+        solicitacao_id: solicitacaoId,
+        fornecedor_id: fornecedorId,
+        numero: pedidoNumero,
+        status: "emitido",
+        valor_total: totalGrupo,
+        pdf_path: pdfPath,
+        pdf_url: pdfShortUrl,
+        autorizado_por_nome: gestorNome,
+        autorizado_por_email: gestorEmail,
+        autorizado_at: decidedAt,
+        emitido_at: decidedAt,
+      });
+    }
   }
 
   await supabase.from("historico").insert({
@@ -1645,7 +1765,7 @@ export async function registrarDecisaoPublica(formData: FormData) {
     ip: context.ip,
     user_agent: context.userAgent,
     dados: {
-      fornecedor_id: fornecedorId,
+      fornecedores: fornecedoresAprovados,
       comentario,
       gestor_nome: gestorNome,
       gestor_email: gestorEmail,

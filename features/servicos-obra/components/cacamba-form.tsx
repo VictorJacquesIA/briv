@@ -76,6 +76,15 @@ export function CacambaForm({
             </select>
           </div>
           <div className="space-y-2">
+            <Label htmlFor="data_prevista">Data prevista de entrega</Label>
+            <Input
+              id="data_prevista"
+              name="data_prevista"
+              type="date"
+              required
+            />
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="observacao">Observação</Label>
             <Input id="observacao" name="observacao" />
           </div>

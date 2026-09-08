@@ -377,8 +377,11 @@ export async function generateOrcamentoRealizadoPdf(input: {
     renderHeader();
   };
 
+  // Limiar baixo (mais perto do rodapé) de propósito: o layout foi
+  // apertado (ver drawSection) pra caber numa página só sempre que possível
+  // — só quebra página quando realmente não há mais espaço.
   const ensureSpace = () => {
-    if (y < 100) {
+    if (y < 60) {
       newPage();
     }
   };
@@ -421,13 +424,13 @@ export async function generateOrcamentoRealizadoPdf(input: {
     >,
   ) => {
     ensureSpace();
-    y -= 8;
-    draw(titulo, 48, 12, bold);
+    y -= 4;
+    draw(titulo, 48, 11, bold);
 
     page.drawText("Item", { x: 48, y, size: 9, font: bold });
     page.drawText("Orçado", { x: 350, y, size: 9, font: bold });
     page.drawText("Realizado", { x: 460, y, size: 9, font: bold });
-    y -= 18;
+    y -= 13;
 
     let totalOrcado = 0;
     let totalRealizado = 0;
@@ -459,14 +462,14 @@ export async function generateOrcamentoRealizadoPdf(input: {
         size: 8,
         font: regular,
       });
-      y -= 14;
+      y -= 11;
     }
 
     if (itens.length === 0) {
       draw("Nenhum item cadastrado.", 48, 8);
     }
 
-    y -= 8;
+    y -= 3;
     draw(
       `Subtotal — Orçado: R$ ${money(totalOrcado)}  |  Realizado: R$ ${money(totalRealizado)}`,
       48,
@@ -492,7 +495,7 @@ export async function generateOrcamentoRealizadoPdf(input: {
   const extraTotals = drawSection("Extra", extraItens, ["despesas_realizado"]);
 
   ensureSpace();
-  y -= 8;
+  y -= 4;
   draw(
     `Total orçado: R$ ${money(insumosTotals.totalOrcado + moTotals.totalOrcado + extraTotals.totalOrcado)}  |  Total realizado: R$ ${money(insumosTotals.totalRealizado + moTotals.totalRealizado + extraTotals.totalRealizado)}`,
     48,

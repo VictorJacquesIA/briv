@@ -71,7 +71,12 @@ export default async function CompraDetailPage({
   const approvalUrl = solicitacao.aprovacao_token
     ? `/aprovacao/${solicitacao.aprovacao_token}`
     : null;
-  const pedido = solicitacao.pedidos?.[0];
+  const pedidos = solicitacao.pedidos ?? [];
+  // Uma solicitação dividida entre fornecedores (aprovação por rodadas) gera
+  // um pedido por fornecedor — todos compartilham o mesmo local_entrega
+  // (programarPedido aplica pra solicitação inteira), então esses dois
+  // campos podem ser lidos de qualquer um deles.
+  const pedido = pedidos[0];
   // Basta existir pelo menos 1 orçamento — não importa se foi cadastrado
   // manualmente ou por foto/PDF (a IA), nem se já foi validado: o botão
   // libera de qualquer forma, e enviarParaAprovacao (servidor) já recusa com
@@ -246,13 +251,35 @@ export default async function CompraDetailPage({
                     Link público: {approvalUrl}
                   </p>
                 ) : null}
-                {pedido?.pdf_url ? (
-                  <Button asChild variant="outline" className="w-full">
-                    <a href={pedido.pdf_url} target="_blank" rel="noreferrer">
-                      Abrir PDF do pedido
-                    </a>
-                  </Button>
-                ) : null}
+                {pedidos.length > 1
+                  ? pedidos.map((p: any) =>
+                      p.pdf_url ? (
+                        <Button
+                          key={p.id}
+                          asChild
+                          variant="outline"
+                          className="w-full"
+                        >
+                          <a href={p.pdf_url} target="_blank" rel="noreferrer">
+                            PDF —{" "}
+                            {p.fornecedor?.nome_fantasia ??
+                              p.fornecedor?.razao_social ??
+                              p.numero}
+                          </a>
+                        </Button>
+                      ) : null,
+                    )
+                  : pedido?.pdf_url && (
+                      <Button asChild variant="outline" className="w-full">
+                        <a
+                          href={pedido.pdf_url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Abrir PDF do pedido
+                        </a>
+                      </Button>
+                    )}
                 {pedido?.local_entrega ? (
                   <p className="text-xs text-muted-foreground">
                     Entrega:{" "}

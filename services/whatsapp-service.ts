@@ -37,6 +37,21 @@ export function cotacaoMessage(input: {
     .join("\n");
 }
 
+export function cacambaMessage(input: {
+  tipo: "solicitacao" | "troca";
+  obra: string;
+  endereco?: string | null;
+}) {
+  const linhaAcao =
+    input.tipo === "troca"
+      ? `Olá, solicitamos a troca da caçamba na obra ${input.obra}.`
+      : `Olá, gostaríamos de solicitar uma caçamba para a obra ${input.obra}.`;
+
+  return [linhaAcao, input.endereco ? `Endereço: ${input.endereco}` : null]
+    .filter(Boolean)
+    .join("\n");
+}
+
 export function aprovacaoMessage(input: {
   codigo: string;
   obra: string;

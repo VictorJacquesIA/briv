@@ -18,6 +18,7 @@ import {
   solicitarTrocaCacamba,
 } from "@/features/servicos-obra/actions";
 import { CacambaForm } from "@/features/servicos-obra/components/cacamba-form";
+import { CacambaFornecedorForm } from "@/features/servicos-obra/components/cacamba-fornecedor-form";
 import { CacambaOrcamentoForm } from "@/features/servicos-obra/components/cacamba-orcamento-form";
 import {
   getLinkedObrasForUser,
@@ -31,10 +32,18 @@ import { listCacambas } from "@/services/servicos-obra-service";
 import { getCurrentProfile } from "@/services/profiles-service";
 
 const STATUS_LABELS: Record<string, string> = {
+  pendente: "Pendente",
   solicitada: "Solicitada",
   ativa: "Ativa",
   encerrada: "Encerrada",
 };
+
+function formatarData(data: string | null) {
+  if (!data) {
+    return "-";
+  }
+  return new Date(`${data}T00:00:00`).toLocaleDateString("pt-BR");
+}
 
 const ACAO_LABELS: Record<string, string> = {
   troca: "Troca pendente",
@@ -74,19 +83,29 @@ export default async function CacambaPage({
   const filtroPendente = params.filtro === "pendente";
 
   const supabase = await createClient();
-  const [todasCacambas, obrasData, linkedObraIds, { data: orcamentoItens }] =
-    await Promise.all([
-      listCacambas(),
-      listObras(),
-      isGestor
-        ? getLinkedObrasForUser(currentProfile.id)
-        : Promise.resolve<string[]>([]),
-      supabase
-        .from("obra_orcamento_itens")
-        .select("id,obra_id,descricao")
-        .eq("tipo", "insumos")
-        .order("descricao"),
-    ]);
+  const [
+    todasCacambas,
+    obrasData,
+    linkedObraIds,
+    { data: orcamentoItens },
+    { data: fornecedores },
+  ] = await Promise.all([
+    listCacambas(),
+    listObras(),
+    isGestor
+      ? getLinkedObrasForUser(currentProfile.id)
+      : Promise.resolve<string[]>([]),
+    supabase
+      .from("obra_orcamento_itens")
+      .select("id,obra_id,descricao")
+      .eq("tipo", "insumos")
+      .order("descricao"),
+    supabase
+      .from("fornecedores")
+      .select("id,razao_social,nome_fantasia,whatsapp,telefone")
+      .eq("ativo", true)
+      .order("nome_fantasia"),
+  ]);
 
   const orcamentoItensByObra: Record<
     string,
@@ -100,12 +119,15 @@ export default async function CacambaPage({
   }
 
   // Mesma condição usada pra contar o card "Caçambas pendentes" no dashboard
-  // (status solicitada aguardando entrega, ou troca/devolução aguardando
-  // confirmação) — não é um único status, então não dá pra filtrar direto
-  // via listCacambas({status}).
+  // (mensagem ainda não enviada, aguardando entrega, ou troca/devolução
+  // aguardando confirmação) — não é um único status, então não dá pra
+  // filtrar direto via listCacambas({status}).
   const cacambas = filtroPendente
     ? todasCacambas.filter(
-        (c: any) => c.status === "solicitada" || c.acao_pendente,
+        (c: any) =>
+          c.status === "pendente" ||
+          c.status === "solicitada" ||
+          c.acao_pendente,
       )
     : todasCacambas;
 
@@ -115,6 +137,20 @@ export default async function CacambaPage({
 
   function podeGerenciar(obraId: string) {
     return !isGestor || linkedObraIds.includes(obraId);
+  }
+
+  // Mensagem de solicitação enquanto ainda não foi avisado o fornecedor
+  // (status "pendente"); de troca enquanto há um pedido de troca pendente.
+  // Devolução não tem mensagem própria (não foi pedida) e caçamba
+  // "solicitada"/ativa/encerrada sem pendência não precisa de nenhuma.
+  function tipoMensagemCacamba(cacamba: any): "solicitacao" | "troca" | null {
+    if (cacamba.status === "pendente") {
+      return "solicitacao";
+    }
+    if (cacamba.acao_pendente === "troca") {
+      return "troca";
+    }
+    return null;
   }
 
   function StatusCacamba({ cacamba }: { cacamba: any }) {
@@ -151,6 +187,26 @@ export default async function CacambaPage({
   }) {
     return (
       <>
+        {canConfirm ? (
+          <div className="mb-2">
+            <CacambaFornecedorForm
+              cacambaId={cacamba.id}
+              fornecedores={fornecedores ?? []}
+              fornecedorAtual={cacamba.fornecedor ?? null}
+              obraNome={cacamba.obra?.nome ?? ""}
+              obraEndereco={cacamba.obra?.endereco ?? null}
+              tipoMensagem={tipoMensagemCacamba(cacamba)}
+            />
+          </div>
+        ) : null}
+
+        {cacamba.status === "pendente" && canConfirm ? (
+          <p className="text-xs text-muted-foreground">
+            Envie a mensagem de WhatsApp pro fornecedor pra liberar a
+            confirmação de entrega.
+          </p>
+        ) : null}
+
         {cacamba.status === "solicitada" && canConfirm ? (
           <form action={confirmarEntregaCacamba}>
             <input type="hidden" name="cacamba_id" value={cacamba.id} />
@@ -167,9 +223,19 @@ export default async function CacambaPage({
         !cacamba.acao_pendente &&
         canCreate &&
         podeAgirNestaObra ? (
-          <div className="flex flex-wrap gap-2">
-            <form action={solicitarTrocaCacamba}>
+          <div className="flex flex-wrap items-end gap-2">
+            <form
+              action={solicitarTrocaCacamba}
+              className="flex flex-wrap items-end gap-2"
+            >
               <input type="hidden" name="cacamba_id" value={cacamba.id} />
+              <input
+                type="date"
+                name="data_prevista"
+                required
+                aria-label="Data prevista da troca"
+                className="h-9 rounded-md border bg-background px-2 text-sm"
+              />
               <button
                 type="submit"
                 className="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-secondary"
@@ -177,8 +243,18 @@ export default async function CacambaPage({
                 Solicitar troca
               </button>
             </form>
-            <form action={solicitarDevolucaoCacamba}>
+            <form
+              action={solicitarDevolucaoCacamba}
+              className="flex flex-wrap items-end gap-2"
+            >
               <input type="hidden" name="cacamba_id" value={cacamba.id} />
+              <input
+                type="date"
+                name="data_prevista"
+                required
+                aria-label="Data prevista da devolução"
+                className="h-9 rounded-md border bg-background px-2 text-sm"
+              />
               <button
                 type="submit"
                 className="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-secondary"
@@ -190,15 +266,21 @@ export default async function CacambaPage({
         ) : null}
 
         {cacamba.acao_pendente === "troca" && canConfirm ? (
-          <form action={confirmarTrocaCacamba}>
-            <input type="hidden" name="cacamba_id" value={cacamba.id} />
-            <button
-              type="submit"
-              className="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-secondary"
-            >
-              Confirmar troca
-            </button>
-          </form>
+          cacamba.mensagem_enviada_em ? (
+            <form action={confirmarTrocaCacamba}>
+              <input type="hidden" name="cacamba_id" value={cacamba.id} />
+              <button
+                type="submit"
+                className="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-secondary"
+              >
+                Confirmar troca
+              </button>
+            </form>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Envie a mensagem de WhatsApp antes de confirmar a troca.
+            </p>
+          )
         ) : null}
 
         {cacamba.acao_pendente === "devolucao" && canConfirm ? (
@@ -264,6 +346,7 @@ export default async function CacambaPage({
                   <th className="px-3 py-2 text-left">Tipo</th>
                   <th className="px-3 py-2 text-left">Centro de custo</th>
                   <th className="px-3 py-2 text-left">Valor</th>
+                  <th className="px-3 py-2 text-left">Data prevista</th>
                   <th className="px-3 py-2 text-left">Status</th>
                   <th className="px-3 py-2 text-left">Observação</th>
                   <th className="px-3 py-2 text-left">Ações</th>
@@ -289,6 +372,9 @@ export default async function CacambaPage({
                           : "-"}
                       </td>
                       <td className="px-3 py-2">
+                        {formatarData(cacamba.data_prevista)}
+                      </td>
+                      <td className="px-3 py-2">
                         <StatusCacamba cacamba={cacamba} />
                       </td>
                       <td className="px-3 py-2">{cacamba.observacao ?? "-"}</td>
@@ -304,7 +390,7 @@ export default async function CacambaPage({
                 {cacambas.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={8}
                       className="h-20 px-3 text-center text-muted-foreground"
                     >
                       Nenhuma caçamba solicitada ainda.
@@ -338,6 +424,9 @@ export default async function CacambaPage({
                             currency: "BRL",
                           })
                         : "-"}
+                    </MobileCardRow>
+                    <MobileCardRow label="Data prevista">
+                      {formatarData(cacamba.data_prevista)}
                     </MobileCardRow>
                     <MobileCardRow label="Status">
                       <StatusCacamba cacamba={cacamba} />

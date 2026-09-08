@@ -22,6 +22,7 @@ import {
   updateObraFase,
   updateObraGestor,
 } from "@/features/obras/actions/obra-actions";
+import { GerarRelatorioButton } from "@/features/obras/components/gerar-relatorio-button";
 import {
   hasPermission,
   getPermissionsForUser,
@@ -604,15 +605,7 @@ export default async function ObraDetailPage({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <Button asChild>
-                  <a
-                    href={`/api/obras/${obra.id}/relatorio`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Gerar PDF
-                  </a>
-                </Button>
+                <GerarRelatorioButton obraId={obra.id} />
               </CardContent>
             </Card>
           </TabsContent>

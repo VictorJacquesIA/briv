@@ -147,7 +147,10 @@ export type Database = {
           cliente_id: string;
           created_at: string;
           criado_por: string | null;
+          data_prevista: string | null;
+          fornecedor_id: string | null;
           id: string;
+          mensagem_enviada_em: string | null;
           obra_id: string;
           observacao: string | null;
           orcamento_item_id: string | null;
@@ -162,7 +165,10 @@ export type Database = {
           cliente_id: string;
           created_at?: string;
           criado_por?: string | null;
+          data_prevista?: string | null;
+          fornecedor_id?: string | null;
           id?: string;
+          mensagem_enviada_em?: string | null;
           obra_id: string;
           observacao?: string | null;
           orcamento_item_id?: string | null;
@@ -177,7 +183,10 @@ export type Database = {
           cliente_id?: string;
           created_at?: string;
           criado_por?: string | null;
+          data_prevista?: string | null;
+          fornecedor_id?: string | null;
           id?: string;
+          mensagem_enviada_em?: string | null;
           obra_id?: string;
           observacao?: string | null;
           orcamento_item_id?: string | null;
@@ -199,6 +208,13 @@ export type Database = {
             columns: ["criado_por"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cacambas_fornecedor_id_fkey";
+            columns: ["fornecedor_id"];
+            isOneToOne: false;
+            referencedRelation: "fornecedores";
             referencedColumns: ["id"];
           },
           {
@@ -1791,6 +1807,7 @@ export type Database = {
         Row: {
           created_at: string;
           descricao: string;
+          fornecedor_aprovado_id: string | null;
           id: string;
           item_id: string | null;
           material_id: string | null;
@@ -1805,6 +1822,7 @@ export type Database = {
         Insert: {
           created_at?: string;
           descricao: string;
+          fornecedor_aprovado_id?: string | null;
           id?: string;
           item_id?: string | null;
           material_id?: string | null;
@@ -1819,6 +1837,7 @@ export type Database = {
         Update: {
           created_at?: string;
           descricao?: string;
+          fornecedor_aprovado_id?: string | null;
           id?: string;
           item_id?: string | null;
           material_id?: string | null;
@@ -1831,6 +1850,13 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "solicitacao_itens_fornecedor_aprovado_id_fkey";
+            columns: ["fornecedor_aprovado_id"];
+            isOneToOne: false;
+            referencedRelation: "fornecedores";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "solicitacao_itens_item_id_fkey";
             columns: ["item_id"];
@@ -2267,7 +2293,7 @@ export type Database = {
         | "troca_confirmada"
         | "pedido_devolucao"
         | "devolucao_confirmada";
-      cacamba_status: "solicitada" | "ativa" | "encerrada";
+      cacamba_status: "solicitada" | "ativa" | "encerrada" | "pendente";
       contrato_mo_status: "aberto" | "quitado";
       cotacao_status:
         "rascunho" | "enviada" | "respondida" | "vencida" | "cancelada";
@@ -2437,7 +2463,7 @@ export const Constants = {
         "pedido_devolucao",
         "devolucao_confirmada",
       ],
-      cacamba_status: ["solicitada", "ativa", "encerrada"],
+      cacamba_status: ["solicitada", "ativa", "encerrada", "pendente"],
       contrato_mo_status: ["aberto", "quitado"],
       cotacao_status: [
         "rascunho",
