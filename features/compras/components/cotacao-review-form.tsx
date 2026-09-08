@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { FormToast } from "@/components/ui/form-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { validarCotacao } from "@/features/compras/actions/purchase-actions";
+import { ValorUnitarioTotalInput } from "@/features/compras/components/valor-unitario-total-input";
 
 function normalize(text: string) {
   return text.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
@@ -74,6 +75,23 @@ export function CotacaoReviewForm({
   const extracao = cotacao.extracao_ia ?? {};
   const extractedItens = extracao.itens ?? [];
 
+  const [naoCotados, setNaoCotados] = useState<Record<number, boolean>>(() =>
+    Object.fromEntries(
+      itens.map((item: any, index: number) => [
+        index,
+        !matchExtractedItem(item, extractedItens),
+      ]),
+    ),
+  );
+  const [totaisPorItem, setTotaisPorItem] = useState<Record<number, number>>(
+    {},
+  );
+
+  const totalGeral = Object.values(totaisPorItem).reduce(
+    (soma, valor) => soma + valor,
+    0,
+  );
+
   return (
     <Card>
       <CardHeader>
@@ -97,7 +115,7 @@ export function CotacaoReviewForm({
                   <th className="px-3 py-2 text-left">Item</th>
                   <th className="px-3 py-2 text-left">Qtd.</th>
                   <th className="px-3 py-2 text-left">
-                    Valor unitário (extraído por IA — confira)
+                    Valor unitário ou total (extraído por IA — confira)
                   </th>
                   <th className="px-3 py-2 text-left">Não cotado</th>
                   <th className="px-3 py-2 text-left">Observação</th>
@@ -122,6 +140,11 @@ export function CotacaoReviewForm({
                           name={`cotacao_item_${index}_incluir`}
                           value="on"
                         />
+                        <input
+                          type="hidden"
+                          name={`cotacao_item_${index}_quantidade`}
+                          value={item.quantidade}
+                        />
                         <div className="font-medium">{item.descricao}</div>
                         <div className="text-xs text-muted-foreground">
                           {item.unidade}
@@ -132,18 +155,18 @@ export function CotacaoReviewForm({
                         {Number(item.quantidade).toLocaleString("pt-BR")}
                       </td>
                       <td className="block md:table-cell md:px-3 md:py-2">
-                        <Label
-                          htmlFor={`cotacao_item_${index}_valor_unitario`}
-                          className="md:hidden"
-                        >
-                          Valor unitário (extraído por IA — confira)
-                        </Label>
-                        <Input
+                        <ValorUnitarioTotalInput
                           id={`cotacao_item_${index}_valor_unitario`}
                           name={`cotacao_item_${index}_valor_unitario`}
-                          inputMode="decimal"
-                          placeholder="0,00"
-                          defaultValue={matched?.valor_unitario ?? ""}
+                          quantidade={Number(item.quantidade)}
+                          disabled={naoCotados[index]}
+                          defaultValorUnitario={matched?.valor_unitario ?? null}
+                          onTotalChange={(total) =>
+                            setTotaisPorItem((prev) => ({
+                              ...prev,
+                              [index]: total,
+                            }))
+                          }
                         />
                       </td>
                       <td className="block md:table-cell md:px-3 md:py-2">
@@ -152,7 +175,13 @@ export function CotacaoReviewForm({
                             type="checkbox"
                             name={`cotacao_item_${index}_nao_cotado`}
                             className="size-4 rounded border"
-                            defaultChecked={!matched}
+                            checked={naoCotados[index] ?? false}
+                            onChange={(event) =>
+                              setNaoCotados((prev) => ({
+                                ...prev,
+                                [index]: event.target.checked,
+                              }))
+                            }
                           />
                           Não cotado
                         </label>
@@ -175,6 +204,16 @@ export function CotacaoReviewForm({
                 })}
               </tbody>
             </table>
+          </div>
+
+          <div className="flex items-center justify-between rounded-md border border-border bg-secondary/40 px-3 py-2 text-sm font-medium">
+            <span>Total do orçamento</span>
+            <span>
+              R${" "}
+              {totalGeral.toLocaleString("pt-BR", {
+                minimumFractionDigits: 2,
+              })}
+            </span>
           </div>
 
           {state.message ? (
