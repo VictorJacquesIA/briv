@@ -305,6 +305,7 @@ export function AprovacaoDecisao({
           name="gestor_nome"
           className="h-10 rounded-md border bg-background px-3 text-sm"
           placeholder="Nome do gestor"
+          defaultValue="Mateus"
           required
         />
         <input
