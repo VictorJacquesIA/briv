@@ -697,6 +697,8 @@ export type Database = {
           id: string;
           obra_id: string;
           observacao: string | null;
+          periodo_uso:
+            Database["public"]["Enums"]["ferramenta_periodo_uso"] | null;
           solicitado_por: string | null;
           status: Database["public"]["Enums"]["ferramenta_solicitacao_status"];
           updated_at: string;
@@ -715,6 +717,8 @@ export type Database = {
           id?: string;
           obra_id: string;
           observacao?: string | null;
+          periodo_uso?:
+            Database["public"]["Enums"]["ferramenta_periodo_uso"] | null;
           solicitado_por?: string | null;
           status?: Database["public"]["Enums"]["ferramenta_solicitacao_status"];
           updated_at?: string;
@@ -733,6 +737,8 @@ export type Database = {
           id?: string;
           obra_id?: string;
           observacao?: string | null;
+          periodo_uso?:
+            Database["public"]["Enums"]["ferramenta_periodo_uso"] | null;
           solicitado_por?: string | null;
           status?: Database["public"]["Enums"]["ferramenta_solicitacao_status"];
           updated_at?: string;
@@ -2412,6 +2418,7 @@ export type Database = {
       contrato_mo_status: "aberto" | "quitado";
       cotacao_status:
         "rascunho" | "enviada" | "respondida" | "vencida" | "cancelada";
+      ferramenta_periodo_uso: "diaria" | "semanal" | "mensal";
       ferramenta_solicitacao_decisao: "deposito" | "locacao";
       ferramenta_solicitacao_status: "pendente" | "atendida" | "cancelada";
       ferramenta_status: "deposito" | "emprestada" | "locada";
@@ -2589,6 +2596,7 @@ export const Constants = {
         "vencida",
         "cancelada",
       ],
+      ferramenta_periodo_uso: ["diaria", "semanal", "mensal"],
       ferramenta_solicitacao_decisao: ["deposito", "locacao"],
       ferramenta_solicitacao_status: ["pendente", "atendida", "cancelada"],
       ferramenta_status: ["deposito", "emprestada", "locada"],

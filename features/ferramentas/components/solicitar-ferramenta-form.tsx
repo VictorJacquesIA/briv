@@ -65,13 +65,28 @@ export function SolicitarFerramentaForm({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="data_necessidade">Precisa até quando</Label>
+            <Label htmlFor="data_necessidade">Data de entrega</Label>
             <Input
               id="data_necessidade"
               name="data_necessidade"
               type="date"
               required
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="periodo_uso">Tempo de uso</Label>
+            <select
+              id="periodo_uso"
+              name="periodo_uso"
+              className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+              required
+              defaultValue=""
+            >
+              <option value="">Selecione</option>
+              <option value="diaria">Diária</option>
+              <option value="semanal">Semanal</option>
+              <option value="mensal">Mensal</option>
+            </select>
           </div>
           <div className="space-y-2">
             <Label htmlFor="observacao">Observação</Label>

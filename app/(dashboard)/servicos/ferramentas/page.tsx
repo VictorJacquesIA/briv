@@ -35,6 +35,12 @@ const DECISAO_LABELS: Record<string, string> = {
   locacao: "Locação",
 };
 
+const PERIODO_LABELS: Record<string, string> = {
+  diaria: "Diária",
+  semanal: "Semanal",
+  mensal: "Mensal",
+};
+
 function formatarData(data: string | null) {
   if (!data) {
     return "-";
@@ -174,7 +180,8 @@ export default async function FerramentasSolicitacoesPage() {
                 <tr>
                   <th className="px-3 py-2 text-left">Obra</th>
                   <th className="px-3 py-2 text-left">Descrição</th>
-                  <th className="px-3 py-2 text-left">Precisa até</th>
+                  <th className="px-3 py-2 text-left">Entrega</th>
+                  <th className="px-3 py-2 text-left">Tempo de uso</th>
                   <th className="px-3 py-2 text-left">Status</th>
                   <th className="px-3 py-2 text-left">Decisão</th>
                   <th className="px-3 py-2 text-left">Ação</th>
@@ -194,6 +201,12 @@ export default async function FerramentasSolicitacoesPage() {
                     </td>
                     <td className="px-3 py-2">
                       {formatarData(solicitacao.data_necessidade)}
+                    </td>
+                    <td className="px-3 py-2">
+                      {solicitacao.periodo_uso
+                        ? (PERIODO_LABELS[solicitacao.periodo_uso] ??
+                          solicitacao.periodo_uso)
+                        : "-"}
                     </td>
                     <td className="px-3 py-2">
                       <Badge
@@ -223,7 +236,7 @@ export default async function FerramentasSolicitacoesPage() {
                 {solicitacoes.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       className="h-20 px-3 text-center text-muted-foreground"
                     >
                       Nenhuma solicitação de ferramenta ainda.
@@ -248,8 +261,14 @@ export default async function FerramentasSolicitacoesPage() {
                   <MobileCardRow label="Descrição">
                     {solicitacao.descricao}
                   </MobileCardRow>
-                  <MobileCardRow label="Precisa até">
+                  <MobileCardRow label="Entrega">
                     {formatarData(solicitacao.data_necessidade)}
+                  </MobileCardRow>
+                  <MobileCardRow label="Tempo de uso">
+                    {solicitacao.periodo_uso
+                      ? (PERIODO_LABELS[solicitacao.periodo_uso] ??
+                        solicitacao.periodo_uso)
+                      : "-"}
                   </MobileCardRow>
                   <MobileCardRow label="Status">
                     <Badge

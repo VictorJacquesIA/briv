@@ -41,7 +41,7 @@ export async function listFerramentaSolicitacoes(input?: {
   let query = supabase
     .from("ferramenta_solicitacoes")
     .select(
-      "id,descricao,observacao,status,decisao,data_necessidade,created_at,atendido_at,obra:obras(id,nome,endereco),ferramenta:ferramentas(id,nome,status,fornecedor_id,valor_locacao,data_prevista_devolucao,mensagem_enviada_em,entregue_em,fornecedor:fornecedores(id,razao_social,nome_fantasia,whatsapp,telefone))",
+      "id,descricao,observacao,status,decisao,data_necessidade,periodo_uso,created_at,atendido_at,obra:obras(id,nome,endereco),ferramenta:ferramentas(id,nome,status,fornecedor_id,valor_locacao,data_prevista_devolucao,mensagem_enviada_em,entregue_em,fornecedor:fornecedores(id,razao_social,nome_fantasia,whatsapp,telefone))",
     )
     .order("created_at", { ascending: false });
 

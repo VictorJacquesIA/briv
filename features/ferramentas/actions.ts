@@ -196,6 +196,7 @@ export async function solicitarFerramenta(
     const descricao = text(formData, "descricao");
     const observacao = text(formData, "observacao");
     const dataNecessidade = text(formData, "data_necessidade");
+    const periodoUso = text(formData, "periodo_uso");
 
     if (!obraId) {
       return { message: "Selecione a obra." };
@@ -206,7 +207,15 @@ export async function solicitarFerramenta(
     }
 
     if (!dataNecessidade) {
-      return { message: "Informe a data que precisa da ferramenta." };
+      return { message: "Informe a data de entrega." };
+    }
+
+    if (
+      periodoUso !== "diaria" &&
+      periodoUso !== "semanal" &&
+      periodoUso !== "mensal"
+    ) {
+      return { message: "Selecione o tempo de uso." };
     }
 
     const isGestor = isGestorRole(profile.role);
@@ -224,6 +233,7 @@ export async function solicitarFerramenta(
         descricao,
         observacao,
         data_necessidade: dataNecessidade,
+        periodo_uso: periodoUso,
         solicitado_por: profile.id,
       })
       .select("id")
@@ -248,7 +258,12 @@ export async function solicitarFerramenta(
       statusNovo: "pendente",
       ip: context.ip,
       userAgent: context.userAgent,
-      dados: { obra_id: obraId, descricao, data_necessidade: dataNecessidade },
+      dados: {
+        obra_id: obraId,
+        descricao,
+        data_necessidade: dataNecessidade,
+        periodo_uso: periodoUso,
+      },
     });
 
     revalidatePath("/servicos/ferramentas");
