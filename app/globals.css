@@ -70,6 +70,10 @@
       BlinkMacSystemFont,
       "Segoe UI",
       sans-serif;
+    /* Trava o zoom por duplo toque (o maximumScale/userScalable do viewport
+       cobre só o pinça) — mantém o toque comportando como app, sem afetar
+       o scroll normal (manipulation ainda permite pan/scroll). */
+    touch-action: manipulation;
   }
 
   input,

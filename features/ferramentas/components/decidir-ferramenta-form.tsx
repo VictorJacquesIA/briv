@@ -37,11 +37,12 @@ export function DecidirFerramentaForm({
 
   if (!modo) {
     return (
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-col gap-2 sm:max-w-xs">
         <Button
           type="button"
           size="sm"
           variant="outline"
+          className="w-full"
           onClick={() => setModo("deposito")}
         >
           Enviar do depósito
@@ -50,6 +51,7 @@ export function DecidirFerramentaForm({
           type="button"
           size="sm"
           variant="outline"
+          className="w-full"
           onClick={() => setModo("locacao")}
         >
           Locar de fornecedor
@@ -60,15 +62,12 @@ export function DecidirFerramentaForm({
 
   if (modo === "deposito") {
     return (
-      <form
-        action={depositoAction}
-        className="flex flex-wrap items-center gap-2"
-      >
+      <form action={depositoAction} className="flex flex-col gap-2 sm:max-w-xs">
         <input type="hidden" name="solicitacao_id" value={solicitacaoId} />
         <select
           name="ferramenta_id"
           required
-          className="h-9 rounded-md border bg-background px-2 text-sm"
+          className="h-9 w-full rounded-md border bg-background px-2 text-sm"
           defaultValue=""
         >
           <option value="">Selecione a ferramenta</option>
@@ -79,29 +78,32 @@ export function DecidirFerramentaForm({
             </option>
           ))}
         </select>
-        <Button type="submit" size="sm">
-          Confirmar envio
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          onClick={() => setModo(null)}
-        >
-          Cancelar
-        </Button>
+        <div className="flex gap-2">
+          <Button type="submit" size="sm" className="flex-1">
+            Confirmar envio
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="flex-1"
+            onClick={() => setModo(null)}
+          >
+            Cancelar
+          </Button>
+        </div>
         <FormToast message={depositoState.message} />
       </form>
     );
   }
 
   return (
-    <form action={locacaoAction} className="flex flex-wrap items-end gap-2">
+    <form action={locacaoAction} className="flex flex-col gap-2 sm:max-w-xs">
       <input type="hidden" name="solicitacao_id" value={solicitacaoId} />
       <select
         name="fornecedor_id"
         required
-        className="h-9 rounded-md border bg-background px-2 text-sm"
+        className="h-9 w-full rounded-md border bg-background px-2 text-sm"
         defaultValue=""
       >
         <option value="">Fornecedor</option>
@@ -117,26 +119,29 @@ export function DecidirFerramentaForm({
         name="valor_locacao"
         placeholder="Valor"
         aria-label="Valor da locação"
-        className="h-9 w-28 rounded-md border bg-background px-2 text-sm"
+        className="h-9 w-full rounded-md border bg-background px-2 text-sm"
       />
       <input
         type="date"
         name="data_prevista_devolucao"
         required
         aria-label="Data prevista de devolução"
-        className="h-9 rounded-md border bg-background px-2 text-sm"
+        className="h-9 w-full rounded-md border bg-background px-2 text-sm"
       />
-      <Button type="submit" size="sm">
-        Confirmar locação
-      </Button>
-      <Button
-        type="button"
-        size="sm"
-        variant="ghost"
-        onClick={() => setModo(null)}
-      >
-        Cancelar
-      </Button>
+      <div className="flex gap-2">
+        <Button type="submit" size="sm" className="flex-1">
+          Confirmar locação
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="flex-1"
+          onClick={() => setModo(null)}
+        >
+          Cancelar
+        </Button>
+      </div>
       <FormToast message={locacaoState.message} />
     </form>
   );

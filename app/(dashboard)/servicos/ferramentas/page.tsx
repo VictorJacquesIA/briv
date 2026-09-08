@@ -5,8 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   MobileCard,
   MobileCardActions,
-  MobileCardEmpty,
-  MobileCardList,
   MobileCardRow,
 } from "@/components/ui/mobile-card-list";
 import { DecidirFerramentaForm } from "@/features/ferramentas/components/decidir-ferramenta-form";
@@ -36,6 +34,13 @@ const DECISAO_LABELS: Record<string, string> = {
   deposito: "Depósito",
   locacao: "Locação",
 };
+
+function formatarData(data: string | null) {
+  if (!data) {
+    return "-";
+  }
+  return new Date(`${data}T00:00:00`).toLocaleDateString("pt-BR");
+}
 
 export default async function FerramentasSolicitacoesPage() {
   const currentProfile = await getCurrentProfile();
@@ -160,12 +165,16 @@ export default async function FerramentasSolicitacoesPage() {
           <CardTitle className="text-base">Solicitações</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="hidden overflow-x-auto rounded-lg border border-border bg-card md:block">
+          {/* lg em vez do md padrão do site — essa tela tem muita ação por
+              linha (decidir depósito/locação, WhatsApp, confirmações) e
+              precisa de mais espaço pra não obrigar scroll lateral. */}
+          <div className="hidden overflow-x-auto rounded-lg border border-border bg-card lg:block">
             <table className="w-full min-w-[760px] text-sm">
               <thead className="bg-secondary">
                 <tr>
                   <th className="px-3 py-2 text-left">Obra</th>
                   <th className="px-3 py-2 text-left">Descrição</th>
+                  <th className="px-3 py-2 text-left">Precisa até</th>
                   <th className="px-3 py-2 text-left">Status</th>
                   <th className="px-3 py-2 text-left">Decisão</th>
                   <th className="px-3 py-2 text-left">Ação</th>
@@ -182,6 +191,9 @@ export default async function FerramentasSolicitacoesPage() {
                           {solicitacao.observacao}
                         </div>
                       ) : null}
+                    </td>
+                    <td className="px-3 py-2">
+                      {formatarData(solicitacao.data_necessidade)}
                     </td>
                     <td className="px-3 py-2">
                       <Badge
@@ -211,7 +223,7 @@ export default async function FerramentasSolicitacoesPage() {
                 {solicitacoes.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={6}
                       className="h-20 px-3 text-center text-muted-foreground"
                     >
                       Nenhuma solicitação de ferramenta ainda.
@@ -223,11 +235,11 @@ export default async function FerramentasSolicitacoesPage() {
           </div>
 
           {solicitacoes.length === 0 ? (
-            <MobileCardEmpty>
+            <div className="rounded-lg border border-border bg-card p-6 text-center text-sm text-muted-foreground lg:hidden">
               Nenhuma solicitação de ferramenta ainda.
-            </MobileCardEmpty>
+            </div>
           ) : (
-            <MobileCardList>
+            <div className="space-y-3 lg:hidden">
               {solicitacoes.map((solicitacao: any) => (
                 <MobileCard key={solicitacao.id}>
                   <MobileCardRow label="Obra">
@@ -235,6 +247,9 @@ export default async function FerramentasSolicitacoesPage() {
                   </MobileCardRow>
                   <MobileCardRow label="Descrição">
                     {solicitacao.descricao}
+                  </MobileCardRow>
+                  <MobileCardRow label="Precisa até">
+                    {formatarData(solicitacao.data_necessidade)}
                   </MobileCardRow>
                   <MobileCardRow label="Status">
                     <Badge
@@ -260,7 +275,7 @@ export default async function FerramentasSolicitacoesPage() {
                   </MobileCardActions>
                 </MobileCard>
               ))}
-            </MobileCardList>
+            </div>
           )}
         </CardContent>
       </Card>

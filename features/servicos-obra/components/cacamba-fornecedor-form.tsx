@@ -60,12 +60,12 @@ export function CacambaFornecedorForm({
 
   return (
     <div className="space-y-2">
-      <form action={action} className="flex flex-wrap items-center gap-2">
+      <form action={action} className="flex flex-col gap-2 sm:max-w-xs">
         <input type="hidden" name="cacamba_id" value={cacambaId} />
         <select
           name="fornecedor_id"
           defaultValue={fornecedorAtual?.id ?? ""}
-          className="h-9 rounded-md border bg-background px-2 text-sm"
+          className="h-9 w-full rounded-md border bg-background px-2 text-sm"
         >
           <option value="">Sem fornecedor</option>
           {fornecedores.map((fornecedor) => (
@@ -74,7 +74,7 @@ export function CacambaFornecedorForm({
             </option>
           ))}
         </select>
-        <Button type="submit" size="sm" variant="outline">
+        <Button type="submit" size="sm" variant="outline" className="w-full">
           Salvar fornecedor
         </Button>
       </form>

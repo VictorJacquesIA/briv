@@ -125,11 +125,19 @@ export async function generatePedidoCompraPdf(input: {
   pedidoNumero: string;
   solicitacao: any;
   cotacao: any;
-  gestor: {
-    nome: string;
-    email?: string | null;
-    autorizadoAt: string;
+  // Local de entrega só existe depois que o compras "programa" o pedido
+  // (programarPedido roda depois da aprovação) — por isso é opcional: a
+  // primeira geração do PDF (na aprovação pública) ainda não tem esse dado,
+  // e o PDF é regenerado assim que programarPedido define isso.
+  pedido?: {
+    localEntrega?: "obra" | "deposito" | "retirada" | null;
+    retiradaAutorizadoNome?: string | null;
+    prazoConfirmadoDias?: number | null;
+    dataPrevistaEntrega?: string | null;
   };
+  // Quem está de fato comprando/programando o pedido — não é quem aprovou
+  // pelo link público (isso não aparece mais no PDF).
+  responsavelNome?: string | null;
 }) {
   const pdf = await PDFDocument.create();
   const page = pdf.addPage([595, 842]);
@@ -159,25 +167,45 @@ export async function generatePedidoCompraPdf(input: {
   draw(
     `CPF/CNPJ: ${line(input.solicitacao.obra?.contratante_documento)} | E-mail: ${line(input.solicitacao.obra?.contratante_email)}`,
   );
-
-  y -= 8;
-  draw("Dados da obra", 48, 12, bold);
-  draw(
-    `Obra: ${line(input.solicitacao.obra?.nome)} | Codigo: ${line(input.solicitacao.obra?.codigo)}`,
-  );
+  draw(`Obra: ${line(input.solicitacao.obra?.nome)}`);
   draw(`Endereco: ${line(input.solicitacao.obra?.endereco)}`);
-  draw(
-    `Responsavel: ${line(input.solicitacao.responsavel_obra?.nome)} | Telefone: ${line(input.solicitacao.obra?.telefone_responsavel)}`,
-  );
 
   y -= 8;
-  draw("Fornecedor escolhido", 48, 12, bold);
-  draw(`Fornecedor: ${line(input.cotacao.fornecedor?.razao_social)}`);
+  draw("Entrega", 48, 12, bold);
+  const localEntrega = input.pedido?.localEntrega;
+  const localEntregaLabel =
+    localEntrega === "obra"
+      ? "Entrega na obra"
+      : localEntrega === "deposito"
+        ? "Entrega no depósito"
+        : localEntrega === "retirada"
+          ? `Retirada autorizada${input.pedido?.retiradaAutorizadoNome ? ` (${input.pedido.retiradaAutorizadoNome})` : ""}`
+          : "A definir";
+  draw(`Local: ${localEntregaLabel}`);
+  if (input.pedido?.dataPrevistaEntrega || input.pedido?.prazoConfirmadoDias) {
+    const dataPrevistaLabel = input.pedido?.dataPrevistaEntrega
+      ? new Date(
+          `${input.pedido.dataPrevistaEntrega}T00:00:00`,
+        ).toLocaleDateString("pt-BR")
+      : null;
+    draw(
+      [
+        dataPrevistaLabel ? `Data prevista: ${dataPrevistaLabel}` : null,
+        input.pedido?.prazoConfirmadoDias
+          ? `Prazo confirmado: ${input.pedido.prazoConfirmadoDias} dia(s)`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" | "),
+    );
+  }
+
+  y -= 8;
   draw(
-    `CNPJ: ${line(input.cotacao.fornecedor?.cnpj)} | Contato: ${line(input.cotacao.fornecedor?.contato)}`,
-  );
-  draw(
-    `Email: ${line(input.cotacao.fornecedor?.email)} | Telefone: ${line(input.cotacao.fornecedor?.telefone)}`,
+    `Fornecedor: ${line(input.cotacao.fornecedor?.nome_fantasia ?? input.cotacao.fornecedor?.razao_social)}`,
+    48,
+    11,
+    bold,
   );
 
   y -= 8;
@@ -224,7 +252,7 @@ export async function generatePedidoCompraPdf(input: {
 
   y -= 8;
   draw(
-    `Total do fornecedor: R$ ${money(input.cotacao.total_fornecedor)}`,
+    `Total do pedido: R$ ${money(input.cotacao.total_fornecedor)}`,
     48,
     12,
     bold,
@@ -234,23 +262,7 @@ export async function generatePedidoCompraPdf(input: {
   );
 
   y -= 8;
-  draw("Autorizacao", 48, 12, bold);
-  draw(`Gestor responsavel: ${input.gestor.nome}`);
-  draw(
-    `E-mail: ${line(input.gestor.email)} | Data da autorizacao: ${new Date(input.gestor.autorizadoAt).toLocaleString("pt-BR")}`,
-  );
-  page.drawLine({
-    start: { x: 48, y: 70 },
-    end: { x: 260, y: 70 },
-    thickness: 1,
-    color: rgb(0.5, 0.5, 0.5),
-  });
-  page.drawText("Assinatura do gestor", {
-    x: 86,
-    y: 54,
-    size: 9,
-    font: regular,
-  });
+  draw(`Responsavel pelo pedido: ${line(input.responsavelNome)}`, 48, 11, bold);
 
   return pdf.save();
 }

@@ -1207,6 +1207,102 @@ export async function programarPedido(
       .update({ status: "pedido_programado" })
       .eq("id", solicitacaoId);
 
+    // Regenera o PDF de cada pedido (pode ter mais de um, se a aprovação foi
+    // dividida entre fornecedores) agora que o local de entrega e quem está
+    // programando o pedido já são conhecidos — na aprovação pública esses
+    // dados ainda não existiam. Falha ao regenerar não desfaz a programação
+    // (o link antigo, sem essas infos, continua funcionando).
+    const { data: solicitacaoCompleta } = await supabase
+      .from("solicitacoes")
+      .select(
+        `
+        *,
+        obra:obras(*),
+        itens:solicitacao_itens(*),
+        cotacoes:cotacoes(*, fornecedor:fornecedores(*), itens:cotacao_itens(*))
+        `,
+      )
+      .eq("id", solicitacaoId)
+      .single();
+
+    const { data: pedidosDaSolicitacao } = await supabase
+      .from("pedidos")
+      .select("id,numero,fornecedor_id,valor_total,pdf_path")
+      .eq("solicitacao_id", solicitacaoId);
+
+    for (const pedido of pedidosDaSolicitacao ?? []) {
+      const itemIdsDoGrupo = new Set(
+        (solicitacaoCompleta?.itens ?? [])
+          .filter(
+            (item: any) => item.fornecedor_aprovado_id === pedido.fornecedor_id,
+          )
+          .map((item: any) => item.id),
+      );
+      const cotacao = (solicitacaoCompleta?.cotacoes ?? []).find(
+        (c: any) => c.fornecedor_id === pedido.fornecedor_id,
+      );
+
+      if (!solicitacaoCompleta || !cotacao) {
+        continue;
+      }
+
+      const itensDoGrupo = (solicitacaoCompleta.itens ?? []).filter(
+        (item: any) => itemIdsDoGrupo.has(item.id),
+      );
+      const cotacaoItensDoGrupo = (cotacao.itens ?? []).filter((ci: any) =>
+        itemIdsDoGrupo.has(ci.solicitacao_item_id),
+      );
+
+      const pdfBytes = await generatePedidoCompraPdf({
+        pedidoNumero: pedido.numero ?? "",
+        solicitacao: { ...solicitacaoCompleta, itens: itensDoGrupo },
+        cotacao: {
+          ...cotacao,
+          itens: cotacaoItensDoGrupo,
+          total_fornecedor: pedido.valor_total,
+        },
+        pedido: {
+          localEntrega,
+          retiradaAutorizadoNome:
+            localEntrega === "retirada" ? retiradaAutorizadoNome : null,
+          prazoConfirmadoDias,
+          dataPrevistaEntrega,
+        },
+        responsavelNome: profile.nome,
+      });
+
+      const pdfPath =
+        pedido.pdf_path ??
+        `${solicitacaoCompleta.cliente_id}/${solicitacaoId}/${pedido.numero}.pdf`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("pedidos-pdf")
+        .upload(pdfPath, Buffer.from(pdfBytes), {
+          contentType: "application/pdf",
+          upsert: true,
+        });
+
+      if (uploadError) {
+        continue;
+      }
+
+      const { data: signed } = await supabase.storage
+        .from("pedidos-pdf")
+        .createSignedUrl(pdfPath, LINK_TTL_SECONDS);
+
+      const pdfShortUrl = signed?.signedUrl
+        ? await createShortLinkWithClient(supabase, {
+            targetUrl: signed.signedUrl,
+            clienteId: solicitacaoCompleta.cliente_id,
+          })
+        : null;
+
+      await supabase
+        .from("pedidos")
+        .update({ pdf_path: pdfPath, pdf_url: pdfShortUrl })
+        .eq("id", pedido.id);
+    }
+
     await registrarHistorico({
       clienteId: profile.cliente_id,
       actorId: user.id,
@@ -1708,11 +1804,10 @@ export async function registrarDecisaoPublica(formData: FormData) {
           itens: cotacaoItensDoGrupo,
           total_fornecedor: totalGrupo,
         },
-        gestor: {
-          nome: gestorNome,
-          email: gestorEmail,
-          autorizadoAt: decidedAt,
-        },
+        // Local de entrega e responsável pelo pedido ainda não existem
+        // nesse momento (só depois de programarPedido) — o PDF é
+        // regenerado lá assim que essa decisão é tomada.
+        responsavelNome: null,
       });
       const pdfPath = `${clienteId}/${solicitacaoId}/${pedidoNumero}.pdf`;
 

@@ -688,6 +688,7 @@ export type Database = {
           atendido_por: string | null;
           cliente_id: string;
           created_at: string;
+          data_necessidade: string | null;
           decisao:
             | Database["public"]["Enums"]["ferramenta_solicitacao_decisao"]
             | null;
@@ -705,6 +706,7 @@ export type Database = {
           atendido_por?: string | null;
           cliente_id: string;
           created_at?: string;
+          data_necessidade?: string | null;
           decisao?:
             | Database["public"]["Enums"]["ferramenta_solicitacao_decisao"]
             | null;
@@ -722,6 +724,7 @@ export type Database = {
           atendido_por?: string | null;
           cliente_id?: string;
           created_at?: string;
+          data_necessidade?: string | null;
           decisao?:
             | Database["public"]["Enums"]["ferramenta_solicitacao_decisao"]
             | null;

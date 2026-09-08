@@ -65,6 +65,15 @@ export function SolicitarFerramentaForm({
             />
           </div>
           <div className="space-y-2">
+            <Label htmlFor="data_necessidade">Precisa até quando</Label>
+            <Input
+              id="data_necessidade"
+              name="data_necessidade"
+              type="date"
+              required
+            />
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="observacao">Observação</Label>
             <Input id="observacao" name="observacao" />
           </div>

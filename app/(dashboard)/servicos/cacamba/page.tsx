@@ -6,8 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   MobileCard,
   MobileCardActions,
-  MobileCardEmpty,
-  MobileCardList,
   MobileCardRow,
 } from "@/components/ui/mobile-card-list";
 import {
@@ -223,7 +221,7 @@ export default async function CacambaPage({
         !cacamba.acao_pendente &&
         canCreate &&
         podeAgirNestaObra ? (
-          <div className="flex flex-wrap items-end gap-2">
+          <div className="flex flex-col gap-2">
             <form
               action={solicitarTrocaCacamba}
               className="flex flex-wrap items-end gap-2"
@@ -338,7 +336,12 @@ export default async function CacambaPage({
           <CardTitle className="text-base">Solicitações</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="hidden overflow-x-auto rounded-lg border border-border bg-card md:block">
+          {/* Essa tela tem muita ação por linha (fornecedor, WhatsApp,
+              confirmações) — precisa de mais espaço que o breakpoint padrão
+              (md) do resto do site pra não obrigar scroll lateral, por isso
+              usa lg aqui em vez dos componentes MobileCardList/MobileCardEmpty
+              (que têm md:hidden fixo). */}
+          <div className="hidden overflow-x-auto rounded-lg border border-border bg-card lg:block">
             <table className="w-full min-w-[760px] text-sm">
               <thead className="bg-secondary">
                 <tr>
@@ -402,9 +405,11 @@ export default async function CacambaPage({
           </div>
 
           {cacambas.length === 0 ? (
-            <MobileCardEmpty>Nenhuma caçamba solicitada ainda.</MobileCardEmpty>
+            <div className="rounded-lg border border-border bg-card p-6 text-center text-sm text-muted-foreground lg:hidden">
+              Nenhuma caçamba solicitada ainda.
+            </div>
           ) : (
-            <MobileCardList>
+            <div className="space-y-3 lg:hidden">
               {cacambas.map((cacamba: any) => {
                 const podeAgirNestaObra = podeGerenciar(cacamba.obra?.id);
 
@@ -443,7 +448,7 @@ export default async function CacambaPage({
                   </MobileCard>
                 );
               })}
-            </MobileCardList>
+            </div>
           )}
         </CardContent>
       </Card>

@@ -24,6 +24,12 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  // Trava o pinch-zoom — comportamento de app instalado, não de página web
+  // que o usuário pode dar zoom. Complementado pelo touch-action:manipulation
+  // em globals.css, que evita o zoom por duplo toque (o maximumScale/
+  // userScalable abaixo só cobre o gesto de pinça).
+  maximumScale: 1,
+  userScalable: false,
   // Preto puro, não #121212 do tema — bate exatamente com o fundo de
   // public/pwa.png (fonte dos ícones/splash), sem costura visível.
   themeColor: "#000000",

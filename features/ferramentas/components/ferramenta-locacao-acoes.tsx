@@ -59,9 +59,9 @@ export function FerramentaLocacaoAcoes({
 
   if (entregueEm) {
     return (
-      <form action={confirmarDevolucaoFerramentaLocada}>
+      <form action={confirmarDevolucaoFerramentaLocada} className="sm:max-w-xs">
         <input type="hidden" name="ferramenta_id" value={ferramentaId} />
-        <Button type="submit" size="sm" variant="outline">
+        <Button type="submit" size="sm" variant="outline" className="w-full">
           Confirmar devolução
         </Button>
       </form>
@@ -69,11 +69,12 @@ export function FerramentaLocacaoAcoes({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 sm:max-w-xs">
       {telefone ? (
         <Button
           type="button"
           size="sm"
+          className="w-full"
           disabled={isPending}
           onClick={handleEnviar}
         >
@@ -83,7 +84,7 @@ export function FerramentaLocacaoAcoes({
       {mensagemEnviadaEm ? (
         <form action={confirmarEntregaFerramentaLocada}>
           <input type="hidden" name="ferramenta_id" value={ferramentaId} />
-          <Button type="submit" size="sm" variant="outline">
+          <Button type="submit" size="sm" variant="outline" className="w-full">
             Confirmar entrega
           </Button>
         </form>

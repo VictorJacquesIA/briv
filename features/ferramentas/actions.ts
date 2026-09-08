@@ -195,6 +195,7 @@ export async function solicitarFerramenta(
     const obraId = text(formData, "obra_id");
     const descricao = text(formData, "descricao");
     const observacao = text(formData, "observacao");
+    const dataNecessidade = text(formData, "data_necessidade");
 
     if (!obraId) {
       return { message: "Selecione a obra." };
@@ -202,6 +203,10 @@ export async function solicitarFerramenta(
 
     if (!descricao) {
       return { message: "Descreva a ferramenta que precisa." };
+    }
+
+    if (!dataNecessidade) {
+      return { message: "Informe a data que precisa da ferramenta." };
     }
 
     const isGestor = isGestorRole(profile.role);
@@ -218,6 +223,7 @@ export async function solicitarFerramenta(
         obra_id: obraId,
         descricao,
         observacao,
+        data_necessidade: dataNecessidade,
         solicitado_por: profile.id,
       })
       .select("id")
@@ -242,7 +248,7 @@ export async function solicitarFerramenta(
       statusNovo: "pendente",
       ip: context.ip,
       userAgent: context.userAgent,
-      dados: { obra_id: obraId, descricao },
+      dados: { obra_id: obraId, descricao, data_necessidade: dataNecessidade },
     });
 
     revalidatePath("/servicos/ferramentas");
