@@ -412,10 +412,12 @@ export async function marcarMensagemLocacaoSolicitacaoEnviada(
   revalidatePath("/servicos/ferramentas");
 }
 
-// Compras confirma a entrega da locação depois de já ter enviado a
-// mensagem de WhatsApp pro fornecedor (gate abaixo) — cria a ferramenta já
-// como "locada" e entregue, e encerra a solicitação. Sem uma segunda etapa
-// de mensagem: a que já foi enviada na escolha do fornecedor é a mesma.
+// Compras agenda a entrega da locação depois de já ter enviado a mensagem
+// de WhatsApp pro fornecedor (gate abaixo) — cria a ferramenta como
+// "locada" (entrega ainda pendente de confirmação) e encerra a
+// solicitação. A confirmação de que a ferramenta chegou de fato na obra é
+// um passo separado (confirmarEntregaFerramentaLocada, via
+// FerramentaLocacaoAcoes), igual à caçamba.
 export async function decidirFerramentaLocacao(
   _state: FerramentaActionState,
   formData: FormData,
@@ -463,7 +465,6 @@ export async function decidirFerramentaLocacao(
         valor_locacao: valorLocacao,
         data_prevista_devolucao: dataPrevistaDevolucao,
         mensagem_enviada_em: solicitacao.mensagem_enviada_em,
-        entregue_em: new Date().toISOString(),
       })
       .select("id")
       .single();
@@ -517,7 +518,7 @@ export async function decidirFerramentaLocacao(
 
     revalidatePath("/servicos/ferramentas");
     revalidatePath("/estoque/ferramentas");
-    return { success: true, message: "Entrega confirmada." };
+    return { success: true, message: "Entrega agendada." };
   } catch (error) {
     return { message: friendlyErrorMessage(error) };
   }

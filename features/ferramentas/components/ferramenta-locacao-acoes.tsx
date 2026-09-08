@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   confirmarDevolucaoFerramentaLocada,
@@ -15,9 +16,11 @@ type Fornecedor = {
   telefone: string | null;
 } | null;
 
-// Mesma lógica da caçamba: enviar a mensagem marca mensagem_enviada_em, o
-// que libera "Confirmar entrega" no servidor (o gate está em
-// confirmarEntregaFerramentaLocada). Depois de entregue, vira "Confirmar
+// A mensagem já foi enviada na escolha do fornecedor (decidirFerramentaLocacao
+// carrega mensagem_enviada_em pra ferramenta), por isso chega aqui como
+// "Entrega agendada" com "Confirmar entrega" liberado — o botão de WhatsApp
+// fica disponível só como reenvio. O gate server-side continua em
+// confirmarEntregaFerramentaLocada. Depois de entregue, vira "Confirmar
 // devolução".
 export function FerramentaLocacaoAcoes({
   ferramentaId,
@@ -70,6 +73,7 @@ export function FerramentaLocacaoAcoes({
 
   return (
     <div className="space-y-2 sm:max-w-xs">
+      <Badge variant="secondary">Entrega agendada</Badge>
       {telefone ? (
         <Button
           type="button"
@@ -78,7 +82,7 @@ export function FerramentaLocacaoAcoes({
           disabled={isPending}
           onClick={handleEnviar}
         >
-          Enviar WhatsApp (locação)
+          Reenviar WhatsApp (locação)
         </Button>
       ) : null}
       {mensagemEnviadaEm ? (

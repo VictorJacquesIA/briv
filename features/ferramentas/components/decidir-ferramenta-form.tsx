@@ -192,8 +192,8 @@ export function DecidirFerramentaForm({
     );
   }
 
-  // Mensagem já enviada pro fornecedor: só falta confirmar os termos e a
-  // entrega da ferramenta locada.
+  // Mensagem já enviada pro fornecedor: só falta confirmar os termos e
+  // agendar a entrega da ferramenta locada.
   const fornecedorAtual = fornecedores.find(
     (fornecedor) => fornecedor.id === fornecedorId,
   );
@@ -223,7 +223,7 @@ export function DecidirFerramentaForm({
         className="h-9 w-full rounded-md border bg-background px-2 text-sm"
       />
       <Button type="submit" size="sm" className="w-full">
-        Confirmar entrega
+        Agendar entrega
       </Button>
       <FormToast message={locacaoState.message} />
     </form>

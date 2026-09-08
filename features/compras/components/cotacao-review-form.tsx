@@ -13,17 +13,32 @@ function normalize(text: string) {
   return text.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
 }
 
-function matchExtractedItem(descricao: string, extractedItens: any[]) {
-  const normalizedDescricao = normalize(descricao);
+function matchExtractedItem(
+  item: { id: string; descricao: string },
+  extractedItens: any[],
+) {
+  // 1ª tentativa: a própria IA já diz o ID exato do item da solicitação que
+  // essa linha corresponde — ela entende que "QUARTZOLIT PREMIUM FLEX CINZA
+  // AC3 20KG" é o mesmo produto que "ARGAMASSA COLANTE AC3", mesmo sem
+  // nenhuma palavra em comum. Casar por ID (garantido pelo schema da IA)
+  // em vez de por texto copiado evita falhar por qualquer pequeno desvio
+  // de digitação/formatação.
+  const porId = extractedItens.find(
+    (extracted: any) => extracted.solicitacao_item_id === item.id,
+  );
 
-  // 1ª tentativa: a própria IA já diz a qual item da solicitação essa linha
-  // corresponde (solicitacao_item_descricao) — ela entende que "QUARTZOLIT
-  // PREMIUM FLEX CINZA AC3 20KG" é o mesmo produto que "ARGAMASSA COLANTE
-  // AC3", mesmo sem nenhuma palavra em comum. Bem mais confiável que
-  // comparar texto.
-  const porCorrespondenciaDaIa = extractedItens.find((item: any) => {
+  if (porId) {
+    return porId;
+  }
+
+  const normalizedDescricao = normalize(item.descricao);
+
+  // Fallback pra cotações antigas, extraídas antes desse campo existir —
+  // a IA respondia com o texto copiado (solicitacao_item_descricao) em vez
+  // do ID.
+  const porCorrespondenciaDaIa = extractedItens.find((extracted: any) => {
     const normalizedCorrespondencia = normalize(
-      String(item.solicitacao_item_descricao ?? ""),
+      String(extracted.solicitacao_item_descricao ?? ""),
     );
     return (
       normalizedCorrespondencia.length > 0 &&
@@ -35,10 +50,9 @@ function matchExtractedItem(descricao: string, extractedItens: any[]) {
     return porCorrespondenciaDaIa;
   }
 
-  // Fallback: cotações antigas (extraídas antes desse campo existir) ou
-  // linhas em que a IA não preencheu a correspondência — tenta por texto.
-  return extractedItens.find((item: any) => {
-    const normalizedExtracted = normalize(String(item.descricao ?? ""));
+  // Último fallback: tenta por texto bruto extraído do documento.
+  return extractedItens.find((extracted: any) => {
+    const normalizedExtracted = normalize(String(extracted.descricao ?? ""));
     return (
       normalizedExtracted.length > 0 &&
       (normalizedDescricao.includes(normalizedExtracted) ||
@@ -91,10 +105,7 @@ export function CotacaoReviewForm({
               </thead>
               <tbody className="block md:table-row-group">
                 {itens.map((item: any, index: number) => {
-                  const matched = matchExtractedItem(
-                    item.descricao,
-                    extractedItens,
-                  );
+                  const matched = matchExtractedItem(item, extractedItens);
                   return (
                     <tr
                       key={item.id}

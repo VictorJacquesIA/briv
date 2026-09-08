@@ -831,6 +831,7 @@ export async function uploadCotacao(
           fileBuffer: buffer,
           contentType: file.type,
           solicitacaoItens: (itens ?? []).map((item: any) => ({
+            id: item.id,
             descricao: item.descricao,
             quantidade: Number(item.quantidade),
             unidade: item.unidade,
