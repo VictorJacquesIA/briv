@@ -694,7 +694,9 @@ export type Database = {
             | null;
           descricao: string;
           ferramenta_id: string | null;
+          fornecedor_id: string | null;
           id: string;
+          mensagem_enviada_em: string | null;
           obra_id: string;
           observacao: string | null;
           periodo_uso:
@@ -714,7 +716,9 @@ export type Database = {
             | null;
           descricao: string;
           ferramenta_id?: string | null;
+          fornecedor_id?: string | null;
           id?: string;
+          mensagem_enviada_em?: string | null;
           obra_id: string;
           observacao?: string | null;
           periodo_uso?:
@@ -734,7 +738,9 @@ export type Database = {
             | null;
           descricao?: string;
           ferramenta_id?: string | null;
+          fornecedor_id?: string | null;
           id?: string;
+          mensagem_enviada_em?: string | null;
           obra_id?: string;
           observacao?: string | null;
           periodo_uso?:
@@ -763,6 +769,13 @@ export type Database = {
             columns: ["ferramenta_id"];
             isOneToOne: false;
             referencedRelation: "ferramentas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ferramenta_solicitacoes_fornecedor_id_fkey";
+            columns: ["fornecedor_id"];
+            isOneToOne: false;
+            referencedRelation: "fornecedores";
             referencedColumns: ["id"];
           },
           {

@@ -371,10 +371,51 @@ export async function decidirFerramentaDeposito(
   }
 }
 
-// Compras decide locar de um fornecedor externo — cria uma ferramenta nova
-// (nasce "locada", já vinculada à obra) e encerra a solicitação. A entrega
-// só pode ser confirmada depois que a mensagem de WhatsApp for enviada
-// (marcarMensagemFerramentaEnviada + confirmarEntregaFerramentaLocada).
+// Chamada direto no clique do botão "Enviar WhatsApp" na etapa de locação
+// (Server Action invocada como função comum, sem FormData) — grava o
+// fornecedor escolhido e a mensagem enviada já na solicitação, antes de
+// existir uma ferramenta locada. Libera o formulário de confirmação de
+// entrega (decidirFerramentaLocacao).
+export async function marcarMensagemLocacaoSolicitacaoEnviada(
+  solicitacaoId: string,
+  fornecedorId: string,
+) {
+  await requireActor("ferramentas.solicitacao.decide");
+
+  if (!solicitacaoId || !fornecedorId) {
+    throw new Error("Selecione o fornecedor.");
+  }
+
+  const supabase = await createClient();
+  const { data: solicitacao } = await supabase
+    .from("ferramenta_solicitacoes")
+    .select("status")
+    .eq("id", solicitacaoId)
+    .single();
+
+  if (!solicitacao || solicitacao.status !== "pendente") {
+    throw new Error("Solicitação inválida ou já atendida.");
+  }
+
+  const { error } = await supabase
+    .from("ferramenta_solicitacoes")
+    .update({
+      fornecedor_id: fornecedorId,
+      mensagem_enviada_em: new Date().toISOString(),
+    })
+    .eq("id", solicitacaoId);
+
+  if (error) {
+    throw new Error(friendlyErrorMessage(error));
+  }
+
+  revalidatePath("/servicos/ferramentas");
+}
+
+// Compras confirma a entrega da locação depois de já ter enviado a
+// mensagem de WhatsApp pro fornecedor (gate abaixo) — cria a ferramenta já
+// como "locada" e entregue, e encerra a solicitação. Sem uma segunda etapa
+// de mensagem: a que já foi enviada na escolha do fornecedor é a mesma.
 export async function decidirFerramentaLocacao(
   _state: FerramentaActionState,
   formData: FormData,
@@ -382,12 +423,11 @@ export async function decidirFerramentaLocacao(
   try {
     const profile = await requireActor("ferramentas.solicitacao.decide");
     const solicitacaoId = text(formData, "solicitacao_id");
-    const fornecedorId = text(formData, "fornecedor_id");
     const valorLocacao = money(formData.get("valor_locacao"));
     const dataPrevistaDevolucao = text(formData, "data_prevista_devolucao");
 
-    if (!solicitacaoId || !fornecedorId) {
-      return { message: "Selecione o fornecedor da locação." };
+    if (!solicitacaoId) {
+      return { message: "Solicitação inválida." };
     }
 
     if (!dataPrevistaDevolucao) {
@@ -397,12 +437,19 @@ export async function decidirFerramentaLocacao(
     const supabase = await createClient();
     const { data: solicitacao } = await supabase
       .from("ferramenta_solicitacoes")
-      .select("obra_id,descricao,status")
+      .select("obra_id,descricao,status,fornecedor_id,mensagem_enviada_em")
       .eq("id", solicitacaoId)
       .single();
 
     if (!solicitacao || solicitacao.status !== "pendente") {
       return { message: "Solicitação inválida ou já atendida." };
+    }
+
+    if (!solicitacao.fornecedor_id || !solicitacao.mensagem_enviada_em) {
+      return {
+        message:
+          "Envie a mensagem de WhatsApp pro fornecedor antes de confirmar.",
+      };
     }
 
     const { data: ferramenta, error: ferramentaError } = await supabase
@@ -412,9 +459,11 @@ export async function decidirFerramentaLocacao(
         nome: solicitacao.descricao,
         status: "locada",
         obra_atual_id: solicitacao.obra_id,
-        fornecedor_id: fornecedorId,
+        fornecedor_id: solicitacao.fornecedor_id,
         valor_locacao: valorLocacao,
         data_prevista_devolucao: dataPrevistaDevolucao,
+        mensagem_enviada_em: solicitacao.mensagem_enviada_em,
+        entregue_em: new Date().toISOString(),
       })
       .select("id")
       .single();
@@ -460,7 +509,7 @@ export async function decidirFerramentaLocacao(
       userAgent: context.userAgent,
       dados: {
         ferramenta_id: ferramenta.id,
-        fornecedor_id: fornecedorId,
+        fornecedor_id: solicitacao.fornecedor_id,
         valor_locacao: valorLocacao,
         data_prevista_devolucao: dataPrevistaDevolucao,
       },
@@ -468,7 +517,7 @@ export async function decidirFerramentaLocacao(
 
     revalidatePath("/servicos/ferramentas");
     revalidatePath("/estoque/ferramentas");
-    return { success: true, message: "Locação registrada." };
+    return { success: true, message: "Entrega confirmada." };
   } catch (error) {
     return { message: friendlyErrorMessage(error) };
   }

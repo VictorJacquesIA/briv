@@ -94,7 +94,7 @@ export default async function FerramentasSolicitacoesPage() {
       canDecide
         ? supabase
             .from("fornecedores")
-            .select("id,razao_social,nome_fantasia")
+            .select("id,razao_social,nome_fantasia,whatsapp,telefone")
             .eq("ativo", true)
             .order("nome_fantasia")
         : Promise.resolve({ data: [] as never[] }),
@@ -116,6 +116,13 @@ export default async function FerramentasSolicitacoesPage() {
       return (
         <DecidirFerramentaForm
           solicitacaoId={solicitacao.id}
+          descricao={solicitacao.descricao}
+          obraNome={solicitacao.obra?.nome ?? ""}
+          obraEndereco={solicitacao.obra?.endereco ?? null}
+          periodoUso={solicitacao.periodo_uso}
+          dataNecessidade={solicitacao.data_necessidade}
+          fornecedorId={solicitacao.fornecedor_id}
+          mensagemEnviadaEm={solicitacao.mensagem_enviada_em}
           ferramentasDisponiveis={ferramentasDeposito}
           fornecedores={fornecedores ?? []}
         />

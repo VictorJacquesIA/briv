@@ -52,14 +52,30 @@ export function cacambaMessage(input: {
     .join("\n");
 }
 
+const PERIODO_USO_LABELS: Record<string, string> = {
+  diaria: "diária",
+  semanal: "semanal",
+  mensal: "mensal",
+};
+
 export function ferramentaLocacaoMessage(input: {
   ferramenta: string;
   obra: string;
   endereco?: string | null;
+  periodoUso?: string | null;
+  dataNecessidade?: string | null;
 }) {
+  const periodoLabel = input.periodoUso
+    ? (PERIODO_USO_LABELS[input.periodoUso] ?? input.periodoUso)
+    : null;
+
   return [
     `Olá, gostaríamos de locar ${input.ferramenta} para a obra ${input.obra}.`,
     input.endereco ? `Endereço: ${input.endereco}` : null,
+    input.dataNecessidade
+      ? `Precisamos para o dia ${new Date(`${input.dataNecessidade}T00:00:00`).toLocaleDateString("pt-BR")}.`
+      : null,
+    periodoLabel ? `Tempo de uso previsto: ${periodoLabel}.` : null,
   ]
     .filter(Boolean)
     .join("\n");
