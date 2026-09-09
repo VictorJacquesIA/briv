@@ -12,6 +12,18 @@ const statusClasses: Record<string, string> = {
   finalizada: "border-border bg-muted text-foreground",
   cancelada: "border-destructive/60 bg-destructive/10 text-destructive",
   rejeitada: "border-destructive/60 bg-destructive/10 text-destructive",
+  // Cores por grupo pra listagem de Compras (/compras) — vermelho/amarelo/
+  // verde, independente da cor granular que o mesmo status bruto tem na
+  // tela de detalhe (statusGroupKey prefixa "grupo-" pra nunca colidir).
+  "grupo-nova_solicitacao":
+    "border-destructive/60 bg-destructive/10 text-destructive",
+  "grupo-em_cotacao": "border-warning/60 bg-warning/10 text-warning",
+  "grupo-pedido_aprovado":
+    "border-emerald-500/60 bg-emerald-500/10 text-emerald-500",
+  "grupo-finalizado":
+    "border-emerald-500/60 bg-emerald-500/10 text-emerald-500",
+  "grupo-cancelada": "border-destructive/60 bg-destructive/10 text-destructive",
+  "grupo-rejeitada": "border-destructive/60 bg-destructive/10 text-destructive",
 };
 
 export function StatusBadge({

@@ -14,6 +14,7 @@ import { hasPermission, getPermissionsForUser } from "@/lib/permissions";
 import { getCurrentProfile } from "@/services/profiles-service";
 import {
   listSolicitacoes,
+  statusGroupKey,
   statusGroupLabel,
   STATUS_GROUP_LABELS,
   STATUS_GROUPS,
@@ -139,7 +140,7 @@ export default async function ComprasPage({
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge
-                        status={solicitacao.status}
+                        status={statusGroupKey(solicitacao.status)}
                         label={statusGroupLabel(solicitacao.status)}
                       />
                     </td>
@@ -188,7 +189,7 @@ export default async function ComprasPage({
                   </MobileCardRow>
                   <MobileCardRow label="Status">
                     <StatusBadge
-                      status={solicitacao.status}
+                      status={statusGroupKey(solicitacao.status)}
                       label={statusGroupLabel(solicitacao.status)}
                     />
                   </MobileCardRow>

@@ -90,6 +90,14 @@ export function statusGroupLabel(status: string) {
   return group ? STATUS_GROUP_LABELS[group] : status;
 }
 
+// Prefixado ("grupo-...") pra nunca colidir com uma chave de status bruto
+// em statusClasses (components/ui/status-badge.tsx) — a tela de detalhe usa
+// o status exato pra cor, a listagem usa o grupo, e os dois precisam poder
+// ter cores diferentes pro mesmo status interno sem se atropelar.
+export function statusGroupKey(status: string) {
+  return `grupo-${STATUS_TO_GROUP[status] ?? status}`;
+}
+
 export async function getPurchaseFormOptions() {
   const supabase = await createClient();
   const [
@@ -167,6 +175,16 @@ export async function listSolicitacoes(input?: {
     if (statuses) {
       query = query.in("status", statuses);
     }
+  } else if (!input?.search) {
+    // Visão "solta" (sem filtro de status nem busca): Finalizado fica de
+    // fora, tipo arquivado — senão a lista enche de pedidos já concluídos.
+    // Ainda dá pra achar filtrando por "Finalizado" ou buscando por
+    // código/observação.
+    query = query.not(
+      "status",
+      "in",
+      `(${STATUS_GROUPS.finalizado.join(",")})`,
+    );
   }
 
   if (input?.search) {
