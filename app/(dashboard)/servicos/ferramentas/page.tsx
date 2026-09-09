@@ -8,6 +8,7 @@ import {
   MobileCardRow,
 } from "@/components/ui/mobile-card-list";
 import { DecidirFerramentaForm } from "@/features/ferramentas/components/decidir-ferramenta-form";
+import { EditarLocacaoFerramentaForm } from "@/features/ferramentas/components/editar-locacao-ferramenta-form";
 import { FerramentaLocacaoAcoes } from "@/features/ferramentas/components/ferramenta-locacao-acoes";
 import { SolicitarFerramentaForm } from "@/features/ferramentas/components/solicitar-ferramenta-form";
 import {
@@ -135,21 +136,53 @@ export default async function FerramentasSolicitacoesPage() {
       solicitacao.ferramenta
     ) {
       if (!solicitacao.ferramenta.ativo && solicitacao.ferramenta.entregue_em) {
-        return <span className="text-xs text-muted-foreground">Devolvida</span>;
+        return (
+          <div className="flex flex-col gap-2 sm:max-w-xs">
+            <span className="text-xs text-muted-foreground">Devolvida</span>
+            {canDecide ? (
+              <EditarLocacaoFerramentaForm
+                ferramentaId={solicitacao.ferramenta.id}
+                ferramentaNome={solicitacao.ferramenta.nome}
+                obraNome={solicitacao.obra?.nome ?? ""}
+                fornecedorAtualId={solicitacao.ferramenta.fornecedor_id}
+                valorLocacao={solicitacao.ferramenta.valor_locacao}
+                dataPrevistaDevolucao={
+                  solicitacao.ferramenta.data_prevista_devolucao
+                }
+                entregueEm={solicitacao.ferramenta.entregue_em}
+                fornecedores={fornecedores ?? []}
+              />
+            ) : null}
+          </div>
+        );
       }
       if (!canDecide) {
         return null;
       }
       return (
-        <FerramentaLocacaoAcoes
-          ferramentaId={solicitacao.ferramenta.id}
-          ferramentaNome={solicitacao.ferramenta.nome}
-          obraNome={solicitacao.obra?.nome ?? ""}
-          obraEndereco={solicitacao.obra?.endereco ?? null}
-          fornecedor={solicitacao.ferramenta.fornecedor ?? null}
-          mensagemEnviadaEm={solicitacao.ferramenta.mensagem_enviada_em}
-          entregueEm={solicitacao.ferramenta.entregue_em}
-        />
+        <div className="flex flex-col gap-2 sm:max-w-xs">
+          <FerramentaLocacaoAcoes
+            ferramentaId={solicitacao.ferramenta.id}
+            ferramentaNome={solicitacao.ferramenta.nome}
+            obraNome={solicitacao.obra?.nome ?? ""}
+            obraEndereco={solicitacao.obra?.endereco ?? null}
+            fornecedor={solicitacao.ferramenta.fornecedor ?? null}
+            mensagemEnviadaEm={solicitacao.ferramenta.mensagem_enviada_em}
+            entregueEm={solicitacao.ferramenta.entregue_em}
+          />
+          <EditarLocacaoFerramentaForm
+            ferramentaId={solicitacao.ferramenta.id}
+            ferramentaNome={solicitacao.ferramenta.nome}
+            obraNome={solicitacao.obra?.nome ?? ""}
+            fornecedorAtualId={solicitacao.ferramenta.fornecedor_id}
+            valorLocacao={solicitacao.ferramenta.valor_locacao}
+            dataPrevistaDevolucao={
+              solicitacao.ferramenta.data_prevista_devolucao
+            }
+            entregueEm={solicitacao.ferramenta.entregue_em}
+            fornecedores={fornecedores ?? []}
+          />
+        </div>
       );
     }
 

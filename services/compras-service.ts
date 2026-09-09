@@ -46,6 +46,50 @@ export const STATUSES_AGUARDANDO_APROVACAO = [
 ];
 export const STATUSES_TERMINAIS = ["finalizada", "cancelada"];
 
+// Visão simplificada pra tela de listagem (/compras) — o operador vê só 4
+// etapas do fluxo normal + os 2 desfechos negativos, em vez dos ~14 status
+// internos que só importam mesmo na tela de detalhe (onde as ações
+// disponíveis dependem da etapa exata).
+export const STATUS_GROUPS: Record<string, SolicitacaoStatus[]> = {
+  nova_solicitacao: ["rascunho", "aberta"],
+  em_cotacao: [
+    "em_cotacao",
+    "cotacao_recebida",
+    "validado",
+    "aguardando_aprovacao",
+    "aprovacao",
+  ],
+  pedido_aprovado: [
+    "aprovada",
+    "autorizada",
+    "pdf_gerado",
+    "pedido_programado",
+  ],
+  finalizado: ["pedido_enviado", "finalizada"],
+  cancelada: ["cancelada"],
+  rejeitada: ["rejeitada"],
+};
+
+export const STATUS_GROUP_LABELS: Record<string, string> = {
+  nova_solicitacao: "Nova Solicitação",
+  em_cotacao: "Em Cotação",
+  pedido_aprovado: "Pedido Aprovado",
+  finalizado: "Finalizado",
+  cancelada: "Cancelada",
+  rejeitada: "Recusada",
+};
+
+const STATUS_TO_GROUP: Record<string, string> = Object.fromEntries(
+  Object.entries(STATUS_GROUPS).flatMap(([group, statuses]) =>
+    statuses.map((status) => [status, group]),
+  ),
+);
+
+export function statusGroupLabel(status: string) {
+  const group = STATUS_TO_GROUP[status];
+  return group ? STATUS_GROUP_LABELS[group] : status;
+}
+
 export async function getPurchaseFormOptions() {
   const supabase = await createClient();
   const [
@@ -101,7 +145,7 @@ export async function getPurchaseFormOptions() {
 
 export async function listSolicitacoes(input?: {
   search?: string;
-  status?: SolicitacaoStatus | "todos";
+  status?: keyof typeof STATUS_GROUPS | "todos";
   page?: number;
   sort?: "created_at" | "prioridade" | "status";
 }) {
@@ -119,7 +163,10 @@ export async function listSolicitacoes(input?: {
     .range(from, to);
 
   if (input?.status && input.status !== "todos") {
-    query = query.eq("status", input.status);
+    const statuses = STATUS_GROUPS[input.status];
+    if (statuses) {
+      query = query.in("status", statuses);
+    }
   }
 
   if (input?.search) {
@@ -227,23 +274,26 @@ export function cotacaoPendencias(cotacao: any) {
   return pendencias;
 }
 
+// Mesmos 4 grupos da listagem (/compras) — o dashboard precisa bater com o
+// que a tela de Compras mostra, em vez de contar só um status exato de cada
+// vez (o que deixava vários status internos fora de qualquer indicador).
+const DASHBOARD_STATUS_GROUPS = [
+  "nova_solicitacao",
+  "em_cotacao",
+  "pedido_aprovado",
+  "finalizado",
+] as const;
+
 export async function getPurchaseStatusCounts(input?: {
   responsavelObraId?: string;
 }) {
   const supabase = await createClient();
-  const statuses: SolicitacaoStatus[] = [
-    "aberta",
-    "em_cotacao",
-    "aguardando_aprovacao",
-    "pedido_enviado",
-    "finalizada",
-  ];
   const counts = await Promise.all(
-    statuses.map((status) => {
+    DASHBOARD_STATUS_GROUPS.map((group) => {
       let query = supabase
         .from("solicitacoes")
         .select("id", { count: "exact", head: true })
-        .eq("status", status);
+        .in("status", STATUS_GROUPS[group]);
 
       if (input?.responsavelObraId) {
         query = query.eq("responsavel_obra_id", input.responsavelObraId);
@@ -254,11 +304,10 @@ export async function getPurchaseStatusCounts(input?: {
   );
 
   return {
-    abertas: counts[0].count ?? 0,
+    novaSolicitacao: counts[0].count ?? 0,
     emCotacao: counts[1].count ?? 0,
-    aguardandoAprovacao: counts[2].count ?? 0,
-    pedidosEnviados: counts[3].count ?? 0,
-    finalizadas: counts[4].count ?? 0,
+    pedidoAprovado: counts[2].count ?? 0,
+    finalizado: counts[3].count ?? 0,
   };
 }
 

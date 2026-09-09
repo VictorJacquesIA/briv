@@ -651,3 +651,82 @@ export async function confirmarDevolucaoFerramentaLocada(formData: FormData) {
   revalidatePath("/servicos/ferramentas");
   revalidatePath("/estoque/ferramentas");
 }
+
+// Corrige fornecedor/valor/data de uma locação já decidida — cobre casos
+// como troca de fornecedor ou ajuste de prazo depois que a locação já foi
+// confirmada (antes só dava pra fazer isso direto no banco).
+export async function editarLocacaoFerramenta(
+  _state: FerramentaActionState,
+  formData: FormData,
+): Promise<FerramentaActionState> {
+  try {
+    const profile = await requireActor("ferramentas.solicitacao.decide");
+    const ferramentaId = text(formData, "ferramenta_id");
+    const fornecedorId = text(formData, "fornecedor_id");
+    const valorLocacao = money(formData.get("valor_locacao"));
+    const dataPrevistaDevolucao = text(formData, "data_prevista_devolucao");
+
+    if (!ferramentaId) {
+      return { message: "Ferramenta inválida." };
+    }
+
+    if (!fornecedorId) {
+      return { message: "Selecione o fornecedor." };
+    }
+
+    if (!dataPrevistaDevolucao) {
+      return { message: "Informe a data prevista de devolução." };
+    }
+
+    const supabase = await createClient();
+    const { data: ferramenta } = await supabase
+      .from("ferramentas")
+      .select("status")
+      .eq("id", ferramentaId)
+      .single();
+
+    if (!ferramenta || ferramenta.status !== "locada") {
+      return { message: "Esta ferramenta não está em processo de locação." };
+    }
+
+    const { error } = await supabase
+      .from("ferramentas")
+      .update({
+        fornecedor_id: fornecedorId,
+        valor_locacao: valorLocacao,
+        data_prevista_devolucao: dataPrevistaDevolucao,
+      })
+      .eq("id", ferramentaId);
+
+    if (error) {
+      return {
+        message: friendlyErrorMessage(
+          error,
+          "Não foi possível salvar as alterações.",
+        ),
+      };
+    }
+
+    const context = await getRequestContext();
+    await registrarHistorico({
+      clienteId: profile.cliente_id,
+      actorId: profile.id,
+      entidade: "ferramenta",
+      entidadeId: ferramentaId,
+      acao: "locacao_editada",
+      ip: context.ip,
+      userAgent: context.userAgent,
+      dados: {
+        fornecedor_id: fornecedorId,
+        valor_locacao: valorLocacao,
+        data_prevista_devolucao: dataPrevistaDevolucao,
+      },
+    });
+
+    revalidatePath("/servicos/ferramentas");
+    revalidatePath("/estoque/ferramentas");
+    return { success: true, message: "Locação atualizada." };
+  } catch (error) {
+    return { message: friendlyErrorMessage(error) };
+  }
+}

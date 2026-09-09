@@ -12,17 +12,19 @@ import {
 import { StatusBadge } from "@/components/ui/status-badge";
 import { hasPermission, getPermissionsForUser } from "@/lib/permissions";
 import { getCurrentProfile } from "@/services/profiles-service";
-import { listSolicitacoes, statusLabels } from "@/services/compras-service";
-import type { Database } from "@/types/database";
-
-type SolicitacaoStatus = Database["public"]["Enums"]["solicitacao_status"];
+import {
+  listSolicitacoes,
+  statusGroupLabel,
+  STATUS_GROUP_LABELS,
+  STATUS_GROUPS,
+} from "@/services/compras-service";
 
 export default async function ComprasPage({
   searchParams,
 }: {
   searchParams: Promise<{
     q?: string;
-    status?: SolicitacaoStatus | "todos";
+    status?: keyof typeof STATUS_GROUPS | "todos";
     page?: string;
     sort?: "created_at" | "prioridade" | "status";
   }>;
@@ -84,7 +86,7 @@ export default async function ComprasPage({
               className="h-10 rounded-md border bg-background px-3 text-sm"
             >
               <option value="todos">Todos os status</option>
-              {Object.entries(statusLabels).map(([value, label]) => (
+              {Object.entries(STATUS_GROUP_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
@@ -138,9 +140,7 @@ export default async function ComprasPage({
                     <td className="px-4 py-3">
                       <StatusBadge
                         status={solicitacao.status}
-                        label={
-                          statusLabels[solicitacao.status] ?? solicitacao.status
-                        }
+                        label={statusGroupLabel(solicitacao.status)}
                       />
                     </td>
                     <td className="px-4 py-3">
@@ -189,9 +189,7 @@ export default async function ComprasPage({
                   <MobileCardRow label="Status">
                     <StatusBadge
                       status={solicitacao.status}
-                      label={
-                        statusLabels[solicitacao.status] ?? solicitacao.status
-                      }
+                      label={statusGroupLabel(solicitacao.status)}
                     />
                   </MobileCardRow>
                   <MobileCardRow label="Criada em">

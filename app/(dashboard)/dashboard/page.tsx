@@ -283,10 +283,10 @@ export default async function DashboardPage({
 
   const indicators = [
     {
-      label: "Solicitações abertas",
-      value: statusCounts.abertas,
+      label: "Nova solicitação",
+      value: statusCounts.novaSolicitacao,
       icon: FileClock,
-      href: "/compras?status=aberta",
+      href: "/compras?status=nova_solicitacao",
     },
     {
       label: "Em cotação",
@@ -295,22 +295,16 @@ export default async function DashboardPage({
       href: "/compras?status=em_cotacao",
     },
     {
-      label: "Aguardando aprovação",
-      value: statusCounts.aguardandoAprovacao,
+      label: "Pedido aprovado",
+      value: statusCounts.pedidoAprovado,
       icon: ClipboardCheck,
-      href: "/compras?status=aguardando_aprovacao",
+      href: "/compras?status=pedido_aprovado",
     },
     {
-      label: "Pedidos enviados",
-      value: statusCounts.pedidosEnviados,
-      icon: Send,
-      href: "/compras?status=pedido_enviado",
-    },
-    {
-      label: "Finalizadas",
-      value: statusCounts.finalizadas,
+      label: "Finalizado",
+      value: statusCounts.finalizado,
       icon: CheckCircle2,
-      href: "/compras?status=finalizada",
+      href: "/compras?status=finalizado",
     },
   ];
 
