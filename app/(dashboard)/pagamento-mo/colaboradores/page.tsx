@@ -58,7 +58,7 @@ export default async function ColaboradoresPage() {
           <CardContent>
             <form
               action={createColaborador}
-              className="grid gap-3 lg:grid-cols-[2fr_1fr_1fr_1fr_auto]"
+              className="grid gap-3 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto]"
             >
               <div className="space-y-2">
                 <Label htmlFor="nome">Nome</Label>
@@ -76,12 +76,21 @@ export default async function ColaboradoresPage() {
                 <Label htmlFor="chave_pix">Chave Pix</Label>
                 <Input id="chave_pix" name="chave_pix" />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="valor_diaria">Valor diária (opcional)</Label>
+                <Input
+                  id="valor_diaria"
+                  name="valor_diaria"
+                  inputMode="decimal"
+                  placeholder="0,00"
+                />
+              </div>
               <div className="flex items-end">
                 <Button type="submit" className="w-full">
                   Adicionar
                 </Button>
               </div>
-              <div className="space-y-2 lg:col-span-5">
+              <div className="space-y-2 lg:col-span-6">
                 <Label htmlFor="observacao">Observação</Label>
                 <textarea
                   id="observacao"

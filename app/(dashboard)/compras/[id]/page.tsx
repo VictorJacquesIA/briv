@@ -24,6 +24,7 @@ import { CotacaoReviewForm } from "@/features/compras/components/cotacao-review-
 import { CotacaoUploadForm } from "@/features/compras/components/cotacao-upload-form";
 import { EstoqueDecisionForm } from "@/features/compras/components/estoque-decision-form";
 import { ProgramarPedidoForm } from "@/features/compras/components/programar-pedido-form";
+import { WhatsAppButton } from "@/features/compras/components/whatsapp-button";
 import { createClient } from "@/lib/supabase/server";
 import { hasPermission, getPermissionsForUser } from "@/lib/permissions";
 import { getCurrentProfile } from "@/services/profiles-service";
@@ -36,6 +37,7 @@ import {
   STATUSES_TERMINAIS,
 } from "@/services/compras-service";
 import { getEstoqueDisponivelPorItem } from "@/services/estoque-service";
+import { pedidoMessage, waLink } from "@/services/whatsapp-service";
 
 export default async function CompraDetailPage({
   params,
@@ -254,31 +256,92 @@ export default async function CompraDetailPage({
                 {pedidos.length > 1
                   ? pedidos.map((p: any) =>
                       p.pdf_url ? (
-                        <Button
-                          key={p.id}
-                          asChild
-                          variant="outline"
-                          className="w-full"
-                        >
-                          <a href={p.pdf_url} target="_blank" rel="noreferrer">
-                            PDF —{" "}
-                            {p.fornecedor?.nome_fantasia ??
-                              p.fornecedor?.razao_social ??
-                              p.numero}
-                          </a>
-                        </Button>
+                        <div key={p.id} className="space-y-2">
+                          <Button asChild variant="outline" className="w-full">
+                            <a
+                              href={p.pdf_url}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              PDF —{" "}
+                              {p.fornecedor?.nome_fantasia ??
+                                p.fornecedor?.razao_social ??
+                                p.numero}
+                            </a>
+                          </Button>
+                          {(p.fornecedor?.whatsapp ??
+                          p.fornecedor?.telefone) ? (
+                            <WhatsAppButton
+                              href={waLink(
+                                p.fornecedor?.whatsapp ??
+                                  p.fornecedor?.telefone,
+                                pedidoMessage({
+                                  numero: p.numero ?? "",
+                                  obra: solicitacao.obra?.nome ?? "-",
+                                  fornecedor:
+                                    p.fornecedor?.nome_fantasia ??
+                                    p.fornecedor?.razao_social ??
+                                    "",
+                                  pdfUrl: p.pdf_url,
+                                }),
+                              )}
+                              tipo="pedido"
+                              destinatario={
+                                p.fornecedor?.nome_fantasia ??
+                                p.fornecedor?.razao_social ??
+                                ""
+                              }
+                              entidadeId={solicitacao.id}
+                            >
+                              Enviar pra{" "}
+                              {p.fornecedor?.nome_fantasia ??
+                                p.fornecedor?.razao_social}
+                            </WhatsAppButton>
+                          ) : null}
+                        </div>
                       ) : null,
                     )
                   : pedido?.pdf_url && (
-                      <Button asChild variant="outline" className="w-full">
-                        <a
-                          href={pedido.pdf_url}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Abrir PDF do pedido
-                        </a>
-                      </Button>
+                      <div className="space-y-2">
+                        <Button asChild variant="outline" className="w-full">
+                          <a
+                            href={pedido.pdf_url}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Abrir PDF do pedido
+                          </a>
+                        </Button>
+                        {(pedido.fornecedor?.whatsapp ??
+                        pedido.fornecedor?.telefone) ? (
+                          <WhatsAppButton
+                            href={waLink(
+                              pedido.fornecedor?.whatsapp ??
+                                pedido.fornecedor?.telefone,
+                              pedidoMessage({
+                                numero: pedido.numero ?? "",
+                                obra: solicitacao.obra?.nome ?? "-",
+                                fornecedor:
+                                  pedido.fornecedor?.nome_fantasia ??
+                                  pedido.fornecedor?.razao_social ??
+                                  "",
+                                pdfUrl: pedido.pdf_url,
+                              }),
+                            )}
+                            tipo="pedido"
+                            destinatario={
+                              pedido.fornecedor?.nome_fantasia ??
+                              pedido.fornecedor?.razao_social ??
+                              ""
+                            }
+                            entidadeId={solicitacao.id}
+                          >
+                            Enviar pra{" "}
+                            {pedido.fornecedor?.nome_fantasia ??
+                              pedido.fornecedor?.razao_social}
+                          </WhatsAppButton>
+                        ) : null}
+                      </div>
                     )}
                 {pedido?.local_entrega ? (
                   <p className="text-xs text-muted-foreground">

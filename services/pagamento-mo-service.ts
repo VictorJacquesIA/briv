@@ -29,7 +29,7 @@ export async function listColaboradores() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("colaboradores")
-    .select("id,nome,funcao,telefone,chave_pix,observacao,ativo")
+    .select("id,nome,funcao,telefone,chave_pix,valor_diaria,observacao,ativo")
     .order("nome");
 
   return data ?? [];

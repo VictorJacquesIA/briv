@@ -33,9 +33,16 @@ type Colaborador = {
   funcao: string | null;
   telefone: string | null;
   chave_pix: string | null;
+  valor_diaria: number | null;
   observacao: string | null;
   ativo: boolean;
 };
+
+function formatarValor(valor: number | null) {
+  return valor != null
+    ? `R$ ${Number(valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+    : "-";
+}
 
 const emptyState: ColaboradorFormState = {};
 
@@ -105,6 +112,7 @@ export function ColaboradoresTable({
               <th className="px-3 py-2 text-left">Função</th>
               <th className="px-3 py-2 text-left">Telefone</th>
               <th className="px-3 py-2 text-left">Chave Pix</th>
+              <th className="px-3 py-2 text-left">Valor diária</th>
               <th className="px-3 py-2 text-left">Status</th>
               {canManage ? (
                 <th className="px-3 py-2 text-left">Ações</th>
@@ -126,6 +134,9 @@ export function ColaboradoresTable({
                 <td className="px-3 py-2">{colaborador.telefone ?? "-"}</td>
                 <td className="px-3 py-2">{colaborador.chave_pix ?? "-"}</td>
                 <td className="px-3 py-2">
+                  {formatarValor(colaborador.valor_diaria)}
+                </td>
+                <td className="px-3 py-2">
                   {colaborador.ativo ? "Ativo" : "Inativo"}
                 </td>
                 {canManage ? (
@@ -140,7 +151,7 @@ export function ColaboradoresTable({
             {colaboradores.length === 0 ? (
               <tr>
                 <td
-                  colSpan={canManage ? 6 : 5}
+                  colSpan={canManage ? 7 : 6}
                   className="h-20 px-3 text-center text-muted-foreground"
                 >
                   Nenhum colaborador/prestador cadastrado.
@@ -177,6 +188,9 @@ export function ColaboradoresTable({
               </MobileCardRow>
               <MobileCardRow label="Chave Pix">
                 {colaborador.chave_pix ?? "-"}
+              </MobileCardRow>
+              <MobileCardRow label="Valor diária">
+                {formatarValor(colaborador.valor_diaria)}
               </MobileCardRow>
               <MobileCardRow label="Status">
                 {colaborador.ativo ? "Ativo" : "Inativo"}
@@ -237,6 +251,18 @@ export function ColaboradoresTable({
                   id="edit_chave_pix"
                   name="chave_pix"
                   defaultValue={editing.chave_pix ?? ""}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_valor_diaria">
+                  Valor diária (opcional)
+                </Label>
+                <Input
+                  id="edit_valor_diaria"
+                  name="valor_diaria"
+                  inputMode="decimal"
+                  placeholder="0,00"
+                  defaultValue={editing.valor_diaria ?? ""}
                 />
               </div>
               <div className="space-y-2">

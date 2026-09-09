@@ -1696,12 +1696,30 @@ export async function registrarDecisaoPublica(formData: FormData) {
   const grupos = new Map<string, Set<string>>();
 
   if (decisao === "autorizar") {
+    // Item cotado de verdade por pelo menos um fornecedor — mesmo critério
+    // de cotacaoItemValido em aprovacao-decisao.tsx.
+    const temCotacaoValida = (itemId: string) =>
+      (solicitacao.cotacoes ?? []).some((cotacao: any) =>
+        (cotacao.itens ?? []).some(
+          (ci: any) =>
+            ci.solicitacao_item_id === itemId &&
+            !ci.item_nao_cotado &&
+            ci.preco_unitario != null,
+        ),
+      );
+
     // Só itens que realmente precisam ser comprados (quantidade além do que
-    // o estoque já cobre) exigem fornecedor — os demais nunca aparecem na
-    // tela de decisão (mesmo filtro do Comparativo) e não entram no pedido.
+    // o estoque já cobre) E que algum fornecedor de fato cotou exigem
+    // fornecedor escolhido — os demais nunca aparecem na tela de decisão
+    // (mesmo filtro do Comparativo/AprovacaoDecisao) e não entram no pedido.
     const itensParaComprar = (solicitacao.itens ?? []).filter(
-      (item: { quantidade: number; quantidade_estoque: number | null }) =>
-        Number(item.quantidade) - Number(item.quantidade_estoque ?? 0) > 0,
+      (item: {
+        id: string;
+        quantidade: number;
+        quantidade_estoque: number | null;
+      }) =>
+        Number(item.quantidade) - Number(item.quantidade_estoque ?? 0) > 0 &&
+        temCotacaoValida(item.id),
     );
 
     for (const item of itensParaComprar) {

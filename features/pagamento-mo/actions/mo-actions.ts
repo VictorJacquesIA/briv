@@ -655,6 +655,7 @@ export async function createColaborador(formData: FormData) {
     funcao: text(formData, "funcao"),
     telefone: text(formData, "telefone"),
     chave_pix: text(formData, "chave_pix"),
+    valor_diaria: money(formData.get("valor_diaria")),
     observacao: text(formData, "observacao"),
   });
 
@@ -688,6 +689,7 @@ export async function updateColaborador(
         funcao: text(formData, "funcao"),
         telefone: text(formData, "telefone"),
         chave_pix: text(formData, "chave_pix"),
+        valor_diaria: money(formData.get("valor_diaria")),
         observacao: text(formData, "observacao"),
       })
       .eq("id", id);

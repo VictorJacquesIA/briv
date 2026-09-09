@@ -304,6 +304,7 @@ export type Database = {
           observacao: string | null;
           telefone: string | null;
           updated_at: string;
+          valor_diaria: number | null;
         };
         Insert: {
           ativo?: boolean;
@@ -317,6 +318,7 @@ export type Database = {
           observacao?: string | null;
           telefone?: string | null;
           updated_at?: string;
+          valor_diaria?: number | null;
         };
         Update: {
           ativo?: boolean;
@@ -330,6 +332,7 @@ export type Database = {
           observacao?: string | null;
           telefone?: string | null;
           updated_at?: string;
+          valor_diaria?: number | null;
         };
         Relationships: [
           {

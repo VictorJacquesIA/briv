@@ -199,33 +199,45 @@ export function DecidirFerramentaForm({
   );
 
   return (
-    <form action={locacaoAction} className="flex flex-col gap-2 sm:max-w-xs">
-      <input type="hidden" name="solicitacao_id" value={solicitacaoId} />
+    <div className="space-y-2 sm:max-w-xs">
       {fornecedorAtual ? (
         <p className="text-xs text-muted-foreground">
           Fornecedor:{" "}
           {fornecedorAtual.nome_fantasia ?? fornecedorAtual.razao_social}
         </p>
       ) : null}
-      <input
-        type="number"
-        step="0.01"
-        name="valor_locacao"
-        placeholder="Valor"
-        aria-label="Valor da locação"
-        className="h-9 w-full rounded-md border bg-background px-2 text-sm"
-      />
-      <input
-        type="date"
-        name="data_prevista_devolucao"
-        required
-        aria-label="Data prevista de devolução"
-        className="h-9 w-full rounded-md border bg-background px-2 text-sm"
-      />
-      <Button type="submit" size="sm" className="w-full">
-        Agendar entrega
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="w-full"
+        disabled={!fornecedorEscolhido || isPendingMensagem}
+        onClick={handleEnviarMensagemLocacao}
+      >
+        Reenviar WhatsApp
       </Button>
-      <FormToast message={locacaoState.message} />
-    </form>
+      <form action={locacaoAction} className="flex flex-col gap-2">
+        <input type="hidden" name="solicitacao_id" value={solicitacaoId} />
+        <input
+          type="number"
+          step="0.01"
+          name="valor_locacao"
+          placeholder="Valor"
+          aria-label="Valor da locação"
+          className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+        />
+        <input
+          type="date"
+          name="data_prevista_devolucao"
+          required
+          aria-label="Data prevista de devolução"
+          className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+        />
+        <Button type="submit" size="sm" className="w-full">
+          Agendar entrega
+        </Button>
+        <FormToast message={locacaoState.message} />
+      </form>
+    </div>
   );
 }

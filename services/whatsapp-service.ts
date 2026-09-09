@@ -37,6 +37,20 @@ export function cotacaoMessage(input: {
     .join("\n");
 }
 
+export function pedidoMessage(input: {
+  numero: string;
+  obra: string;
+  fornecedor: string;
+  pdfUrl?: string | null;
+}) {
+  return [
+    `Olá! Segue o pedido de compra ${input.numero} da obra ${input.obra}.`,
+    input.pdfUrl ? `PDF com os itens: ${input.pdfUrl}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 export function cacambaMessage(input: {
   tipo: "solicitacao" | "troca";
   obra: string;
