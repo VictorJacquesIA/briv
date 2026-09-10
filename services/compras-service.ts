@@ -156,6 +156,7 @@ export async function listSolicitacoes(input?: {
   status?: keyof typeof STATUS_GROUPS | "todos";
   page?: number;
   sort?: "created_at" | "prioridade" | "status";
+  obraId?: string;
 }) {
   const supabase = await createClient();
   const page = Math.max(input?.page ?? 1, 1);
@@ -167,19 +168,27 @@ export async function listSolicitacoes(input?: {
     .select(
       "id,codigo,status,prioridade,created_at,obra:obras(nome),cliente:clientes(razao_social),solicitante:profiles!solicitacoes_solicitante_id_fkey(nome)",
       { count: "exact" },
-    )
-    .range(from, to);
+    );
+
+  // Chamada pelo hub da obra (obraId, sem paginação de UI): traz o
+  // histórico inteiro daquela obra em vez de só a 1ª página de 10.
+  query = input?.obraId ? query.limit(200) : query.range(from, to);
+
+  if (input?.obraId) {
+    query = query.eq("obra_id", input.obraId);
+  }
 
   if (input?.status && input.status !== "todos") {
     const statuses = STATUS_GROUPS[input.status];
     if (statuses) {
       query = query.in("status", statuses);
     }
-  } else if (!input?.search) {
+  } else if (!input?.search && !input?.obraId) {
     // Visão "solta" (sem filtro de status nem busca): Finalizado fica de
     // fora, tipo arquivado — senão a lista enche de pedidos já concluídos.
     // Ainda dá pra achar filtrando por "Finalizado" ou buscando por
-    // código/observação.
+    // código/observação. Com obraId (hub da obra) não arquiva nada — ali é
+    // o histórico completo daquela obra, finalizado incluído.
     query = query.not(
       "status",
       "in",
@@ -192,9 +201,25 @@ export async function listSolicitacoes(input?: {
     // PostgREST (senão dá pra reescrever a expressão .or() inteira); "\" e
     // '"' embutidos são escapados pra não fechar a string antes da hora.
     const safeSearch = input.search.replace(/["\\]/g, (c) => `\\${c}`);
-    query = query.or(
-      `codigo.ilike."%${safeSearch}%",observacao.ilike."%${safeSearch}%"`,
-    );
+    const orParts = [
+      `codigo.ilike."%${safeSearch}%"`,
+      `observacao.ilike."%${safeSearch}%"`,
+    ];
+
+    // Busca por nome de obra: como "obra" é uma tabela relacionada (join),
+    // o .or() abaixo não filtra direto por obra.nome — resolve os IDs das
+    // obras que batem com o termo primeiro e inclui via obra_id.in(...).
+    const { data: obrasEncontradas } = await supabase
+      .from("obras")
+      .select("id")
+      .ilike("nome", `%${input.search}%`);
+    const obraIds = (obrasEncontradas ?? []).map((obra: any) => obra.id);
+
+    if (obraIds.length > 0) {
+      orParts.push(`obra_id.in.(${obraIds.join(",")})`);
+    }
+
+    query = query.or(orParts.join(","));
   }
 
   const allowedSorts = ["created_at", "prioridade", "status"] as const;

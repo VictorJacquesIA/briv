@@ -3,12 +3,7 @@ import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  MobileCard,
-  MobileCardEmpty,
-  MobileCardList,
-  MobileCardRow,
-} from "@/components/ui/mobile-card-list";
+import { MobileCardEmpty } from "@/components/ui/mobile-card-list";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { hasPermission, getPermissionsForUser } from "@/lib/permissions";
 import { getCurrentProfile } from "@/services/profiles-service";
@@ -78,7 +73,7 @@ export default async function ComprasPage({
             <input
               name="q"
               defaultValue={params.q}
-              placeholder="Pesquisar por codigo ou observacao"
+              placeholder="Pesquisar por obra, codigo ou observacao"
               className="h-10 rounded-md border bg-background px-3 text-sm"
             />
             <select
@@ -111,8 +106,8 @@ export default async function ComprasPage({
             <table className="w-full text-sm">
               <thead className="bg-secondary">
                 <tr>
-                  <th className="px-4 py-3 text-left">Codigo</th>
                   <th className="px-4 py-3 text-left">Obra</th>
+                  <th className="px-4 py-3 text-left">Codigo</th>
                   <th className="px-4 py-3 text-left">Prioridade</th>
                   <th className="px-4 py-3 text-left">Status</th>
                   <th className="px-4 py-3 text-left">Criada em</th>
@@ -129,11 +124,11 @@ export default async function ComprasPage({
                         href={`/compras/${solicitacao.id}`}
                         className="hover:underline"
                       >
-                        {solicitacao.codigo ?? solicitacao.id.slice(0, 8)}
+                        {solicitacao.obra?.nome ?? "-"}
                       </Link>
                     </td>
-                    <td className="px-4 py-3">
-                      {solicitacao.obra?.nome ?? "-"}
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {solicitacao.codigo ?? solicitacao.id.slice(0, 8)}
                     </td>
                     <td className="px-4 py-3 capitalize">
                       {solicitacao.prioridade}
@@ -170,37 +165,40 @@ export default async function ComprasPage({
               Nenhuma solicitacao encontrada para os filtros atuais.
             </MobileCardEmpty>
           ) : (
-            <MobileCardList>
+            <div className="grid gap-3 md:hidden">
               {solicitacoes.map((solicitacao: any) => (
-                <MobileCard key={solicitacao.id}>
-                  <MobileCardRow label="Codigo">
-                    <Link
-                      href={`/compras/${solicitacao.id}`}
-                      className="hover:underline"
-                    >
-                      {solicitacao.codigo ?? solicitacao.id.slice(0, 8)}
-                    </Link>
-                  </MobileCardRow>
-                  <MobileCardRow label="Obra">
-                    {solicitacao.obra?.nome ?? "-"}
-                  </MobileCardRow>
-                  <MobileCardRow label="Prioridade">
-                    <span className="capitalize">{solicitacao.prioridade}</span>
-                  </MobileCardRow>
-                  <MobileCardRow label="Status">
+                <Link
+                  key={solicitacao.id}
+                  href={`/compras/${solicitacao.id}`}
+                  className="space-y-2 rounded-lg border border-border bg-card p-4 text-sm transition-colors hover:bg-secondary/40"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="font-medium">
+                      {solicitacao.obra?.nome ?? "-"}
+                    </span>
                     <StatusBadge
                       status={statusGroupKey(solicitacao.status)}
                       label={statusGroupLabel(solicitacao.status)}
                     />
-                  </MobileCardRow>
-                  <MobileCardRow label="Criada em">
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {solicitacao.codigo ?? solicitacao.id.slice(0, 8)}
+                  </div>
+                  <div className="text-muted-foreground">
+                    Prioridade:{" "}
+                    <span className="capitalize text-foreground">
+                      {solicitacao.prioridade}
+                    </span>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Criada em{" "}
                     {new Date(solicitacao.created_at).toLocaleDateString(
                       "pt-BR",
                     )}
-                  </MobileCardRow>
-                </MobileCard>
+                  </div>
+                </Link>
               ))}
-            </MobileCardList>
+            </div>
           )}
 
           <div className="flex flex-col justify-between gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center">

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
@@ -13,6 +14,7 @@ import {
   MobileCardList,
   MobileCardRow,
 } from "@/components/ui/mobile-card-list";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   createDespesaManual,
@@ -31,13 +33,38 @@ import {
 } from "@/lib/permissions";
 import { FASE_LABELS, ORCAMENTO_TIPO_LABELS } from "@/lib/obras-constants";
 import {
+  listSolicitacoes,
+  statusGroupKey,
+  statusGroupLabel,
+} from "@/services/compras-service";
+import { listFerramentaSolicitacoes } from "@/services/ferramentas-service";
+import {
   getObraDetail,
   getObraGestor,
   getOrcamentoRealizado,
   listDespesasManuais,
   listGestoresDisponiveis,
 } from "@/services/obras-service";
+import {
+  listContratos,
+  listLancamentos,
+} from "@/services/pagamento-mo-service";
 import { getCurrentProfile } from "@/services/profiles-service";
+import {
+  listCacambas,
+  listDesmobilizacoes,
+} from "@/services/servicos-obra-service";
+
+const LANCAMENTO_TIPO_LABELS: Record<string, string> = {
+  solicitacao: "Solicitação",
+  vale: "Vale",
+  reembolso: "Reembolso",
+};
+
+const FERRAMENTA_DECISAO_LABELS: Record<string, string> = {
+  deposito: "Depósito",
+  locacao: "Locação",
+};
 
 export default async function ObraDetailPage({
   params,
@@ -91,6 +118,54 @@ export default async function ObraDetailPage({
     "obras.orcamento.view",
   );
 
+  // Hub da obra: cada aba nova só busca dado (e só aparece) se o usuário
+  // tiver a permissão daquele módulo — mesmo padrão do canViewOrcamento
+  // acima, só que reaproveitando as permissões que já existem em cada
+  // módulo em vez de criar uma nova só pra essa tela.
+  const canViewCompras = hasPermission(
+    currentProfile.role,
+    permissions,
+    "solicitacoes.view",
+  );
+  const canViewPagamentos = hasPermission(
+    currentProfile.role,
+    permissions,
+    "pagamento_mo.view",
+  );
+  const canViewCacamba = hasPermission(
+    currentProfile.role,
+    permissions,
+    "cacamba.view",
+  );
+  const canViewDesmobilizacao = hasPermission(
+    currentProfile.role,
+    permissions,
+    "desmobilizacao.view",
+  );
+  const canViewFerramentas = hasPermission(
+    currentProfile.role,
+    permissions,
+    "ferramentas.solicitacao.view",
+  );
+  const canViewServicos =
+    canViewCacamba || canViewDesmobilizacao || canViewFerramentas;
+
+  const [
+    solicitacoesCompra,
+    lancamentosMo,
+    contratosMo,
+    cacambas,
+    desmobilizacoes,
+    ferramentaSolicitacoes,
+  ] = await Promise.all([
+    canViewCompras ? listSolicitacoes({ obraId: id }) : null,
+    canViewPagamentos ? listLancamentos({ obraId: id }) : [],
+    canViewPagamentos ? listContratos({ obraId: id }) : [],
+    canViewCacamba ? listCacambas({ obraId: id }) : [],
+    canViewDesmobilizacao ? listDesmobilizacoes({ obraId: id }) : [],
+    canViewFerramentas ? listFerramentaSolicitacoes({ obraIds: [id] }) : [],
+  ]);
+
   const insumosItens = orcamento.filter((item: any) => item.tipo === "insumos");
   const moItens = orcamento.filter((item: any) => item.tipo === "mao_de_obra");
   const extraItens = orcamento.filter((item: any) => item.tipo === "extra");
@@ -141,6 +216,15 @@ export default async function ObraDetailPage({
           <TabsTrigger value="dados">Dados</TabsTrigger>
           {canViewOrcamento ? (
             <TabsTrigger value="orcamento">Orçamento</TabsTrigger>
+          ) : null}
+          {canViewCompras ? (
+            <TabsTrigger value="compras">Compras</TabsTrigger>
+          ) : null}
+          {canViewPagamentos ? (
+            <TabsTrigger value="pagamentos">Pagamentos</TabsTrigger>
+          ) : null}
+          {canViewServicos ? (
+            <TabsTrigger value="servicos">Serviços</TabsTrigger>
           ) : null}
           {canViewOrcamento ? (
             <TabsTrigger value="relatorio">Relatório</TabsTrigger>
@@ -593,6 +677,338 @@ export default async function ObraDetailPage({
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+        ) : null}
+
+        {canViewCompras ? (
+          <TabsContent value="compras">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  Solicitações de compra
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {(solicitacoesCompra?.data ?? []).length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                    Nenhuma solicitação de compra pra esta obra.
+                  </div>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {(solicitacoesCompra?.data ?? []).map(
+                      (solicitacao: any) => (
+                        <Link
+                          key={solicitacao.id}
+                          href={`/compras/${solicitacao.id}`}
+                          className="space-y-2 rounded-lg border border-border bg-card p-4 text-sm transition-colors hover:bg-secondary/40"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="font-medium">
+                              {solicitacao.codigo ?? solicitacao.id.slice(0, 8)}
+                            </span>
+                            <StatusBadge
+                              status={statusGroupKey(solicitacao.status)}
+                              label={statusGroupLabel(solicitacao.status)}
+                            />
+                          </div>
+                          <div className="capitalize text-muted-foreground">
+                            Prioridade: {solicitacao.prioridade}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Criada em{" "}
+                            {new Date(
+                              solicitacao.created_at,
+                            ).toLocaleDateString("pt-BR")}
+                          </div>
+                        </Link>
+                      ),
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        ) : null}
+
+        {canViewPagamentos ? (
+          <TabsContent value="pagamentos" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  Solicitações de pagamento
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {lancamentosMo.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                    Nenhuma solicitação de pagamento pra esta obra.
+                  </div>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {lancamentosMo.map((lancamento: any) => (
+                      <div
+                        key={lancamento.id}
+                        className="space-y-2 rounded-lg border border-border bg-card p-4 text-sm"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="font-medium">
+                            {lancamento.colaborador?.nome ?? "-"}
+                          </span>
+                          <Badge
+                            variant={
+                              lancamento.status === "confirmado"
+                                ? "default"
+                                : "secondary"
+                            }
+                          >
+                            {lancamento.status === "confirmado"
+                              ? "Confirmado"
+                              : "Pendente"}
+                          </Badge>
+                        </div>
+                        <div className="text-muted-foreground">
+                          {LANCAMENTO_TIPO_LABELS[lancamento.tipo] ??
+                            lancamento.tipo}
+                        </div>
+                        <div className="font-medium">
+                          {lancamento.valor == null
+                            ? "Aguardando valor"
+                            : `R$ ${Number(lancamento.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  Contratos (prestação de serviço)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {contratosMo.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                    Nenhum contrato de mão de obra pra esta obra.
+                  </div>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {contratosMo.map((contrato: any) => (
+                      <div
+                        key={contrato.contrato_id}
+                        className="space-y-2 rounded-lg border border-border bg-card p-4 text-sm"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="font-medium">
+                            {contrato.colaborador_nome}
+                          </span>
+                          <Badge
+                            variant={
+                              contrato.status === "quitado"
+                                ? "default"
+                                : "secondary"
+                            }
+                          >
+                            {contrato.status === "quitado"
+                              ? "Quitado"
+                              : "Aberto"}
+                          </Badge>
+                        </div>
+                        <div className="text-muted-foreground">
+                          {contrato.descricao}
+                        </div>
+                        <div className="font-medium">
+                          R${" "}
+                          {Number(contrato.valor_total).toLocaleString(
+                            "pt-BR",
+                            { minimumFractionDigits: 2 },
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Saldo restante: R${" "}
+                          {Number(contrato.saldo_restante).toLocaleString(
+                            "pt-BR",
+                            { minimumFractionDigits: 2 },
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        ) : null}
+
+        {canViewServicos ? (
+          <TabsContent value="servicos" className="space-y-4">
+            {canViewCacamba ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">
+                    Caçambas de entulho
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {cacambas.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                      Nenhuma caçamba pra esta obra.
+                    </div>
+                  ) : (
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {cacambas.map((cacamba: any) => (
+                        <div
+                          key={cacamba.id}
+                          className="space-y-2 rounded-lg border border-border bg-card p-4 text-sm"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="font-medium capitalize">
+                              {cacamba.tipo}
+                            </span>
+                            <Badge variant="secondary" className="capitalize">
+                              {cacamba.status}
+                            </Badge>
+                          </div>
+                          <div className="text-muted-foreground">
+                            {cacamba.fornecedor?.nome_fantasia ??
+                              cacamba.fornecedor?.razao_social ??
+                              "Sem fornecedor"}
+                          </div>
+                          {cacamba.valor != null ? (
+                            <div className="font-medium">
+                              R${" "}
+                              {Number(cacamba.valor).toLocaleString("pt-BR", {
+                                minimumFractionDigits: 2,
+                              })}
+                            </div>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ) : null}
+
+            {canViewDesmobilizacao ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Desmobilização</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {desmobilizacoes.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                      Nenhuma desmobilização pra esta obra.
+                    </div>
+                  ) : (
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {desmobilizacoes.map((desmobilizacao: any) => (
+                        <div
+                          key={desmobilizacao.id}
+                          className="space-y-2 rounded-lg border border-border bg-card p-4 text-sm"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="font-medium">
+                              {new Date(
+                                `${desmobilizacao.data_desmobilizacao}T00:00:00`,
+                              ).toLocaleDateString("pt-BR")}
+                            </span>
+                            <Badge
+                              variant={
+                                desmobilizacao.status === "concluida"
+                                  ? "default"
+                                  : "secondary"
+                              }
+                            >
+                              {desmobilizacao.status === "concluida"
+                                ? "Concluída"
+                                : "Pendente"}
+                            </Badge>
+                          </div>
+                          {desmobilizacao.observacao ? (
+                            <div className="text-muted-foreground">
+                              {desmobilizacao.observacao}
+                            </div>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ) : null}
+
+            {canViewFerramentas ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Ferramentas</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {ferramentaSolicitacoes.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                      Nenhuma solicitação de ferramenta pra esta obra.
+                    </div>
+                  ) : (
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {ferramentaSolicitacoes.map((solicitacao: any) => (
+                        <div
+                          key={solicitacao.id}
+                          className="space-y-2 rounded-lg border border-border bg-card p-4 text-sm"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="font-medium">
+                              {solicitacao.descricao}
+                            </span>
+                            <Badge
+                              variant={
+                                solicitacao.status === "atendida"
+                                  ? "default"
+                                  : solicitacao.status === "cancelada"
+                                    ? "destructive"
+                                    : "secondary"
+                              }
+                            >
+                              {solicitacao.status === "atendida"
+                                ? "Atendida"
+                                : solicitacao.status === "cancelada"
+                                  ? "Cancelada"
+                                  : "Pendente"}
+                            </Badge>
+                          </div>
+                          {solicitacao.decisao ? (
+                            <div className="text-muted-foreground">
+                              {FERRAMENTA_DECISAO_LABELS[solicitacao.decisao] ??
+                                solicitacao.decisao}
+                              {solicitacao.decisao === "locacao" &&
+                              solicitacao.ferramenta?.fornecedor
+                                ? ` · ${
+                                    solicitacao.ferramenta.fornecedor
+                                      .nome_fantasia ??
+                                    solicitacao.ferramenta.fornecedor
+                                      .razao_social
+                                  }`
+                                : ""}
+                            </div>
+                          ) : null}
+                          {solicitacao.ferramenta?.valor_locacao != null ? (
+                            <div className="font-medium">
+                              R${" "}
+                              {Number(
+                                solicitacao.ferramenta.valor_locacao,
+                              ).toLocaleString("pt-BR", {
+                                minimumFractionDigits: 2,
+                              })}
+                            </div>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ) : null}
           </TabsContent>
         ) : null}
 
