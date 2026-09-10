@@ -8,6 +8,7 @@ import { FormToast } from "@/components/ui/form-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { validarCotacao } from "@/features/compras/actions/purchase-actions";
+import { DescontoInput } from "@/features/compras/components/desconto-input";
 import { ValorUnitarioTotalInput } from "@/features/compras/components/valor-unitario-total-input";
 
 function normalize(text: string) {
@@ -194,19 +195,10 @@ export function CotacaoReviewForm({
             </div>
           )}
 
-          <div className="space-y-2 sm:max-w-xs">
-            <Label htmlFor="desconto_percentual">Desconto (%)</Label>
-            <Input
-              id="desconto_percentual"
-              name="desconto_percentual"
-              inputMode="decimal"
-              placeholder="0"
-              onChange={(event) => {
-                const parsed = Number(event.target.value.replace(",", "."));
-                setDescontoPercentual(Number.isFinite(parsed) ? parsed : 0);
-              }}
-            />
-          </div>
+          <DescontoInput
+            subtotal={totalGeral}
+            onDescontoChange={setDescontoPercentual}
+          />
 
           <div className="space-y-1 rounded-md border border-border bg-secondary/40 px-3 py-2 text-sm">
             <div className="flex items-center justify-between text-muted-foreground">
