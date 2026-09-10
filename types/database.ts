@@ -479,6 +479,7 @@ export type Database = {
           arquivo_path: string | null;
           cliente_id: string;
           created_at: string;
+          desconto_percentual: number | null;
           extracao_ia: Json | null;
           forma_pagamento: string | null;
           fornecedor_id: string;
@@ -500,6 +501,7 @@ export type Database = {
           arquivo_path?: string | null;
           cliente_id: string;
           created_at?: string;
+          desconto_percentual?: number | null;
           extracao_ia?: Json | null;
           forma_pagamento?: string | null;
           fornecedor_id: string;
@@ -521,6 +523,7 @@ export type Database = {
           arquivo_path?: string | null;
           cliente_id?: string;
           created_at?: string;
+          desconto_percentual?: number | null;
           extracao_ia?: Json | null;
           forma_pagamento?: string | null;
           fornecedor_id?: string;

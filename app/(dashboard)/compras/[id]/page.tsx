@@ -4,12 +4,6 @@ import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
-import {
-  MobileCard,
-  MobileCardEmpty,
-  MobileCardList,
-  MobileCardRow,
-} from "@/components/ui/mobile-card-list";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   avancarFluxo,
@@ -406,50 +400,34 @@ export default async function CompraDetailPage({
           <CardTitle className="text-base">Materiais</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="hidden overflow-x-auto rounded-lg border border-border bg-card md:block">
-            <table className="w-full text-sm">
-              <thead className="bg-secondary">
-                <tr>
-                  <th className="px-3 py-2 text-left">Descrição</th>
-                  <th className="px-3 py-2 text-left">Quantidade</th>
-                  <th className="px-3 py-2 text-left">Unidade</th>
-                  <th className="px-3 py-2 text-left">Observação</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(solicitacao.itens ?? []).map((item: any) => (
-                  <tr key={item.id} className="border-t border-border/80">
-                    <td className="px-3 py-2">{item.descricao}</td>
-                    <td className="px-3 py-2">
-                      {Number(item.quantidade).toLocaleString("pt-BR")}
-                    </td>
-                    <td className="px-3 py-2">{item.unidade}</td>
-                    <td className="px-3 py-2">{item.observacao ?? "-"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
           {(solicitacao.itens ?? []).length === 0 ? (
-            <MobileCardEmpty>Nenhum item nesta solicitação.</MobileCardEmpty>
+            <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+              Nenhum item nesta solicitação.
+            </div>
           ) : (
-            <MobileCardList>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {(solicitacao.itens ?? []).map((item: any) => (
-                <MobileCard key={item.id}>
-                  <MobileCardRow label="Descrição">
-                    {item.descricao}
-                  </MobileCardRow>
-                  <MobileCardRow label="Quantidade">
-                    {Number(item.quantidade).toLocaleString("pt-BR")}
-                  </MobileCardRow>
-                  <MobileCardRow label="Unidade">{item.unidade}</MobileCardRow>
-                  <MobileCardRow label="Observação">
-                    {item.observacao ?? "-"}
-                  </MobileCardRow>
-                </MobileCard>
+                <div
+                  key={item.id}
+                  className="space-y-2 rounded-lg border border-border bg-card p-4 text-sm"
+                >
+                  <div className="font-medium">{item.descricao}</div>
+                  <div className="text-muted-foreground">
+                    Quantidade:{" "}
+                    <span className="text-foreground">
+                      {Number(item.quantidade).toLocaleString("pt-BR")}{" "}
+                      {item.unidade}
+                    </span>
+                  </div>
+                  {item.observacao ? (
+                    <div className="text-muted-foreground">
+                      Observação:{" "}
+                      <span className="text-foreground">{item.observacao}</span>
+                    </div>
+                  ) : null}
+                </div>
               ))}
-            </MobileCardList>
+            </div>
           )}
         </CardContent>
       </Card>

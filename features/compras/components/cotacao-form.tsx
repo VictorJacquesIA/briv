@@ -37,11 +37,13 @@ export function CotacaoForm({
   const [totaisPorItem, setTotaisPorItem] = useState<Record<number, number>>(
     {},
   );
+  const [descontoPercentual, setDescontoPercentual] = useState(0);
 
   const totalGeral = Object.values(totaisPorItem).reduce(
     (soma, valor) => soma + valor,
     0,
   );
+  const totalComDesconto = totalGeral * (1 - descontoPercentual / 100);
 
   return (
     <form action={action} className="space-y-4">
@@ -63,114 +65,95 @@ export function CotacaoForm({
         </select>
       </div>
 
-      {/* Tabela vira lista de blocos no mobile via CSS (mesmos inputs, sem
-          duplicar "name" — os campos ficam dentro de um único <form>). */}
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
-        <table className="block w-full text-sm md:table">
-          <thead className="hidden bg-secondary md:table-header-group">
-            <tr>
-              <th className="px-3 py-2 text-left">Incluir / Item</th>
-              <th className="px-3 py-2 text-left">Qtd.</th>
-              <th className="px-3 py-2 text-left">Valor unitário ou total</th>
-              <th className="px-3 py-2 text-left">Não cotado</th>
-              <th className="px-3 py-2 text-left">Observação</th>
-            </tr>
-          </thead>
-          <tbody className="block md:table-row-group">
-            {itensParaCotar.map((item: any, index: number) => {
-              const disabled = naoCotados[index] || !incluidos[index];
-              return (
-                <tr
-                  key={item.id}
-                  className="block space-y-3 border-t border-border p-4 md:table-row md:space-y-0 md:p-0"
-                >
-                  <td className="block md:table-cell md:px-3 md:py-2">
-                    <input
-                      type="hidden"
-                      name={`cotacao_item_${index}_solicitacao_item_id`}
-                      value={item.id}
-                    />
-                    <input
-                      type="hidden"
-                      name={`cotacao_item_${index}_quantidade`}
-                      value={item.quantidadeCotar}
-                    />
-                    <label className="flex items-start gap-2">
-                      <input
-                        type="checkbox"
-                        name={`cotacao_item_${index}_incluir`}
-                        defaultChecked
-                        className="mt-0.5 size-4 shrink-0 rounded border"
-                        onChange={(event) =>
-                          setIncluidos((prev) => ({
-                            ...prev,
-                            [index]: event.target.checked,
-                          }))
-                        }
-                      />
-                      <span>
-                        <span className="font-medium">{item.descricao}</span>
-                        <div className="text-xs text-muted-foreground">
-                          {item.unidade}
-                          {item.quantidade_estoque > 0
-                            ? ` · ${Number(item.quantidade_estoque).toLocaleString("pt-BR")} já saíram do estoque`
-                            : ""}
-                        </div>
-                      </span>
-                    </label>
-                  </td>
-                  <td className="block text-sm text-muted-foreground md:table-cell md:px-3 md:py-2 md:text-foreground">
-                    <span className="md:hidden">Qtd.: </span>
-                    {Number(item.quantidadeCotar).toLocaleString("pt-BR")}
-                  </td>
-                  <td className="block md:table-cell md:px-3 md:py-2">
-                    <ValorUnitarioTotalInput
-                      id={`cotacao_item_${index}_valor_unitario`}
-                      name={`cotacao_item_${index}_valor_unitario`}
-                      quantidade={Number(item.quantidadeCotar)}
-                      disabled={disabled}
-                      onTotalChange={(total) =>
-                        setTotaisPorItem((prev) => ({
-                          ...prev,
-                          [index]: total,
-                        }))
-                      }
-                    />
-                  </td>
-                  <td className="block md:table-cell md:px-3 md:py-2">
-                    <label className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        name={`cotacao_item_${index}_nao_cotado`}
-                        className="size-4 rounded border"
-                        onChange={(event) =>
-                          setNaoCotados((prev) => ({
-                            ...prev,
-                            [index]: event.target.checked,
-                          }))
-                        }
-                      />
-                      Não cotado
-                    </label>
-                  </td>
-                  <td className="block md:table-cell md:px-3 md:py-2">
-                    <Label
-                      htmlFor={`cotacao_item_${index}_observacao`}
-                      className="md:hidden"
-                    >
-                      Observação
-                    </Label>
-                    <Input
-                      id={`cotacao_item_${index}_observacao`}
-                      name={`cotacao_item_${index}_observacao`}
-                    />
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      {itensParaCotar.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+          Nenhum item para cotar.
+        </div>
+      ) : (
+        <div className="grid gap-3 lg:grid-cols-2">
+          {itensParaCotar.map((item: any, index: number) => {
+            const disabled = naoCotados[index] || !incluidos[index];
+            return (
+              <div
+                key={item.id}
+                className="space-y-3 rounded-lg border border-border bg-card p-4 text-sm"
+              >
+                <input
+                  type="hidden"
+                  name={`cotacao_item_${index}_solicitacao_item_id`}
+                  value={item.id}
+                />
+                <input
+                  type="hidden"
+                  name={`cotacao_item_${index}_quantidade`}
+                  value={item.quantidadeCotar}
+                />
+                <label className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    name={`cotacao_item_${index}_incluir`}
+                    defaultChecked
+                    className="mt-0.5 size-4 shrink-0 rounded border"
+                    onChange={(event) =>
+                      setIncluidos((prev) => ({
+                        ...prev,
+                        [index]: event.target.checked,
+                      }))
+                    }
+                  />
+                  <span>
+                    <span className="font-medium">{item.descricao}</span>
+                    <div className="text-xs text-muted-foreground">
+                      {item.unidade}
+                      {item.quantidade_estoque > 0
+                        ? ` · ${Number(item.quantidade_estoque).toLocaleString("pt-BR")} já saíram do estoque`
+                        : ""}
+                    </div>
+                  </span>
+                </label>
+                <div className="text-xs text-muted-foreground">
+                  Qtd.: {Number(item.quantidadeCotar).toLocaleString("pt-BR")}
+                </div>
+                <ValorUnitarioTotalInput
+                  id={`cotacao_item_${index}_valor_unitario`}
+                  name={`cotacao_item_${index}_valor_unitario`}
+                  quantidade={Number(item.quantidadeCotar)}
+                  disabled={disabled}
+                  onTotalChange={(total) =>
+                    setTotaisPorItem((prev) => ({
+                      ...prev,
+                      [index]: total,
+                    }))
+                  }
+                />
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    name={`cotacao_item_${index}_nao_cotado`}
+                    className="size-4 rounded border"
+                    onChange={(event) =>
+                      setNaoCotados((prev) => ({
+                        ...prev,
+                        [index]: event.target.checked,
+                      }))
+                    }
+                  />
+                  Não cotado
+                </label>
+                <div className="space-y-1">
+                  <Label htmlFor={`cotacao_item_${index}_observacao`}>
+                    Observação
+                  </Label>
+                  <Input
+                    id={`cotacao_item_${index}_observacao`}
+                    name={`cotacao_item_${index}_observacao`}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor="observacoes_gerais">Observações gerais</Label>
@@ -181,11 +164,37 @@ export function CotacaoForm({
         />
       </div>
 
-      <div className="flex items-center justify-between rounded-md border border-border bg-secondary/40 px-3 py-2 text-sm font-medium">
-        <span>Total do orçamento</span>
-        <span>
-          R$ {totalGeral.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-        </span>
+      <div className="space-y-2 sm:max-w-xs">
+        <Label htmlFor="desconto_percentual">Desconto (%)</Label>
+        <Input
+          id="desconto_percentual"
+          name="desconto_percentual"
+          inputMode="decimal"
+          placeholder="0"
+          onChange={(event) => {
+            const parsed = Number(event.target.value.replace(",", "."));
+            setDescontoPercentual(Number.isFinite(parsed) ? parsed : 0);
+          }}
+        />
+      </div>
+
+      <div className="space-y-1 rounded-md border border-border bg-secondary/40 px-3 py-2 text-sm">
+        <div className="flex items-center justify-between text-muted-foreground">
+          <span>Subtotal</span>
+          <span>
+            R${" "}
+            {totalGeral.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+          </span>
+        </div>
+        <div className="flex items-center justify-between font-medium">
+          <span>Total {descontoPercentual > 0 ? "com desconto" : ""}</span>
+          <span>
+            R${" "}
+            {totalComDesconto.toLocaleString("pt-BR", {
+              minimumFractionDigits: 2,
+            })}
+          </span>
+        </div>
       </div>
 
       {state.message ? (

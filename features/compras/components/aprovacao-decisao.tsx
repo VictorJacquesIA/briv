@@ -26,7 +26,12 @@ type Item = {
   descricao: string;
   quantidade: number;
   quantidade_estoque?: number | null;
+  unidade?: string | null;
 };
+
+function quantidadeLabel(item: Item) {
+  return `${Number(item.quantidade).toLocaleString("pt-BR")} ${item.unidade ?? ""}`.trim();
+}
 
 function fornecedorNome(cotacao: Cotacao) {
   return (
@@ -203,7 +208,12 @@ export function AprovacaoDecisao({
                     key={item.id}
                     className="flex items-center justify-between gap-2"
                   >
-                    <span>{item.descricao}</span>
+                    <span>
+                      {item.descricao}{" "}
+                      <span className="text-muted-foreground">
+                        ({quantidadeLabel(item)})
+                      </span>
+                    </span>
                     <button
                       type="button"
                       className="text-primary underline"
@@ -273,7 +283,10 @@ export function AprovacaoDecisao({
                         }))
                       }
                     />
-                    {item.descricao}
+                    {item.descricao}{" "}
+                    <span className="text-muted-foreground">
+                      ({quantidadeLabel(item)})
+                    </span>
                   </span>
                   <span className="text-xs text-muted-foreground">
                     R$ {moeda(Number(cotacaoItem.valor_total ?? 0))}

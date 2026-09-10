@@ -192,6 +192,33 @@ function calcularTotalFornecedor(itens: CotacaoItemInput[]) {
   return Number(totalItens.toFixed(2));
 }
 
+// Desconto negociado com o fornecedor depois de cotado — reduz preço
+// unitário e total de cada item na mesma proporção, mantendo os dois
+// consistentes entre si (mesma lógica usada pra reconciliar a cotação da
+// Cassol manualmente, agora automática).
+function aplicarDesconto(
+  itens: CotacaoItemInput[],
+  descontoPercentual: number,
+): CotacaoItemInput[] {
+  if (!descontoPercentual) {
+    return itens;
+  }
+
+  const fator = 1 - descontoPercentual / 100;
+
+  return itens.map((item) => {
+    if (item.item_nao_cotado || item.preco_unitario == null) {
+      return item;
+    }
+
+    return {
+      ...item,
+      preco_unitario: Number((item.preco_unitario * fator).toFixed(4)),
+      valor_total: Number((item.valor_total * fator).toFixed(2)),
+    };
+  });
+}
+
 export async function createSolicitacao(
   _state: ActionState,
   formData: FormData,
@@ -627,14 +654,20 @@ export async function salvarCotacao(
       return { message: "Este fornecedor ja possui orcamento registrado." };
     }
 
-    const itens = parseCotacaoItens(formData);
+    const itensBrutos = parseCotacaoItens(formData);
 
-    if (itens.length === 0) {
+    if (itensBrutos.length === 0) {
       return {
         message: "Selecione ao menos um item para este fornecedor.",
       };
     }
 
+    const descontoPercentual = money(formData.get("desconto_percentual")) ?? 0;
+    if (descontoPercentual < 0 || descontoPercentual > 100) {
+      return { message: "Desconto deve estar entre 0 e 100%." };
+    }
+
+    const itens = aplicarDesconto(itensBrutos, descontoPercentual);
     const totalFornecedor = calcularTotalFornecedor(itens);
 
     const { data: cotacao, error } = await supabase
@@ -647,6 +680,7 @@ export async function salvarCotacao(
         observacoes_gerais: text(formData, "observacoes_gerais"),
         observacao: text(formData, "observacoes_gerais"),
         total_fornecedor: totalFornecedor,
+        desconto_percentual: descontoPercentual || null,
         validado_por: user.id,
         validado_at: new Date().toISOString(),
       })
@@ -1063,12 +1097,18 @@ export async function validarCotacao(
       return { message: "Dados inválidos." };
     }
 
-    const itens = parseCotacaoItens(formData);
+    const itensBrutos = parseCotacaoItens(formData);
 
-    if (itens.length === 0) {
+    if (itensBrutos.length === 0) {
       return { message: "Informe ao menos um item cotado." };
     }
 
+    const descontoPercentual = money(formData.get("desconto_percentual")) ?? 0;
+    if (descontoPercentual < 0 || descontoPercentual > 100) {
+      return { message: "Desconto deve estar entre 0 e 100%." };
+    }
+
+    const itens = aplicarDesconto(itensBrutos, descontoPercentual);
     const totalFornecedor = calcularTotalFornecedor(itens);
 
     const { error: itensError } = await supabase.from("cotacao_itens").upsert(
@@ -1092,6 +1132,7 @@ export async function validarCotacao(
         observacoes_gerais: text(formData, "observacoes_gerais"),
         observacao: text(formData, "observacoes_gerais"),
         total_fornecedor: totalFornecedor,
+        desconto_percentual: descontoPercentual || null,
         status: "respondida",
         validado_por: user.id,
         validado_at: validadoAt,

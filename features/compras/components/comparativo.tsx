@@ -51,6 +51,10 @@ export function Comparativo({ solicitacao }: { solicitacao: any }) {
               <tr key={item.id} className="border-t">
                 <td className="sticky left-0 bg-card px-3 py-2 font-medium">
                   {item.descricao}
+                  <div className="text-xs font-normal text-muted-foreground">
+                    {Number(item.quantidade).toLocaleString("pt-BR")}{" "}
+                    {item.unidade}
+                  </div>
                 </td>
                 {cotacoes.map((cotacao: any) => {
                   const cotacaoItem = (cotacao.itens ?? []).find(
@@ -135,6 +139,10 @@ export function Comparativo({ solicitacao }: { solicitacao: any }) {
                 return (
                   <div key={item.id}>
                     <div className="font-medium">{item.descricao}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {Number(item.quantidade).toLocaleString("pt-BR")}{" "}
+                      {item.unidade}
+                    </div>
                     {!cotacaoItem ? (
                       <span className="text-muted-foreground">—</span>
                     ) : cotacaoItem.item_nao_cotado ? (
