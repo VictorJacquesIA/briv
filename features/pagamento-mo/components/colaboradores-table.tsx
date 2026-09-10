@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -72,6 +73,11 @@ export function ColaboradoresTable({
   function AcoesColaborador({ colaborador }: { colaborador: Colaborador }) {
     return (
       <>
+        <Button asChild type="button" variant="outline" size="sm">
+          <Link href={`/pagamento-mo/colaboradores/${colaborador.id}`}>
+            Ver histórico
+          </Link>
+        </Button>
         <Button
           type="button"
           variant="outline"

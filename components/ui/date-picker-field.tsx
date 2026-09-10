@@ -16,12 +16,16 @@ export function DatePickerField({
   name,
   placeholder = "Selecione a data",
   className,
+  defaultValue,
 }: {
   name: string;
   placeholder?: string;
   className?: string;
+  defaultValue?: string | null;
 }) {
-  const [date, setDate] = useState<Date | undefined>(undefined);
+  const [date, setDate] = useState<Date | undefined>(() =>
+    defaultValue ? new Date(`${defaultValue}T00:00:00`) : undefined,
+  );
   const [open, setOpen] = useState(false);
 
   const isoValue = date ? date.toISOString().slice(0, 10) : "";

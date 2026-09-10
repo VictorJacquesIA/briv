@@ -58,16 +58,23 @@ export default async function PagamentoMoPage({
     "pagamento_mo.confirm",
   );
   const params = await searchParams;
+  // Sem filtro explícito na URL, arquiva os pagamentos já confirmados —
+  // eles ficam acessíveis por "Pagos" (agrupado por prestador) em vez de
+  // aparecerem sempre misturados na lista principal.
   const status =
     params.status === "pendente" || params.status === "confirmado"
       ? params.status
-      : undefined;
-  const [lancamentos, saldos] = await Promise.all([
+      : "pendente";
+  // Vales em aberto e o vínculo de baixa dependem de pagamentos já
+  // confirmados, então essas duas contas usam sempre a lista completa
+  // (sem o filtro de status acima), não só o que está sendo exibido.
+  const [lancamentos, todosLancamentos, saldos] = await Promise.all([
     listLancamentos({ status }),
+    listLancamentos({}),
     getColaboradorSaldo(),
   ]);
 
-  const valesAbertos = lancamentos.filter(
+  const valesAbertos = todosLancamentos.filter(
     (lancamento: any) =>
       lancamento.tipo === "vale" &&
       lancamento.status === "confirmado" &&
@@ -77,7 +84,7 @@ export default async function PagamentoMoPage({
     string,
     Array<{ id: string; label: string }>
   > = {};
-  for (const lancamento of lancamentos) {
+  for (const lancamento of todosLancamentos) {
     if (lancamento.tipo === "vale" || !lancamento.colaborador?.id) {
       continue;
     }
@@ -92,7 +99,7 @@ export default async function PagamentoMoPage({
     });
   }
 
-  const precisaCentroCusto = lancamentos.some(
+  const precisaCentroCusto = todosLancamentos.some(
     (lancamento: any) =>
       lancamento.status === "pendente" &&
       lancamento.tipo === "solicitacao" &&
@@ -221,25 +228,38 @@ export default async function PagamentoMoPage({
             Pagamento MO
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Lançamentos de mão de obra: solicitações, vales e reembolsos.
+            Solicitações de pagamento de mão de obra: solicitações, vales e
+            reembolsos.
           </p>
-          {status ? (
-            <p className="mt-1 text-sm text-muted-foreground">
-              Filtrando por: {STATUS_FILTRO_LABELS[status]} ·{" "}
-              <Link href="/pagamento-mo" className="underline">
-                Ver todos
+          <p className="mt-1 text-sm text-muted-foreground">
+            {params.status
+              ? `Filtrando por: ${STATUS_FILTRO_LABELS[status]}`
+              : "Mostrando pendentes — pagos ficam em"}{" "}
+            {params.status ? (
+              <>
+                {" · "}
+                <Link href="/pagamento-mo" className="underline">
+                  Ver todos
+                </Link>
+              </>
+            ) : (
+              <Link href="/pagamento-mo/pagos" className="underline">
+                Pagos
               </Link>
-            </p>
-          ) : null}
+            )}
+          </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline">
+            <Link href="/pagamento-mo/pagos">Pagos</Link>
+          </Button>
           <Button asChild variant="outline">
             <Link href="/pagamento-mo/colaboradores">
               Colaboradores/Prestadores
             </Link>
           </Button>
           <Button asChild>
-            <Link href="/pagamento-mo/novo">Novo lançamento</Link>
+            <Link href="/pagamento-mo/novo">Nova solicitação de pagamento</Link>
           </Button>
         </div>
       </div>
@@ -414,7 +434,7 @@ export default async function PagamentoMoPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Lançamentos</CardTitle>
+          <CardTitle className="text-base">Solicitação de Pagamento</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="hidden overflow-x-auto rounded-lg border border-border bg-card md:block">
@@ -502,7 +522,8 @@ export default async function PagamentoMoPage({
                       colSpan={canConfirm ? 7 : 6}
                       className="h-20 px-3 text-center text-muted-foreground"
                     >
-                      Nenhum lançamento registrado.
+                      Nenhuma solicitação de pagamento{" "}
+                      {status === "confirmado" ? "confirmada" : "pendente"}.
                     </td>
                   </tr>
                 ) : null}

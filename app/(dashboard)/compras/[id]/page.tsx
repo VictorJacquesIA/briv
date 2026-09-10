@@ -16,11 +16,16 @@ import { CotacaoForm } from "@/features/compras/components/cotacao-form";
 import { CotacaoRequestForm } from "@/features/compras/components/cotacao-request-form";
 import { CotacaoReviewForm } from "@/features/compras/components/cotacao-review-form";
 import { CotacaoUploadForm } from "@/features/compras/components/cotacao-upload-form";
+import { EditarSolicitacaoForm } from "@/features/compras/components/editar-solicitacao-form";
 import { EstoqueDecisionForm } from "@/features/compras/components/estoque-decision-form";
 import { ProgramarPedidoForm } from "@/features/compras/components/programar-pedido-form";
 import { WhatsAppButton } from "@/features/compras/components/whatsapp-button";
 import { createClient } from "@/lib/supabase/server";
-import { hasPermission, getPermissionsForUser } from "@/lib/permissions";
+import {
+  hasPermission,
+  getPermissionsForUser,
+  isGestorRole,
+} from "@/lib/permissions";
 import { getCurrentProfile } from "@/services/profiles-service";
 import {
   getPurchaseFormOptions,
@@ -123,6 +128,15 @@ export default async function CompraDetailPage({
     : [{}, { data: [] }];
   const orcamentoItens: Array<{ id: string; descricao: string }> =
     orcamentoItensResult.data ?? [];
+
+  // Editável só em "Nova Solicitação" (antes de entrar em cotação): o
+  // gestor que criou corrige a própria solicitação, compras/adm_geral pode
+  // editar qualquer uma nessa etapa.
+  const canEditSolicitacao =
+    hasPermission(currentProfile.role, permissions, "solicitacoes.edit") &&
+    STATUSES_AGUARDANDO_COTACAO.includes(solicitacao.status) &&
+    (!isGestorRole(currentProfile.role) ||
+      solicitacao.solicitante?.id === currentProfile.id);
 
   return (
     <div className="space-y-6">
@@ -390,6 +404,23 @@ export default async function CompraDetailPage({
               itens={solicitacao.itens ?? []}
               disponibilidade={disponibilidade}
               orcamentoItens={orcamentoItens}
+            />
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {canEditSolicitacao ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Editar solicitação</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <EditarSolicitacaoForm
+              solicitacaoId={solicitacao.id}
+              prioridade={solicitacao.prioridade}
+              observacao={solicitacao.observacao}
+              dataNecessidade={solicitacao.data_necessidade}
+              itens={solicitacao.itens ?? []}
             />
           </CardContent>
         </Card>

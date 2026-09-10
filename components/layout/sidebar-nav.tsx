@@ -26,6 +26,7 @@ type NavHref =
   | "/materiais/importar"
   | "/fornecedores"
   | "/pagamento-mo"
+  | "/pagamento-mo/pagos"
   | "/pagamento-mo/colaboradores"
   | "/pagamento-mo/contratos"
   | "/estoque"
@@ -103,8 +104,13 @@ const navigation: NavItem[] = [
     requiredPermission: "pagamento_mo.view",
     children: [
       {
-        label: "Lançamentos",
+        label: "Solicitação de Pagamento",
         href: "/pagamento-mo",
+        requiredPermission: "pagamento_mo.view",
+      },
+      {
+        label: "Pagos",
+        href: "/pagamento-mo/pagos",
         requiredPermission: "pagamento_mo.view",
       },
       {

@@ -387,6 +387,167 @@ export async function createSolicitacao(
   }
 }
 
+// Edição pós-criação: só enquanto a solicitação ainda está em "Nova
+// Solicitação" (rascunho/aberta — antes de entrar em cotação). O gestor que
+// criou só edita a própria solicitação; compras/adm_geral (não-gestor) pode
+// editar qualquer uma nessa etapa, como já fazem com o resto do fluxo.
+export async function editarSolicitacao(
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  try {
+    const { supabase, user, profile } = await getActor();
+    const permissions = await getPermissionsForUser(profile.id);
+    await assertPermission(profile.role, permissions, "solicitacoes.edit");
+    const context = await getRequestContext();
+    const solicitacaoId = text(formData, "solicitacao_id");
+
+    if (!solicitacaoId) {
+      return { message: "Dados inválidos." };
+    }
+
+    const { data: current } = await supabase
+      .from("solicitacoes")
+      .select("id,status,solicitante_id")
+      .eq("id", solicitacaoId)
+      .single();
+
+    if (!current) {
+      return { message: "Solicitação não encontrada." };
+    }
+
+    if (!STATUSES_AGUARDANDO_COTACAO.includes(current.status)) {
+      return {
+        message:
+          "Só é possível editar enquanto a solicitação estiver em Nova Solicitação.",
+      };
+    }
+
+    if (isGestorRole(profile.role) && current.solicitante_id !== profile.id) {
+      return {
+        message: "Você só pode editar solicitações que você mesmo criou.",
+      };
+    }
+
+    const prioridadeInput = text(formData, "prioridade");
+    const prioridade: PrioridadeSolicitacao =
+      prioridadeInput && isPrioridadeSolicitacao(prioridadeInput)
+        ? prioridadeInput
+        : "normal";
+
+    type SolicitacaoItemInput = {
+      id: string | null;
+      item_id: string | null;
+      descricao: string;
+      quantidade: number;
+      unidade: string;
+      observacao: string | null;
+    };
+
+    const itens = Array.from({ length: 10 })
+      .map((_, index): SolicitacaoItemInput | null => {
+        const descricao = text(formData, `item_${index}_descricao`);
+        const quantidade = money(formData.get(`item_${index}_quantidade`));
+        const unidade = text(formData, `item_${index}_unidade`);
+
+        if (!descricao || !quantidade || !unidade) {
+          return null;
+        }
+
+        return {
+          id: text(formData, `item_${index}_id`),
+          item_id: text(formData, `item_${index}_item_id`),
+          descricao,
+          quantidade,
+          unidade,
+          observacao: text(formData, `item_${index}_observacao`),
+        };
+      })
+      .filter((item): item is SolicitacaoItemInput => item !== null);
+
+    if (itens.length === 0) {
+      return { message: "Inclua ao menos um material." };
+    }
+
+    const { data: itensExistentes } = await supabase
+      .from("solicitacao_itens")
+      .select("id")
+      .eq("solicitacao_id", solicitacaoId);
+
+    const idsEnviados = new Set(
+      itens.map((item) => item.id).filter((id): id is string => Boolean(id)),
+    );
+    const idsParaRemover = (itensExistentes ?? [])
+      .map((item: any) => item.id)
+      .filter((id: string) => !idsEnviados.has(id));
+
+    if (idsParaRemover.length > 0) {
+      await supabase
+        .from("solicitacao_itens")
+        .delete()
+        .in("id", idsParaRemover);
+    }
+
+    for (const item of itens) {
+      if (item.id) {
+        await supabase
+          .from("solicitacao_itens")
+          .update({
+            item_id: item.item_id,
+            descricao: item.descricao,
+            quantidade: item.quantidade,
+            unidade: item.unidade,
+            observacao: item.observacao,
+          })
+          .eq("id", item.id);
+      } else {
+        await supabase.from("solicitacao_itens").insert({
+          solicitacao_id: solicitacaoId,
+          item_id: item.item_id,
+          orcamento_item_id: null,
+          descricao: item.descricao,
+          quantidade: item.quantidade,
+          unidade: item.unidade,
+          observacao: item.observacao,
+        });
+      }
+    }
+
+    const { error } = await supabase
+      .from("solicitacoes")
+      .update({
+        prioridade,
+        observacao: text(formData, "observacao"),
+        data_necessidade: text(formData, "data_necessidade"),
+      })
+      .eq("id", solicitacaoId);
+
+    if (error) {
+      return {
+        message: friendlyErrorMessage(
+          error,
+          "Não foi possível salvar as alterações.",
+        ),
+      };
+    }
+
+    await registrarHistorico({
+      clienteId: profile.cliente_id,
+      actorId: user.id,
+      entidade: "solicitacao",
+      entidadeId: solicitacaoId,
+      acao: "solicitacao_editada",
+      ip: context.ip,
+      userAgent: context.userAgent,
+    });
+
+    revalidatePath(`/compras/${solicitacaoId}`);
+    return { message: "Solicitação atualizada." };
+  } catch (error) {
+    return { message: friendlyErrorMessage(error) };
+  }
+}
+
 // Segunda verificação de estoque (seção 3.2 do módulo de Estoque): o
 // Compras decide, item a item, quanto sai do depósito x quanto vai pra
 // cotação. Bloqueia "Iniciar cotação" até ser preenchida (estoque_decidido_at).

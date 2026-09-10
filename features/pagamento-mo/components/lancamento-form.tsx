@@ -521,7 +521,7 @@ export function LancamentoForm({
           <p className="text-sm text-muted-foreground">{state.message}</p>
         ) : null}
         <FormToast message={state.message} />
-        <Button type="submit">Lançar</Button>
+        <Button type="submit">Enviar solicitação</Button>
       </form>
     </>
   );

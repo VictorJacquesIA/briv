@@ -3,6 +3,7 @@ import type { Database } from "@/types/database";
 
 export async function listLancamentos(input?: {
   obraId?: string;
+  colaboradorId?: string;
   status?: Database["public"]["Enums"]["lancamento_mo_status"];
 }) {
   const supabase = await createClient();
@@ -15,6 +16,10 @@ export async function listLancamentos(input?: {
 
   if (input?.obraId) {
     query = query.eq("obra_id", input.obraId);
+  }
+
+  if (input?.colaboradorId) {
+    query = query.eq("colaborador_id", input.colaboradorId);
   }
 
   if (input?.status) {
@@ -33,6 +38,19 @@ export async function listColaboradores() {
     .order("nome");
 
   return data ?? [];
+}
+
+export async function getColaborador(id: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("colaboradores")
+    .select(
+      "id,nome,funcao,telefone,chave_pix,dados_bancarios,valor_diaria,observacao,ativo",
+    )
+    .eq("id", id)
+    .maybeSingle();
+
+  return data ?? null;
 }
 
 export async function getColaboradorSaldo() {
