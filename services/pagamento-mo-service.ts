@@ -10,7 +10,7 @@ export async function listLancamentos(input?: {
   let query = supabase
     .from("lancamentos_mo")
     .select(
-      "id,tipo,status,valor,qtd_diarias,valor_diaria,orcamento_item_id,vale_aplicado_em,descricao,created_at,confirmado_at,colaborador:colaboradores(id,nome),obra:obras(id,nome)",
+      "id,tipo,status,valor,qtd_diarias,valor_diaria,orcamento_item_id,vale_aplicado_em,descricao,created_at,confirmado_at,colaborador:colaboradores(id,nome,chave_pix,dados_bancarios),obra:obras(id,nome)",
     )
     .order("created_at", { ascending: false });
 

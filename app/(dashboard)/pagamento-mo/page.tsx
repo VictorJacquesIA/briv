@@ -19,10 +19,7 @@ import {
 import { hasPermission, getPermissionsForUser } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/services/profiles-service";
-import {
-  getColaboradorSaldo,
-  listLancamentos,
-} from "@/services/pagamento-mo-service";
+import { listLancamentos } from "@/services/pagamento-mo-service";
 
 const TIPO_LABELS: Record<string, string> = {
   solicitacao: "Solicitação",
@@ -68,10 +65,9 @@ export default async function PagamentoMoPage({
   // Vales em aberto e o vínculo de baixa dependem de pagamentos já
   // confirmados, então essas duas contas usam sempre a lista completa
   // (sem o filtro de status acima), não só o que está sendo exibido.
-  const [lancamentos, todosLancamentos, saldos] = await Promise.all([
+  const [lancamentos, todosLancamentos] = await Promise.all([
     listLancamentos({ status }),
     listLancamentos({}),
-    getColaboradorSaldo(),
   ]);
 
   const valesAbertos = todosLancamentos.filter(
@@ -177,7 +173,15 @@ export default async function PagamentoMoPage({
             required
             className="h-9 w-32"
           />
-        ) : null}
+        ) : (
+          <Input
+            name="valor"
+            inputMode="decimal"
+            defaultValue={String(lancamento.valor)}
+            title="Valor a liberar — pode ser diferente do solicitado"
+            className="h-9 w-28"
+          />
+        )}
         {lancamento.tipo === "solicitacao" && !lancamento.orcamento_item_id ? (
           <select
             name="orcamento_item_id"
@@ -196,6 +200,14 @@ export default async function PagamentoMoPage({
           Confirmar pagamento
         </Button>
       </form>
+    );
+  }
+
+  function pixOuConta(lancamento: any) {
+    return (
+      lancamento.colaborador?.chave_pix ||
+      lancamento.colaborador?.dados_bancarios ||
+      "-"
     );
   }
 
@@ -263,93 +275,6 @@ export default async function PagamentoMoPage({
           </Button>
         </div>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Saldo por colaborador</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="hidden overflow-x-auto rounded-lg border border-border bg-card md:block">
-            <table className="w-full min-w-[600px] text-sm">
-              <thead className="bg-secondary">
-                <tr>
-                  <th className="px-3 py-2 text-left">Colaborador/Prestador</th>
-                  <th className="px-3 py-2 text-left">Saldo confirmado</th>
-                  <th className="px-3 py-2 text-left">Saldo pendente</th>
-                </tr>
-              </thead>
-              <tbody>
-                {saldos.map((saldo: any) => (
-                  <tr key={saldo.colaborador_id} className="border-t">
-                    <td className="px-3 py-2">{saldo.nome}</td>
-                    <td className="px-3 py-2">
-                      R${" "}
-                      {Number(saldo.saldo_confirmado).toLocaleString("pt-BR", {
-                        minimumFractionDigits: 2,
-                      })}
-                    </td>
-                    <td className="px-3 py-2">
-                      {Number(saldo.saldo_pendente) !== 0 ? (
-                        <Badge variant="warning">
-                          R${" "}
-                          {Number(saldo.saldo_pendente).toLocaleString(
-                            "pt-BR",
-                            { minimumFractionDigits: 2 },
-                          )}
-                        </Badge>
-                      ) : (
-                        "R$ 0,00"
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                {saldos.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={3}
-                      className="h-16 px-3 text-center text-muted-foreground"
-                    >
-                      Nenhum colaborador cadastrado.
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-
-          {saldos.length === 0 ? (
-            <MobileCardEmpty>Nenhum colaborador cadastrado.</MobileCardEmpty>
-          ) : (
-            <MobileCardList>
-              {saldos.map((saldo: any) => (
-                <MobileCard key={saldo.colaborador_id}>
-                  <MobileCardRow label="Colaborador/Prestador">
-                    {saldo.nome}
-                  </MobileCardRow>
-                  <MobileCardRow label="Saldo confirmado">
-                    R${" "}
-                    {Number(saldo.saldo_confirmado).toLocaleString("pt-BR", {
-                      minimumFractionDigits: 2,
-                    })}
-                  </MobileCardRow>
-                  <MobileCardRow label="Saldo pendente">
-                    {Number(saldo.saldo_pendente) !== 0 ? (
-                      <Badge variant="warning">
-                        R${" "}
-                        {Number(saldo.saldo_pendente).toLocaleString("pt-BR", {
-                          minimumFractionDigits: 2,
-                        })}
-                      </Badge>
-                    ) : (
-                      "R$ 0,00"
-                    )}
-                  </MobileCardRow>
-                </MobileCard>
-              ))}
-            </MobileCardList>
-          )}
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>
@@ -442,6 +367,7 @@ export default async function PagamentoMoPage({
               <thead className="bg-secondary">
                 <tr>
                   <th className="px-3 py-2 text-left">Colaborador/Prestador</th>
+                  <th className="px-3 py-2 text-left">Pix / Conta</th>
                   <th className="px-3 py-2 text-left">Obra</th>
                   <th className="px-3 py-2 text-left">Tipo</th>
                   <th className="px-3 py-2 text-left">Valor</th>
@@ -458,6 +384,7 @@ export default async function PagamentoMoPage({
                     <td className="px-3 py-2">
                       {lancamento.colaborador?.nome}
                     </td>
+                    <td className="px-3 py-2">{pixOuConta(lancamento)}</td>
                     <td className="px-3 py-2">{lancamento.obra?.nome}</td>
                     <td className="px-3 py-2">
                       {TIPO_LABELS[lancamento.tipo] ?? lancamento.tipo}
@@ -519,7 +446,7 @@ export default async function PagamentoMoPage({
                 {lancamentos.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={canConfirm ? 7 : 6}
+                      colSpan={canConfirm ? 8 : 7}
                       className="h-20 px-3 text-center text-muted-foreground"
                     >
                       Nenhuma solicitação de pagamento{" "}
@@ -539,6 +466,9 @@ export default async function PagamentoMoPage({
                 <MobileCard key={lancamento.id}>
                   <MobileCardRow label="Colaborador/Prestador">
                     {lancamento.colaborador?.nome}
+                  </MobileCardRow>
+                  <MobileCardRow label="Pix / Conta">
+                    {pixOuConta(lancamento)}
                   </MobileCardRow>
                   <MobileCardRow label="Obra">
                     {lancamento.obra?.nome}

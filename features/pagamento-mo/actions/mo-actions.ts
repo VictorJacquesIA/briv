@@ -444,6 +444,11 @@ export async function confirmarLancamento(formData: FormData) {
   const profile = await requireActor("pagamento_mo.confirm");
   const id = text(formData, "id");
   const valorDiariaInput = money(formData.get("valor_diaria"));
+  // O valor solicitado pelo gestor_obra é só uma referência — quem confirma
+  // o pagamento (compras/adm_geral) pode liberar um valor diferente (ex:
+  // gestor pede 100, mas só 50 é aprovado), editando aqui na hora de
+  // confirmar.
+  const valorInput = money(formData.get("valor"));
   const orcamentoItemIdInput = text(formData, "orcamento_item_id");
 
   if (!id) {
@@ -454,7 +459,9 @@ export async function confirmarLancamento(formData: FormData) {
 
   const { data: lancamento } = await supabase
     .from("lancamentos_mo")
-    .select("valor,qtd_diarias,tipo,orcamento_item_id")
+    .select(
+      "valor,qtd_diarias,tipo,orcamento_item_id,colaborador_id,obra_id,contrato_id,descricao",
+    )
     .eq("id", id)
     .single();
 
@@ -483,6 +490,12 @@ export async function confirmarLancamento(formData: FormData) {
     updates.valor = Number(
       (lancamento.qtd_diarias * valorDiariaInput).toFixed(2),
     );
+  } else if (valorInput != null) {
+    if (valorInput <= 0) {
+      throw new Error("O valor deve ser maior que zero.");
+    }
+
+    updates.valor = valorInput;
   }
 
   // Idem pro centro de custo: gestor_obra não define, compras/adm_geral
@@ -497,6 +510,17 @@ export async function confirmarLancamento(formData: FormData) {
     updates.orcamento_item_id = orcamentoItemIdInput;
   }
 
+  // Liberou menos do que foi solicitado (ex: pediram 100, só 50 aprovado):
+  // o lançamento original é confirmado só com o valor liberado, e a
+  // diferença vira um novo lançamento pendente do mesmo colaborador/obra —
+  // não fica esquecida, continua aparecendo pra ser decidida depois.
+  const valorRestante =
+    lancamento.valor != null &&
+    valorInput != null &&
+    valorInput < lancamento.valor
+      ? Number((lancamento.valor - valorInput).toFixed(2))
+      : null;
+
   const { error } = await supabase
     .from("lancamentos_mo")
     .update(updates)
@@ -504,6 +528,29 @@ export async function confirmarLancamento(formData: FormData) {
 
   if (error) {
     throw new Error("Não foi possível confirmar o pagamento.");
+  }
+
+  let restanteId: string | null = null;
+
+  if (valorRestante != null && valorRestante > 0) {
+    const { data: restante } = await supabase
+      .from("lancamentos_mo")
+      .insert({
+        cliente_id: profile.cliente_id,
+        colaborador_id: lancamento.colaborador_id,
+        obra_id: lancamento.obra_id,
+        orcamento_item_id:
+          updates.orcamento_item_id ?? lancamento.orcamento_item_id,
+        tipo: lancamento.tipo,
+        valor: valorRestante,
+        descricao: lancamento.descricao,
+        criado_por: profile.id,
+        contrato_id: lancamento.contrato_id,
+      })
+      .select("id")
+      .single();
+
+    restanteId = restante?.id ?? null;
   }
 
   const context = await getRequestContext();
@@ -516,7 +563,29 @@ export async function confirmarLancamento(formData: FormData) {
     statusNovo: "confirmado",
     ip: context.ip,
     userAgent: context.userAgent,
+    dados:
+      lancamento.valor != null && updates.valor !== lancamento.valor
+        ? {
+            valor_solicitado: lancamento.valor,
+            valor_confirmado: updates.valor,
+            lancamento_restante_id: restanteId ?? undefined,
+          }
+        : undefined,
   });
+
+  if (restanteId) {
+    await registrarHistorico({
+      clienteId: profile.cliente_id,
+      actorId: profile.id,
+      entidade: "lancamento_mo",
+      entidadeId: restanteId,
+      acao: "lancamento_criado",
+      statusNovo: "pendente",
+      ip: context.ip,
+      userAgent: context.userAgent,
+      dados: { origem_lancamento_id: id, valor: valorRestante },
+    });
+  }
 
   revalidatePath("/pagamento-mo");
 }
