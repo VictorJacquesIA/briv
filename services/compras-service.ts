@@ -166,7 +166,7 @@ export async function listSolicitacoes(input?: {
   let query = supabase
     .from("solicitacoes")
     .select(
-      "id,codigo,status,prioridade,created_at,obra:obras(nome),cliente:clientes(razao_social),solicitante:profiles!solicitacoes_solicitante_id_fkey(nome)",
+      "id,codigo,status,prioridade,created_at,obra:obras(nome),cliente:clientes(razao_social),solicitante:profiles!solicitacoes_solicitante_id_fkey(nome),fornecedor_aprovado:fornecedores!solicitacoes_fornecedor_aprovado_id_fkey(razao_social,nome_fantasia)",
       { count: "exact" },
     );
 

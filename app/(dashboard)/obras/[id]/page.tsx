@@ -694,31 +694,37 @@ export default async function ObraDetailPage({
                     Nenhuma solicitação de compra pra esta obra.
                   </div>
                 ) : (
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="divide-y divide-border rounded-lg border border-border bg-card">
                     {(solicitacoesCompra?.data ?? []).map(
                       (solicitacao: any) => (
                         <Link
                           key={solicitacao.id}
                           href={`/compras/${solicitacao.id}`}
-                          className="space-y-2 rounded-lg border border-border bg-card p-4 text-sm transition-colors hover:bg-secondary/40"
+                          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 text-sm transition-colors hover:bg-secondary/40"
                         >
-                          <div className="flex items-start justify-between gap-2">
-                            <span className="font-medium">
+                          <div>
+                            <div className="font-medium">
                               {solicitacao.codigo ?? solicitacao.id.slice(0, 8)}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {solicitacao.fornecedor_aprovado?.nome_fantasia ??
+                                solicitacao.fornecedor_aprovado?.razao_social ??
+                                "Sem fornecedor definido"}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs capitalize text-muted-foreground">
+                              {solicitacao.prioridade}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(
+                                solicitacao.created_at,
+                              ).toLocaleDateString("pt-BR")}
                             </span>
                             <StatusBadge
                               status={statusGroupKey(solicitacao.status)}
                               label={statusGroupLabel(solicitacao.status)}
                             />
-                          </div>
-                          <div className="capitalize text-muted-foreground">
-                            Prioridade: {solicitacao.prioridade}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Criada em{" "}
-                            {new Date(
-                              solicitacao.created_at,
-                            ).toLocaleDateString("pt-BR")}
                           </div>
                         </Link>
                       ),
@@ -744,15 +750,26 @@ export default async function ObraDetailPage({
                     Nenhuma solicitação de pagamento pra esta obra.
                   </div>
                 ) : (
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="divide-y divide-border rounded-lg border border-border bg-card">
                     {lancamentosMo.map((lancamento: any) => (
                       <div
                         key={lancamento.id}
-                        className="space-y-2 rounded-lg border border-border bg-card p-4 text-sm"
+                        className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 text-sm"
                       >
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="font-medium">
+                        <div>
+                          <div className="font-medium">
                             {lancamento.colaborador?.nome ?? "-"}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {LANCAMENTO_TIPO_LABELS[lancamento.tipo] ??
+                              lancamento.tipo}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-muted-foreground">
+                            {lancamento.valor == null
+                              ? "Aguardando valor"
+                              : `R$ ${Number(lancamento.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
                           </span>
                           <Badge
                             variant={
@@ -765,15 +782,6 @@ export default async function ObraDetailPage({
                               ? "Confirmado"
                               : "Pendente"}
                           </Badge>
-                        </div>
-                        <div className="text-muted-foreground">
-                          {LANCAMENTO_TIPO_LABELS[lancamento.tipo] ??
-                            lancamento.tipo}
-                        </div>
-                        <div className="font-medium">
-                          {lancamento.valor == null
-                            ? "Aguardando valor"
-                            : `R$ ${Number(lancamento.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
                         </div>
                       </div>
                     ))}
@@ -794,15 +802,32 @@ export default async function ObraDetailPage({
                     Nenhum contrato de mão de obra pra esta obra.
                   </div>
                 ) : (
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="divide-y divide-border rounded-lg border border-border bg-card">
                     {contratosMo.map((contrato: any) => (
                       <div
                         key={contrato.contrato_id}
-                        className="space-y-2 rounded-lg border border-border bg-card p-4 text-sm"
+                        className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 text-sm"
                       >
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="font-medium">
+                        <div>
+                          <div className="font-medium">
                             {contrato.colaborador_nome}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {contrato.descricao}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-muted-foreground">
+                            R${" "}
+                            {Number(contrato.valor_total).toLocaleString(
+                              "pt-BR",
+                              { minimumFractionDigits: 2 },
+                            )}{" "}
+                            · saldo R${" "}
+                            {Number(contrato.saldo_restante).toLocaleString(
+                              "pt-BR",
+                              { minimumFractionDigits: 2 },
+                            )}
                           </span>
                           <Badge
                             variant={
@@ -815,23 +840,6 @@ export default async function ObraDetailPage({
                               ? "Quitado"
                               : "Aberto"}
                           </Badge>
-                        </div>
-                        <div className="text-muted-foreground">
-                          {contrato.descricao}
-                        </div>
-                        <div className="font-medium">
-                          R${" "}
-                          {Number(contrato.valor_total).toLocaleString(
-                            "pt-BR",
-                            { minimumFractionDigits: 2 },
-                          )}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          Saldo restante: R${" "}
-                          {Number(contrato.saldo_restante).toLocaleString(
-                            "pt-BR",
-                            { minimumFractionDigits: 2 },
-                          )}
                         </div>
                       </div>
                     ))}
@@ -857,33 +865,35 @@ export default async function ObraDetailPage({
                       Nenhuma caçamba pra esta obra.
                     </div>
                   ) : (
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="divide-y divide-border rounded-lg border border-border bg-card">
                       {cacambas.map((cacamba: any) => (
                         <div
                           key={cacamba.id}
-                          className="space-y-2 rounded-lg border border-border bg-card p-4 text-sm"
+                          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 text-sm"
                         >
-                          <div className="flex items-start justify-between gap-2">
-                            <span className="font-medium capitalize">
+                          <div>
+                            <div className="font-medium capitalize">
                               {cacamba.tipo}
-                            </span>
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {cacamba.fornecedor?.nome_fantasia ??
+                                cacamba.fornecedor?.razao_social ??
+                                "Sem fornecedor"}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            {cacamba.valor != null ? (
+                              <span className="text-xs text-muted-foreground">
+                                R${" "}
+                                {Number(cacamba.valor).toLocaleString("pt-BR", {
+                                  minimumFractionDigits: 2,
+                                })}
+                              </span>
+                            ) : null}
                             <Badge variant="secondary" className="capitalize">
                               {cacamba.status}
                             </Badge>
                           </div>
-                          <div className="text-muted-foreground">
-                            {cacamba.fornecedor?.nome_fantasia ??
-                              cacamba.fornecedor?.razao_social ??
-                              "Sem fornecedor"}
-                          </div>
-                          {cacamba.valor != null ? (
-                            <div className="font-medium">
-                              R${" "}
-                              {Number(cacamba.valor).toLocaleString("pt-BR", {
-                                minimumFractionDigits: 2,
-                              })}
-                            </div>
-                          ) : null}
                         </div>
                       ))}
                     </div>
@@ -903,35 +913,35 @@ export default async function ObraDetailPage({
                       Nenhuma desmobilização pra esta obra.
                     </div>
                   ) : (
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="divide-y divide-border rounded-lg border border-border bg-card">
                       {desmobilizacoes.map((desmobilizacao: any) => (
                         <div
                           key={desmobilizacao.id}
-                          className="space-y-2 rounded-lg border border-border bg-card p-4 text-sm"
+                          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 text-sm"
                         >
-                          <div className="flex items-start justify-between gap-2">
-                            <span className="font-medium">
+                          <div>
+                            <div className="font-medium">
                               {new Date(
                                 `${desmobilizacao.data_desmobilizacao}T00:00:00`,
                               ).toLocaleDateString("pt-BR")}
-                            </span>
-                            <Badge
-                              variant={
-                                desmobilizacao.status === "concluida"
-                                  ? "default"
-                                  : "secondary"
-                              }
-                            >
-                              {desmobilizacao.status === "concluida"
-                                ? "Concluída"
-                                : "Pendente"}
-                            </Badge>
-                          </div>
-                          {desmobilizacao.observacao ? (
-                            <div className="text-muted-foreground">
-                              {desmobilizacao.observacao}
                             </div>
-                          ) : null}
+                            {desmobilizacao.observacao ? (
+                              <div className="text-xs text-muted-foreground">
+                                {desmobilizacao.observacao}
+                              </div>
+                            ) : null}
+                          </div>
+                          <Badge
+                            variant={
+                              desmobilizacao.status === "concluida"
+                                ? "default"
+                                : "secondary"
+                            }
+                          >
+                            {desmobilizacao.status === "concluida"
+                              ? "Concluída"
+                              : "Pendente"}
+                          </Badge>
                         </div>
                       ))}
                     </div>
@@ -951,16 +961,44 @@ export default async function ObraDetailPage({
                       Nenhuma solicitação de ferramenta pra esta obra.
                     </div>
                   ) : (
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="divide-y divide-border rounded-lg border border-border bg-card">
                       {ferramentaSolicitacoes.map((solicitacao: any) => (
                         <div
                           key={solicitacao.id}
-                          className="space-y-2 rounded-lg border border-border bg-card p-4 text-sm"
+                          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 text-sm"
                         >
-                          <div className="flex items-start justify-between gap-2">
-                            <span className="font-medium">
+                          <div>
+                            <div className="font-medium">
                               {solicitacao.descricao}
-                            </span>
+                            </div>
+                            {solicitacao.decisao ? (
+                              <div className="text-xs text-muted-foreground">
+                                {FERRAMENTA_DECISAO_LABELS[
+                                  solicitacao.decisao
+                                ] ?? solicitacao.decisao}
+                                {solicitacao.decisao === "locacao" &&
+                                solicitacao.ferramenta?.fornecedor
+                                  ? ` · ${
+                                      solicitacao.ferramenta.fornecedor
+                                        .nome_fantasia ??
+                                      solicitacao.ferramenta.fornecedor
+                                        .razao_social
+                                    }`
+                                  : ""}
+                              </div>
+                            ) : null}
+                          </div>
+                          <div className="flex items-center gap-3">
+                            {solicitacao.ferramenta?.valor_locacao != null ? (
+                              <span className="text-xs text-muted-foreground">
+                                R${" "}
+                                {Number(
+                                  solicitacao.ferramenta.valor_locacao,
+                                ).toLocaleString("pt-BR", {
+                                  minimumFractionDigits: 2,
+                                })}
+                              </span>
+                            ) : null}
                             <Badge
                               variant={
                                 solicitacao.status === "atendida"
@@ -977,31 +1015,6 @@ export default async function ObraDetailPage({
                                   : "Pendente"}
                             </Badge>
                           </div>
-                          {solicitacao.decisao ? (
-                            <div className="text-muted-foreground">
-                              {FERRAMENTA_DECISAO_LABELS[solicitacao.decisao] ??
-                                solicitacao.decisao}
-                              {solicitacao.decisao === "locacao" &&
-                              solicitacao.ferramenta?.fornecedor
-                                ? ` · ${
-                                    solicitacao.ferramenta.fornecedor
-                                      .nome_fantasia ??
-                                    solicitacao.ferramenta.fornecedor
-                                      .razao_social
-                                  }`
-                                : ""}
-                            </div>
-                          ) : null}
-                          {solicitacao.ferramenta?.valor_locacao != null ? (
-                            <div className="font-medium">
-                              R${" "}
-                              {Number(
-                                solicitacao.ferramenta.valor_locacao,
-                              ).toLocaleString("pt-BR", {
-                                minimumFractionDigits: 2,
-                              })}
-                            </div>
-                          ) : null}
                         </div>
                       ))}
                     </div>
