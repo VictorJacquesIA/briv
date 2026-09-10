@@ -16,7 +16,11 @@ import {
   confirmarLancamento,
   darBaixaVale,
 } from "@/features/pagamento-mo/actions/mo-actions";
-import { hasPermission, getPermissionsForUser } from "@/lib/permissions";
+import {
+  hasPermission,
+  getPermissionsForUser,
+  isGestorRole,
+} from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/services/profiles-service";
 import { listLancamentos } from "@/services/pagamento-mo-service";
@@ -54,12 +58,15 @@ export default async function PagamentoMoPage({
     permissions,
     "pagamento_mo.confirm",
   );
+  const isGestor = isGestorRole(currentProfile.role);
   const params = await searchParams;
   // Sem filtro explícito na URL, arquiva os pagamentos já confirmados —
   // eles ficam acessíveis por "Pagos" (agrupado por prestador) em vez de
-  // aparecerem sempre misturados na lista principal.
-  const status =
-    params.status === "pendente" || params.status === "confirmado"
+  // aparecerem sempre misturados na lista principal. Gestor não tem essa
+  // opção — só acompanha o que está pendente, já pago não é assunto dele.
+  const status = isGestor
+    ? "pendente"
+    : params.status === "pendente" || params.status === "confirmado"
       ? params.status
       : "pendente";
   // Vales em aberto e o vínculo de baixa dependem de pagamentos já
@@ -243,28 +250,32 @@ export default async function PagamentoMoPage({
             Solicitações de pagamento de mão de obra: solicitações, vales e
             reembolsos.
           </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {params.status
-              ? `Filtrando por: ${STATUS_FILTRO_LABELS[status]}`
-              : "Mostrando pendentes — pagos ficam em"}{" "}
-            {params.status ? (
-              <>
-                {" · "}
-                <Link href="/pagamento-mo" className="underline">
-                  Ver todos
+          {!isGestor ? (
+            <p className="mt-1 text-sm text-muted-foreground">
+              {params.status
+                ? `Filtrando por: ${STATUS_FILTRO_LABELS[status]}`
+                : "Mostrando pendentes — pagos ficam em"}{" "}
+              {params.status ? (
+                <>
+                  {" · "}
+                  <Link href="/pagamento-mo" className="underline">
+                    Ver todos
+                  </Link>
+                </>
+              ) : (
+                <Link href="/pagamento-mo/pagos" className="underline">
+                  Pagos
                 </Link>
-              </>
-            ) : (
-              <Link href="/pagamento-mo/pagos" className="underline">
-                Pagos
-              </Link>
-            )}
-          </p>
+              )}
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline">
-            <Link href="/pagamento-mo/pagos">Pagos</Link>
-          </Button>
+          {!isGestor ? (
+            <Button asChild variant="outline">
+              <Link href="/pagamento-mo/pagos">Pagos</Link>
+            </Button>
+          ) : null}
           <Button asChild variant="outline">
             <Link href="/pagamento-mo/colaboradores">
               Colaboradores/Prestadores

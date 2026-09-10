@@ -3,7 +3,11 @@ import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { hasPermission, getPermissionsForUser } from "@/lib/permissions";
+import {
+  hasPermission,
+  getPermissionsForUser,
+  isGestorRole,
+} from "@/lib/permissions";
 import { getCurrentProfile } from "@/services/profiles-service";
 import { getColaboradorSaldo } from "@/services/pagamento-mo-service";
 
@@ -18,6 +22,12 @@ export default async function PagosMoPage() {
 
   if (!hasPermission(currentProfile.role, permissions, "pagamento_mo.view")) {
     redirect("/dashboard");
+  }
+
+  // Gestor não precisa acompanhar o que já foi pago — só o que está
+  // pendente pra ele, isso fica em /pagamento-mo.
+  if (isGestorRole(currentProfile.role)) {
+    redirect("/pagamento-mo");
   }
 
   const saldos = await getColaboradorSaldo();

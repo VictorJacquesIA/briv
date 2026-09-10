@@ -7,7 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createColaborador } from "@/features/pagamento-mo/actions/mo-actions";
 import { ColaboradoresTable } from "@/features/pagamento-mo/components/colaboradores-table";
-import { hasPermission, getPermissionsForUser } from "@/lib/permissions";
+import {
+  hasPermission,
+  getPermissionsForUser,
+  isGestorRole,
+} from "@/lib/permissions";
 import { getCurrentProfile } from "@/services/profiles-service";
 import { listColaboradores } from "@/services/pagamento-mo-service";
 
@@ -114,6 +118,7 @@ export default async function ColaboradoresPage() {
           <ColaboradoresTable
             colaboradores={colaboradores}
             canManage={canManage}
+            showHistorico={!isGestorRole(currentProfile.role)}
           />
         </CardContent>
       </Card>

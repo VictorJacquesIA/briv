@@ -41,6 +41,7 @@ type NavChild = {
   label: string;
   href: NavHref;
   requiredPermission?: string;
+  hideForRoles?: AppRole[];
 };
 
 type NavItem = {
@@ -112,6 +113,9 @@ const navigation: NavItem[] = [
         label: "Pagos",
         href: "/pagamento-mo/pagos",
         requiredPermission: "pagamento_mo.view",
+        // Gestor só precisa acompanhar o que ele solicitou — pago é
+        // arquivo/conferência financeira, coisa de compras/adm_geral.
+        hideForRoles: ["gestor_obra"],
       },
       {
         label: "Colaboradores/Prestadores",
@@ -241,15 +245,19 @@ export function SidebarNav({
           return null;
         }
 
-        const visibleChildren = item.children?.filter((child) =>
-          child.requiredPermission
+        const visibleChildren = item.children?.filter((child) => {
+          if (profile?.role && child.hideForRoles?.includes(profile.role)) {
+            return false;
+          }
+
+          return child.requiredPermission
             ? hasPermission(
                 profile?.role,
                 permissions,
                 child.requiredPermission as any,
               )
-            : true,
-        );
+            : true;
+        });
 
         const isGroup = Boolean(visibleChildren && visibleChildren.length > 0);
 

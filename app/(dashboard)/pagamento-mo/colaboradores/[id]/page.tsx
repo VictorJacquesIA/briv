@@ -4,7 +4,11 @@ import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { hasPermission, getPermissionsForUser } from "@/lib/permissions";
+import {
+  hasPermission,
+  getPermissionsForUser,
+  isGestorRole,
+} from "@/lib/permissions";
 import { getCurrentProfile } from "@/services/profiles-service";
 import {
   getColaborador,
@@ -32,6 +36,12 @@ export default async function ColaboradorDetalhePage({
 
   if (!hasPermission(currentProfile.role, permissions, "pagamento_mo.view")) {
     redirect("/dashboard");
+  }
+
+  // Gestor não precisa acompanhar o histórico de já pago de um
+  // colaborador/prestador — isso é conferência financeira de compras/adm.
+  if (isGestorRole(currentProfile.role)) {
+    redirect("/pagamento-mo/colaboradores");
   }
 
   const { id } = await params;

@@ -50,9 +50,11 @@ const emptyState: ColaboradorFormState = {};
 export function ColaboradoresTable({
   colaboradores,
   canManage,
+  showHistorico = true,
 }: {
   colaboradores: Colaborador[];
   canManage: boolean;
+  showHistorico?: boolean;
 }) {
   const [editing, setEditing] = useState<Colaborador | null>(null);
   const [updateState, updateAction] = useActionState(
@@ -73,11 +75,13 @@ export function ColaboradoresTable({
   function AcoesColaborador({ colaborador }: { colaborador: Colaborador }) {
     return (
       <>
-        <Button asChild type="button" variant="outline" size="sm">
-          <Link href={`/pagamento-mo/colaboradores/${colaborador.id}`}>
-            Ver histórico
-          </Link>
-        </Button>
+        {showHistorico ? (
+          <Button asChild type="button" variant="outline" size="sm">
+            <Link href={`/pagamento-mo/colaboradores/${colaborador.id}`}>
+              Ver histórico
+            </Link>
+          </Button>
+        ) : null}
         <Button
           type="button"
           variant="outline"
