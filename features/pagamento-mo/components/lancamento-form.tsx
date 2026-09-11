@@ -3,13 +3,28 @@
 import { useActionState, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Command,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { FormToast } from "@/components/ui/form-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+} from "@/components/ui/popover";
+import {
   createColaboradorGestor,
   createLancamento,
 } from "@/features/pagamento-mo/actions/mo-actions";
+
+function normalize(text: string) {
+  return text.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+}
 
 type OrcamentoItem = { id: string; descricao: string };
 type Contrato = {
@@ -38,6 +53,8 @@ export function LancamentoForm({
   const [usarDiarias, setUsarDiarias] = useState(false);
   const [localColaboradores, setLocalColaboradores] = useState(colaboradores);
   const [selectedColaboradorId, setSelectedColaboradorId] = useState("");
+  const [colaboradorQuery, setColaboradorQuery] = useState("");
+  const [colaboradorPopoverOpen, setColaboradorPopoverOpen] = useState(false);
   const [selectedContratoId, setSelectedContratoId] = useState("");
   const [showNovoPrestador, setShowNovoPrestador] = useState(false);
   const [isRateio, setIsRateio] = useState(false);
@@ -62,6 +79,27 @@ export function LancamentoForm({
     [contratosDisponiveis, selectedContratoId],
   );
   const colaboradorLabel = "Colaborador/Prestador";
+  const colaboradorSuggestions = useMemo(() => {
+    const normalizedQuery = normalize(colaboradorQuery);
+    const lista = normalizedQuery
+      ? localColaboradores.filter((colaborador) =>
+          normalize(colaborador.nome).includes(normalizedQuery),
+        )
+      : localColaboradores;
+    return lista.slice(0, 30);
+  }, [colaboradorQuery, localColaboradores]);
+
+  function handleColaboradorQueryChange(value: string) {
+    setColaboradorQuery(value);
+    setSelectedColaboradorId("");
+    setColaboradorPopoverOpen(true);
+  }
+
+  function selectColaborador(colaborador: { id: string; nome: string }) {
+    setSelectedColaboradorId(colaborador.id);
+    setColaboradorQuery(colaborador.nome);
+    setColaboradorPopoverOpen(false);
+  }
 
   // Diárias e centro de custo só existem pro tipo "solicitacao" (pagamento
   // de mão de obra); o gestor nunca define valor da diária nem centro de
@@ -106,6 +144,7 @@ export function LancamentoForm({
         { id: prestadorState.id!, nome: prestadorState.nome! },
       ]);
       setSelectedColaboradorId(prestadorState.id);
+      setColaboradorQuery(prestadorState.nome);
       setShowNovoPrestador(false);
     }
   }, [prestadorState]);
@@ -181,24 +220,62 @@ export function LancamentoForm({
               </>
             ) : (
               <>
-                <Label htmlFor="colaborador_id">{colaboradorLabel}</Label>
-                <select
-                  id="colaborador_id"
+                <Label htmlFor="colaborador_busca">{colaboradorLabel}</Label>
+                <input
+                  type="hidden"
                   name="colaborador_id"
-                  className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                  required
                   value={selectedColaboradorId}
-                  onChange={(event) =>
-                    setSelectedColaboradorId(event.target.value)
-                  }
+                />
+                <Popover
+                  open={colaboradorPopoverOpen}
+                  onOpenChange={setColaboradorPopoverOpen}
                 >
-                  <option value="">Selecione</option>
-                  {localColaboradores.map((colaborador) => (
-                    <option key={colaborador.id} value={colaborador.id}>
-                      {colaborador.nome}
-                    </option>
-                  ))}
-                </select>
+                  <PopoverAnchor asChild>
+                    <Input
+                      id="colaborador_busca"
+                      autoComplete="off"
+                      placeholder="Comece a digitar o nome..."
+                      value={colaboradorQuery}
+                      onFocus={() => setColaboradorPopoverOpen(true)}
+                      onChange={(event) =>
+                        handleColaboradorQueryChange(event.target.value)
+                      }
+                    />
+                  </PopoverAnchor>
+                  <PopoverContent
+                    align="start"
+                    className="w-[320px] p-0"
+                    onOpenAutoFocus={(event) => event.preventDefault()}
+                    onInteractOutside={(event) => {
+                      if (
+                        event.target ===
+                        document.getElementById("colaborador_busca")
+                      ) {
+                        event.preventDefault();
+                      }
+                    }}
+                  >
+                    <Command shouldFilter={false}>
+                      <CommandList>
+                        <CommandGroup>
+                          {colaboradorSuggestions.map((colaborador) => (
+                            <CommandItem
+                              key={colaborador.id}
+                              onSelect={() => selectColaborador(colaborador)}
+                            >
+                              {colaborador.nome}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                      {colaboradorSuggestions.length === 0 ? (
+                        <div className="p-2 text-sm text-muted-foreground">
+                          Nenhum colaborador/prestador encontrado.
+                        </div>
+                      ) : null}
+                    </Command>
+                  </PopoverContent>
+                </Popover>
                 {isGestor ? (
                   <div className="space-y-2">
                     <button
