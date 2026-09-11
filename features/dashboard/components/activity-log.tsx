@@ -46,7 +46,9 @@ export function ActivityLog({
           <div key={atividade.id} className="rounded-md border p-3 text-sm">
             <div className="font-medium">{atividade.acao}</div>
             <div className="text-xs text-muted-foreground">
-              {new Date(atividade.created_at).toLocaleString("pt-BR")}
+              {new Date(atividade.created_at).toLocaleString("pt-BR", {
+                timeZone: "America/Sao_Paulo",
+              })}
               {atividade.status_anterior || atividade.status_novo
                 ? ` · ${atividade.status_anterior ?? "-"} → ${atividade.status_novo ?? "-"}`
                 : ""}

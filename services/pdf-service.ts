@@ -159,7 +159,7 @@ export async function generatePedidoCompraPdf(input: {
 
   y = drawHeader(page, { regular, bold }, logo, "PEDIDO DE COMPRA", [
     `Numero: ${input.pedidoNumero}`,
-    `Data: ${new Date().toLocaleDateString("pt-BR")}`,
+    `Data: ${new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}`,
   ]);
 
   draw("Dados do cliente", 48, 12, bold);
@@ -299,7 +299,7 @@ export async function generateCotacaoRequestPdf(input: {
     `Cliente: ${line(input.solicitacao.contratanteNome)} — CPF/CNPJ: ${line(input.solicitacao.contratanteDocumento)}`,
     `Obra: ${line(input.solicitacao.obra)}`,
     `Endereço: ${line(input.solicitacao.obraEndereco)}`,
-    `Data: ${new Date().toLocaleDateString("pt-BR")}`,
+    `Data: ${new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}`,
   ]);
 
   page.drawText("Por favor, informe o valor unitário de cada item.", {
@@ -374,7 +374,7 @@ export async function generateOrcamentoRealizadoPdf(input: {
   const renderHeader = () => {
     y = drawHeader(page, { regular, bold }, logo, "ORÇADO x REALIZADO", [
       `Obra: ${line(input.obra.nome)} | Código: ${line(input.obra.codigo)}`,
-      `Gerado em: ${new Date().toLocaleString("pt-BR")}`,
+      `Gerado em: ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`,
     ]);
   };
 
@@ -547,7 +547,7 @@ export async function generateEstoqueRelatorioPdf(input: {
     y = drawHeader(page, { regular, bold }, logo, "RELATÓRIO DE ESTOQUE", [
       `Período: ${input.filtro.periodoLabel}`,
       `Obra (filtro de saídas): ${input.filtro.obraNome ?? "Todas as obras"}`,
-      `Gerado em: ${new Date().toLocaleString("pt-BR")}`,
+      `Gerado em: ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`,
     ]);
     page.drawText(
       "Obs.: o filtro por obra aplica-se apenas à seção Saídas — entradas chegam no depósito sem obra vinculada.",
@@ -723,7 +723,9 @@ export async function generateFerramentasLocadasPdf(input: {
       { regular, bold },
       logo,
       "FERRAMENTAS LOCADAS — " + input.fornecedorNome.toUpperCase(),
-      [`Gerado em: ${new Date().toLocaleString("pt-BR")}`],
+      [
+        `Gerado em: ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`,
+      ],
     );
   };
 
@@ -778,7 +780,9 @@ export async function generateFerramentasLocadasPdf(input: {
     });
     page.drawText(
       item.entregue_em
-        ? new Date(item.entregue_em).toLocaleDateString("pt-BR")
+        ? new Date(item.entregue_em).toLocaleDateString("pt-BR", {
+            timeZone: "America/Sao_Paulo",
+          })
         : "-",
       { x: 460, y, size: 8, font: regular, color: TEXT_DARK },
     );

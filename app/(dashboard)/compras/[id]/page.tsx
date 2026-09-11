@@ -169,7 +169,9 @@ export default async function CompraDetailPage({
               <span className="text-muted-foreground">Recusado por:</span>{" "}
               {ultimaRecusa.gestor_nome ?? "-"} em{" "}
               {ultimaRecusa.decided_at
-                ? new Date(ultimaRecusa.decided_at).toLocaleString("pt-BR")
+                ? new Date(ultimaRecusa.decided_at).toLocaleString("pt-BR", {
+                    timeZone: "America/Sao_Paulo",
+                  })
                 : "-"}
             </p>
             <p>
@@ -550,7 +552,9 @@ export default async function CompraDetailPage({
                   <div key={entry.id} className="rounded-md border p-3 text-sm">
                     <div className="font-medium">{entry.acao}</div>
                     <div className="text-xs text-muted-foreground">
-                      {new Date(entry.created_at).toLocaleString("pt-BR")}
+                      {new Date(entry.created_at).toLocaleString("pt-BR", {
+                        timeZone: "America/Sao_Paulo",
+                      })}
                     </div>
                   </div>
                 ))}

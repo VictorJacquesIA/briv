@@ -174,7 +174,9 @@ export default async function CacambaDetalhePage({
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {evento.responsavel?.nome ?? "-"} ·{" "}
-                    {new Date(evento.created_at).toLocaleString("pt-BR")}
+                    {new Date(evento.created_at).toLocaleString("pt-BR", {
+                      timeZone: "America/Sao_Paulo",
+                    })}
                   </div>
                 </div>
               ))}

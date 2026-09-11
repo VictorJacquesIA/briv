@@ -305,7 +305,9 @@ export default async function FerramentasPage() {
                               {ferramenta.entregue_em
                                 ? new Date(
                                     ferramenta.entregue_em,
-                                  ).toLocaleDateString("pt-BR")
+                                  ).toLocaleDateString("pt-BR", {
+                                    timeZone: "America/Sao_Paulo",
+                                  })
                                 : "-"}
                             </div>
                           </div>
