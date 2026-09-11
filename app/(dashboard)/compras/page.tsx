@@ -108,7 +108,7 @@ export default async function ComprasPage({
                 <tr>
                   <th className="px-4 py-3 text-left">Obra</th>
                   <th className="px-4 py-3 text-left">Codigo</th>
-                  <th className="px-4 py-3 text-left">Prioridade</th>
+                  <th className="px-4 py-3 text-left">Data de entrega</th>
                   <th className="px-4 py-3 text-left">Status</th>
                   <th className="px-4 py-3 text-left">Criada em</th>
                 </tr>
@@ -130,8 +130,12 @@ export default async function ComprasPage({
                     <td className="px-4 py-3 text-muted-foreground">
                       {solicitacao.codigo ?? solicitacao.id.slice(0, 8)}
                     </td>
-                    <td className="px-4 py-3 capitalize">
-                      {solicitacao.prioridade}
+                    <td className="px-4 py-3">
+                      {solicitacao.data_necessidade
+                        ? new Date(
+                            `${solicitacao.data_necessidade}T00:00:00`,
+                          ).toLocaleDateString("pt-BR")
+                        : "-"}
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge
@@ -185,9 +189,13 @@ export default async function ComprasPage({
                     {solicitacao.codigo ?? solicitacao.id.slice(0, 8)}
                   </div>
                   <div className="text-muted-foreground">
-                    Prioridade:{" "}
-                    <span className="capitalize text-foreground">
-                      {solicitacao.prioridade}
+                    Entrega:{" "}
+                    <span className="text-foreground">
+                      {solicitacao.data_necessidade
+                        ? new Date(
+                            `${solicitacao.data_necessidade}T00:00:00`,
+                          ).toLocaleDateString("pt-BR")
+                        : "-"}
                     </span>
                   </div>
                   <div className="text-xs text-muted-foreground">
