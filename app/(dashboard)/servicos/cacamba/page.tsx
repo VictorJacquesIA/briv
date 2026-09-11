@@ -79,6 +79,7 @@ export default async function CacambaPage({
 
   const params = await searchParams;
   const filtroPendente = params.filtro === "pendente";
+  const filtroEncerradas = params.filtro === "encerradas";
 
   const supabase = await createClient();
   const [
@@ -127,7 +128,12 @@ export default async function CacambaPage({
           c.status === "solicitada" ||
           c.acao_pendente,
       )
-    : todasCacambas;
+    : filtroEncerradas
+      ? todasCacambas.filter((c: any) => c.status === "encerrada")
+      : // Visão "solta" (sem filtro): encerrada fica arquivada, senão a
+        // lista enche de caçambas já finalizadas — ainda dá pra achar em
+        // "Encerradas".
+        todasCacambas.filter((c: any) => c.status !== "encerrada");
 
   const obrasParaCriar = isGestor
     ? obrasData.filter((obra: any) => linkedObraIds.includes(obra.id))
@@ -323,18 +329,38 @@ export default async function CacambaPage({
           <p className="mt-1 text-sm text-muted-foreground">
             Solicitação, troca e devolução de caçamba nas obras.
           </p>
-          {filtroPendente ? (
+          {filtroPendente || filtroEncerradas ? (
             <p className="mt-1 text-sm text-muted-foreground">
-              Filtrando por: Pendentes ·{" "}
+              Filtrando por: {filtroPendente ? "Pendentes" : "Encerradas"} ·{" "}
               <Link href="/servicos/cacamba" className="underline">
                 Ver todos
               </Link>
             </p>
+          ) : (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Encerradas ficam arquivadas —{" "}
+              <Link
+                href="/servicos/cacamba?filtro=encerradas"
+                className="underline"
+              >
+                ver encerradas
+              </Link>
+            </p>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {!filtroEncerradas ? (
+            <Link
+              href="/servicos/cacamba?filtro=encerradas"
+              className="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-secondary"
+            >
+              Encerradas
+            </Link>
+          ) : null}
+          {canCreate && obrasParaCriar.length > 0 ? (
+            <CacambaForm obras={obrasParaCriar} />
           ) : null}
         </div>
-        {canCreate && obrasParaCriar.length > 0 ? (
-          <CacambaForm obras={obrasParaCriar} />
-        ) : null}
       </div>
 
       <Card>
