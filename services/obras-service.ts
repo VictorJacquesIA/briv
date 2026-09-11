@@ -38,7 +38,7 @@ export async function getObraDetail(id: string) {
   const { data } = await supabase
     .from("obras")
     .select(
-      "id,nome,codigo,endereco,fase,ativo,cliente_id,telefone_responsavel,cliente:clientes(id,razao_social,nome_fantasia)",
+      "id,nome,codigo,endereco,fase,ativo,cliente_id,telefone_responsavel,contratante_nome,contratante_documento,contratante_email,cliente:clientes(id,razao_social,nome_fantasia)",
     )
     .eq("id", id)
     .single();

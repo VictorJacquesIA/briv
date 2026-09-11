@@ -295,14 +295,28 @@ export default async function ObraDetailPage({
                 )}
               </div>
               <p>
-                <span className="text-muted-foreground">Código:</span>{" "}
-                {obra.codigo ?? "-"}
+                <span className="text-muted-foreground">
+                  Nome/Razão social:
+                </span>{" "}
+                {obra.contratante_nome ?? "-"}
+              </p>
+              <p>
+                <span className="text-muted-foreground">CPF/CNPJ:</span>{" "}
+                {obra.contratante_documento ?? "-"}
+              </p>
+              <p>
+                <span className="text-muted-foreground">E-mail:</span>{" "}
+                {obra.contratante_email ?? "-"}
               </p>
               <p>
                 <span className="text-muted-foreground">
                   Telefone de contato:
                 </span>{" "}
                 {obra.telefone_responsavel ?? "-"}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Código:</span>{" "}
+                {obra.codigo ?? "-"}
               </p>
               <p className="sm:col-span-2">
                 <span className="text-muted-foreground">Endereço:</span>{" "}
