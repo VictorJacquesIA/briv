@@ -698,3 +698,128 @@ export async function generateEstoqueRelatorioPdf(input: {
 
   return pdf.save();
 }
+
+export async function generateFerramentasLocadasPdf(input: {
+  fornecedorNome: string;
+  itens: Array<{
+    nome: string;
+    codigo: string | null;
+    obraNome: string | null;
+    valor_locacao: number | null;
+    entregue_em: string | null;
+    data_prevista_devolucao: string | null;
+  }>;
+}) {
+  const pdf = await PDFDocument.create();
+  let page = pdf.addPage([595, 842]);
+  const regular = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const logo = await embedLogo(pdf);
+  let y = 800;
+
+  const renderHeader = () => {
+    y = drawHeader(
+      page,
+      { regular, bold },
+      logo,
+      "FERRAMENTAS LOCADAS — " + input.fornecedorNome.toUpperCase(),
+      [`Gerado em: ${new Date().toLocaleString("pt-BR")}`],
+    );
+  };
+
+  const newPage = () => {
+    page = pdf.addPage([595, 842]);
+    renderHeader();
+  };
+
+  const ensureSpace = () => {
+    if (y < 100) {
+      newPage();
+    }
+  };
+
+  renderHeader();
+
+  ensureSpace();
+  y -= 8;
+  page.drawText("Ferramenta", { x: 48, y, size: 9, font: bold });
+  page.drawText("Patrimônio", { x: 260, y, size: 9, font: bold });
+  page.drawText("Obra", { x: 340, y, size: 9, font: bold });
+  page.drawText("Entregue em", { x: 460, y, size: 9, font: bold });
+  page.drawText("Valor", { x: 530, y, size: 9, font: bold });
+  y -= 18;
+
+  let total = 0;
+
+  for (const item of input.itens) {
+    ensureSpace();
+    total += Number(item.valor_locacao ?? 0);
+
+    page.drawText(line(item.nome).slice(0, 34), {
+      x: 48,
+      y,
+      size: 8,
+      font: regular,
+      color: TEXT_DARK,
+    });
+    page.drawText(line(item.codigo), {
+      x: 260,
+      y,
+      size: 8,
+      font: regular,
+      color: TEXT_DARK,
+    });
+    page.drawText(line(item.obraNome).slice(0, 20), {
+      x: 340,
+      y,
+      size: 8,
+      font: regular,
+      color: TEXT_DARK,
+    });
+    page.drawText(
+      item.entregue_em
+        ? new Date(item.entregue_em).toLocaleDateString("pt-BR")
+        : "-",
+      { x: 460, y, size: 8, font: regular, color: TEXT_DARK },
+    );
+    page.drawText(`R$ ${money(item.valor_locacao)}`, {
+      x: 530,
+      y,
+      size: 8,
+      font: regular,
+      color: TEXT_DARK,
+    });
+    y -= 14;
+  }
+
+  if (input.itens.length === 0) {
+    page.drawText("Nenhuma ferramenta locada deste fornecedor.", {
+      x: 48,
+      y,
+      size: 8,
+      font: regular,
+      color: TEXT_MUTED,
+    });
+    y -= 14;
+  }
+
+  ensureSpace();
+  y -= 8;
+  page.drawLine({
+    start: { x: 48, y: y + 10 },
+    end: { x: 547, y: y + 10 },
+    thickness: 0.8,
+    color: TEXT_MUTED,
+  });
+  page.drawText(`Total: R$ ${money(total)}`, {
+    x: 460,
+    y,
+    size: 10,
+    font: bold,
+    color: TEXT_DARK,
+  });
+
+  pdf.setTitle(`Ferramentas Locadas - ${input.fornecedorNome}`);
+
+  return pdf.save();
+}

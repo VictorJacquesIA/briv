@@ -137,6 +137,12 @@ export default async function CacambaPage({
     return !isGestor || linkedObraIds.includes(obraId);
   }
 
+  function trocasConfirmadas(cacamba: any) {
+    return (cacamba.eventos ?? []).filter(
+      (evento: any) => evento.tipo === "troca_confirmada",
+    ).length;
+  }
+
   // Mensagem de solicitação enquanto ainda não foi avisado o fornecedor
   // (status "pendente"); de troca enquanto há um pedido de troca pendente.
   // Devolução não tem mensagem própria (não foi pedida) e caçamba
@@ -361,7 +367,22 @@ export default async function CacambaPage({
 
                   return (
                     <tr key={cacamba.id} className="border-t">
-                      <td className="px-3 py-2">{cacamba.obra?.nome}</td>
+                      <td className="px-3 py-2">
+                        <Link
+                          href={`/servicos/cacamba/${cacamba.id}`}
+                          className="font-medium hover:underline"
+                        >
+                          {cacamba.obra?.nome}
+                        </Link>
+                        {trocasConfirmadas(cacamba) > 0 ? (
+                          <div className="text-xs text-muted-foreground">
+                            {trocasConfirmadas(cacamba)}{" "}
+                            {trocasConfirmadas(cacamba) === 1
+                              ? "troca"
+                              : "trocas"}
+                          </div>
+                        ) : null}
+                      </td>
                       <td className="px-3 py-2">{cacamba.tipo}</td>
                       <td className="px-3 py-2">
                         {cacamba.orcamento_item?.descricao ?? "-"}
@@ -415,30 +436,38 @@ export default async function CacambaPage({
 
                 return (
                   <MobileCard key={cacamba.id}>
-                    <MobileCardRow label="Obra">
-                      {cacamba.obra?.nome}
-                    </MobileCardRow>
-                    <MobileCardRow label="Tipo">{cacamba.tipo}</MobileCardRow>
-                    <MobileCardRow label="Centro de custo">
-                      {cacamba.orcamento_item?.descricao ?? "-"}
-                    </MobileCardRow>
-                    <MobileCardRow label="Valor">
-                      {cacamba.valor != null
-                        ? Number(cacamba.valor).toLocaleString("pt-BR", {
-                            style: "currency",
-                            currency: "BRL",
-                          })
-                        : "-"}
-                    </MobileCardRow>
-                    <MobileCardRow label="Data prevista">
-                      {formatarData(cacamba.data_prevista)}
-                    </MobileCardRow>
-                    <MobileCardRow label="Status">
-                      <StatusCacamba cacamba={cacamba} />
-                    </MobileCardRow>
-                    <MobileCardRow label="Observação">
-                      {cacamba.observacao ?? "-"}
-                    </MobileCardRow>
+                    <Link
+                      href={`/servicos/cacamba/${cacamba.id}`}
+                      className="block space-y-2"
+                    >
+                      <MobileCardRow label="Obra">
+                        {cacamba.obra?.nome}
+                      </MobileCardRow>
+                      <MobileCardRow label="Tipo">{cacamba.tipo}</MobileCardRow>
+                      <MobileCardRow label="Centro de custo">
+                        {cacamba.orcamento_item?.descricao ?? "-"}
+                      </MobileCardRow>
+                      <MobileCardRow label="Valor">
+                        {cacamba.valor != null
+                          ? Number(cacamba.valor).toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            })
+                          : "-"}
+                      </MobileCardRow>
+                      <MobileCardRow label="Data prevista">
+                        {formatarData(cacamba.data_prevista)}
+                      </MobileCardRow>
+                      <MobileCardRow label="Status">
+                        <StatusCacamba cacamba={cacamba} />
+                      </MobileCardRow>
+                      <MobileCardRow label="Trocas">
+                        {trocasConfirmadas(cacamba)}
+                      </MobileCardRow>
+                      <MobileCardRow label="Observação">
+                        {cacamba.observacao ?? "-"}
+                      </MobileCardRow>
+                    </Link>
                     <MobileCardActions>
                       <AcoesCacamba
                         cacamba={cacamba}

@@ -14,6 +14,7 @@ import {
   registrarSaidaFerramenta,
 } from "@/features/ferramentas/actions";
 import { FerramentaForm } from "@/features/ferramentas/components/ferramenta-form";
+import { GerarRelatorioLocadasButton } from "@/features/ferramentas/components/gerar-relatorio-locadas-button";
 import { hasPermission, getPermissionsForUser } from "@/lib/permissions";
 import { listFerramentas } from "@/services/ferramentas-service";
 import { listObras } from "@/services/obras-service";
@@ -52,6 +53,36 @@ export default async function FerramentasPage() {
     listFerramentas(),
     canEmprestar ? listObras() : Promise.resolve([]),
   ]);
+
+  const ferramentasProprias = ferramentas.filter(
+    (ferramenta: any) => ferramenta.status !== "locada",
+  );
+  const ferramentasLocadas = ferramentas.filter(
+    (ferramenta: any) => ferramenta.status === "locada",
+  );
+  const totalLocado = ferramentasLocadas.reduce(
+    (soma: number, ferramenta: any) =>
+      soma + Number(ferramenta.valor_locacao ?? 0),
+    0,
+  );
+
+  // Agrupado por fornecedor pra permitir "Gerar PDF" por locadora — cada
+  // fornecedor pode ter dezenas de ferramentas espalhadas em várias obras,
+  // então o relatório separado facilita conferência/pagamento por locadora.
+  const locadasPorFornecedor = new Map<
+    string,
+    { fornecedor: any; itens: any[] }
+  >();
+  for (const ferramenta of ferramentasLocadas) {
+    const key = ferramenta.fornecedor?.id ?? "sem-fornecedor";
+    if (!locadasPorFornecedor.has(key)) {
+      locadasPorFornecedor.set(key, {
+        fornecedor: ferramenta.fornecedor,
+        itens: [],
+      });
+    }
+    locadasPorFornecedor.get(key)!.itens.push(ferramenta);
+  }
 
   function StatusFerramenta({ ferramenta }: { ferramenta: any }) {
     return ferramenta.status === "emprestada" ? (
@@ -139,7 +170,7 @@ export default async function FerramentasPage() {
                 </tr>
               </thead>
               <tbody>
-                {ferramentas.map((ferramenta: any) => (
+                {ferramentasProprias.map((ferramenta: any) => (
                   <tr key={ferramenta.id} className="border-t">
                     <td className="px-3 py-2">{ferramenta.nome}</td>
                     <td className="px-3 py-2">{ferramenta.codigo ?? "-"}</td>
@@ -153,7 +184,7 @@ export default async function FerramentasPage() {
                     ) : null}
                   </tr>
                 ))}
-                {ferramentas.length === 0 ? (
+                {ferramentasProprias.length === 0 ? (
                   <tr>
                     <td
                       colSpan={4}
@@ -167,11 +198,11 @@ export default async function FerramentasPage() {
             </table>
           </div>
 
-          {ferramentas.length === 0 ? (
+          {ferramentasProprias.length === 0 ? (
             <MobileCardEmpty>Nenhuma ferramenta cadastrada.</MobileCardEmpty>
           ) : (
             <MobileCardList>
-              {ferramentas.map((ferramenta: any) => (
+              {ferramentasProprias.map((ferramenta: any) => (
                 <MobileCard key={ferramenta.id}>
                   <MobileCardRow label="Nome">{ferramenta.nome}</MobileCardRow>
                   <MobileCardRow label="Código">
@@ -188,6 +219,103 @@ export default async function FerramentasPage() {
                 </MobileCard>
               ))}
             </MobileCardList>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">
+            Ferramentas Locadas
+            {ferramentasLocadas.length > 0 ? (
+              <span className="ml-2 text-sm font-normal text-muted-foreground">
+                Total: R${" "}
+                {totalLocado.toLocaleString("pt-BR", {
+                  minimumFractionDigits: 2,
+                })}
+              </span>
+            ) : null}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {locadasPorFornecedor.size === 0 ? (
+            <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+              Nenhuma ferramenta locada de fornecedor externo.
+            </div>
+          ) : (
+            Array.from(locadasPorFornecedor.entries()).map(
+              ([key, { fornecedor, itens }]) => {
+                const subtotal = itens.reduce(
+                  (soma: number, ferramenta: any) =>
+                    soma + Number(ferramenta.valor_locacao ?? 0),
+                  0,
+                );
+
+                return (
+                  <div key={key} className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <h3 className="text-sm font-semibold">
+                          {fornecedor?.nome_fantasia ??
+                            fornecedor?.razao_social ??
+                            "Sem fornecedor"}
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                          {itens.length}{" "}
+                          {itens.length === 1 ? "ferramenta" : "ferramentas"} ·
+                          R${" "}
+                          {subtotal.toLocaleString("pt-BR", {
+                            minimumFractionDigits: 2,
+                          })}
+                        </p>
+                      </div>
+                      {fornecedor?.id ? (
+                        <GerarRelatorioLocadasButton
+                          fornecedorId={fornecedor.id}
+                        />
+                      ) : null}
+                    </div>
+
+                    <div className="divide-y divide-border rounded-lg border border-border bg-card">
+                      {itens.map((ferramenta: any) => (
+                        <div
+                          key={ferramenta.id}
+                          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 text-sm"
+                        >
+                          <div>
+                            <div className="font-medium">{ferramenta.nome}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {ferramenta.codigo
+                                ? `Patrimônio ${ferramenta.codigo} · `
+                                : ""}
+                              {ferramenta.obra_atual?.nome ?? "-"}
+                            </div>
+                          </div>
+                          <div className="text-right text-xs text-muted-foreground">
+                            <div className="text-sm font-medium text-foreground">
+                              R${" "}
+                              {Number(
+                                ferramenta.valor_locacao ?? 0,
+                              ).toLocaleString("pt-BR", {
+                                minimumFractionDigits: 2,
+                              })}
+                            </div>
+                            <div>
+                              Entregue em{" "}
+                              {ferramenta.entregue_em
+                                ? new Date(
+                                    ferramenta.entregue_em,
+                                  ).toLocaleDateString("pt-BR")
+                                : "-"}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              },
+            )
           )}
         </CardContent>
       </Card>

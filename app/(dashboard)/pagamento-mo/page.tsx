@@ -472,50 +472,44 @@ export default async function PagamentoMoPage({
           {lancamentos.length === 0 ? (
             <MobileCardEmpty>Nenhum lançamento registrado.</MobileCardEmpty>
           ) : (
-            <MobileCardList>
+            <div className="divide-y divide-border rounded-lg border border-border bg-card md:hidden">
               {lancamentos.map((lancamento: any) => (
-                <MobileCard key={lancamento.id}>
-                  <MobileCardRow label="Colaborador/Prestador">
-                    {lancamento.colaborador?.nome}
-                  </MobileCardRow>
-                  <MobileCardRow label="Pix / Conta">
-                    {pixOuConta(lancamento)}
-                  </MobileCardRow>
-                  <MobileCardRow label="Obra">
-                    {lancamento.obra?.nome}
-                  </MobileCardRow>
-                  <MobileCardRow label="Tipo">
-                    {TIPO_LABELS[lancamento.tipo] ?? lancamento.tipo}
-                  </MobileCardRow>
-                  <MobileCardRow label="Valor">
-                    {lancamento.valor == null ? (
-                      <Badge variant="warning">
-                        Aguardando valor ({lancamento.qtd_diarias}{" "}
-                        {Number(lancamento.qtd_diarias) === 1
-                          ? "diária"
-                          : "diárias"}
-                        )
-                      </Badge>
-                    ) : (
-                      `R$ ${Number(lancamento.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
-                    )}
-                  </MobileCardRow>
-                  <MobileCardRow label="Status">
+                <div
+                  key={lancamento.id}
+                  className="space-y-1 px-4 py-3 text-sm"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium">
+                      {lancamento.colaborador?.nome}
+                    </span>
+                    <span className="font-medium">
+                      {lancamento.valor == null ? (
+                        <Badge variant="warning">Aguardando valor</Badge>
+                      ) : (
+                        `R$ ${Number(lancamento.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                    <span>
+                      {TIPO_LABELS[lancamento.tipo] ?? lancamento.tipo} ·{" "}
+                      {lancamento.obra?.nome} · {pixOuConta(lancamento)}
+                    </span>
+                    <span>
+                      {new Date(lancamento.created_at).toLocaleDateString(
+                        "pt-BR",
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                     <StatusLancamento lancamento={lancamento} />
-                  </MobileCardRow>
-                  <MobileCardRow label="Data">
-                    {new Date(lancamento.created_at).toLocaleDateString(
-                      "pt-BR",
-                    )}
-                  </MobileCardRow>
-                  {canConfirm && lancamento.status === "pendente" ? (
-                    <MobileCardActions>
+                    {canConfirm && lancamento.status === "pendente" ? (
                       <AcaoLancamento lancamento={lancamento} />
-                    </MobileCardActions>
-                  ) : null}
-                </MobileCard>
+                    ) : null}
+                  </div>
+                </div>
               ))}
-            </MobileCardList>
+            </div>
           )}
         </CardContent>
       </Card>

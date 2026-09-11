@@ -9,7 +9,7 @@ export async function listCacambas(input?: {
   let query = supabase
     .from("cacambas")
     .select(
-      "id,tipo,status,acao_pendente,observacao,valor,created_at,mensagem_enviada_em,data_prevista,obra:obras(id,nome,endereco),orcamento_item:obra_orcamento_itens(id,descricao),fornecedor:fornecedores(id,razao_social,nome_fantasia,whatsapp,telefone)",
+      "id,tipo,status,acao_pendente,observacao,valor,created_at,mensagem_enviada_em,data_prevista,obra:obras(id,nome,endereco),orcamento_item:obra_orcamento_itens(id,descricao),fornecedor:fornecedores(id,razao_social,nome_fantasia,whatsapp,telefone),eventos:cacamba_eventos(id,tipo)",
     )
     .order("created_at", { ascending: false });
 
@@ -62,6 +62,26 @@ export async function listCacambasVencidas(input?: { obraIds?: string[] }) {
 
   const { data } = await query;
   return data ?? [];
+}
+
+// Detalhe de uma caçamba + histórico completo de eventos (entrega, pedidos
+// e confirmações de troca/devolução) — usado na tela de detalhe pra
+// responder "teve troca? quantas?" sem precisar contar manualmente.
+export async function getCacambaDetail(id: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("cacambas")
+    .select(
+      "id,tipo,status,acao_pendente,observacao,valor,created_at,mensagem_enviada_em,data_prevista,obra:obras(id,nome,endereco),orcamento_item:obra_orcamento_itens(id,descricao),fornecedor:fornecedores(id,razao_social,nome_fantasia,whatsapp,telefone),eventos:cacamba_eventos(id,tipo,observacao,created_at,responsavel:profiles(id,nome))",
+    )
+    .eq("id", id)
+    .order("created_at", {
+      ascending: true,
+      referencedTable: "cacamba_eventos",
+    })
+    .maybeSingle();
+
+  return data ?? null;
 }
 
 export async function listDesmobilizacoes(input?: {

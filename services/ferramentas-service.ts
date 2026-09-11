@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function listFerramentas(input?: {
   status?: "deposito" | "emprestada" | "locada";
+  fornecedorId?: string;
 }) {
   const supabase = await createClient();
   let query = supabase
@@ -14,6 +15,10 @@ export async function listFerramentas(input?: {
 
   if (input?.status) {
     query = query.eq("status", input.status);
+  }
+
+  if (input?.fornecedorId) {
+    query = query.eq("fornecedor_id", input.fornecedorId);
   }
 
   const { data } = await query;
