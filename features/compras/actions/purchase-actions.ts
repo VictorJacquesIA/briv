@@ -1822,6 +1822,7 @@ export async function registrarDecisaoPublica(formData: FormData) {
   const decisao = text(formData, "decisao");
   const solicitacaoId = text(formData, "solicitacao_id");
   const comentario = text(formData, "comentario");
+  const prazoPagamento = text(formData, "prazo_pagamento");
   const gestorNome = text(formData, "gestor_nome");
   const gestorEmail = text(formData, "gestor_email");
   const assignmentsRaw = text(formData, "assignments");
@@ -1972,6 +1973,7 @@ export async function registrarDecisaoPublica(formData: FormData) {
     fornecedor_escolhido_id: decisao === "autorizar" ? fornecedorUnico : null,
     status,
     comentario,
+    prazo_pagamento: decisao === "autorizar" ? prazoPagamento : null,
     gestor_nome: gestorNome,
     gestor_email: gestorEmail,
     decided_at: decidedAt,

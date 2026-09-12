@@ -104,6 +104,18 @@ export default async function CompraDetailPage({
           )[0]
       : null;
 
+  // Prazo de pagamento é digitado por quem autoriza (aprovacao-decisao.tsx)
+  // — pega a autorização mais recente que tiver esse campo preenchido.
+  const ultimaAprovacaoComPrazo = [...(solicitacao.aprovacoes ?? [])]
+    .filter(
+      (aprovacao: any) =>
+        aprovacao.status === "aprovada" && aprovacao.prazo_pagamento,
+    )
+    .sort(
+      (a: any, b: any) =>
+        new Date(b.decided_at).getTime() - new Date(a.decided_at).getTime(),
+    )[0];
+
   const precisaDecidirEstoque =
     STATUSES_AGUARDANDO_COTACAO.includes(solicitacao.status) &&
     !solicitacao.estoque_decidido_at;
@@ -217,6 +229,14 @@ export default async function CompraDetailPage({
               <span className="text-muted-foreground">Prioridade:</span>{" "}
               {solicitacao.prioridade}
             </p>
+            {ultimaAprovacaoComPrazo ? (
+              <p>
+                <span className="text-muted-foreground">
+                  Prazo de pagamento:
+                </span>{" "}
+                {ultimaAprovacaoComPrazo.prazo_pagamento}
+              </p>
+            ) : null}
             <p className="sm:col-span-2">
               <span className="text-muted-foreground">Observações:</span>{" "}
               {solicitacao.observacao ?? "-"}

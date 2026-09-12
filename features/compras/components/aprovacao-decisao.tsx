@@ -328,6 +328,11 @@ export function AprovacaoDecisao({
           placeholder="E-mail do gestor"
         />
       </div>
+      <input
+        name="prazo_pagamento"
+        className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+        placeholder="Prazo de pagamento (ex: 30 dias, 3x sem juros)"
+      />
       <textarea
         name="comentario"
         className="min-h-24 w-full rounded-md border bg-background px-3 py-2 text-sm"

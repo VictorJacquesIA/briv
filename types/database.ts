@@ -25,6 +25,7 @@ export type Database = {
           gestor_email: string | null;
           gestor_nome: string | null;
           id: string;
+          prazo_pagamento: string | null;
           solicitacao_id: string;
           status: Database["public"]["Enums"]["aprovacao_status"];
           updated_at: string;
@@ -39,6 +40,7 @@ export type Database = {
           gestor_email?: string | null;
           gestor_nome?: string | null;
           id?: string;
+          prazo_pagamento?: string | null;
           solicitacao_id: string;
           status?: Database["public"]["Enums"]["aprovacao_status"];
           updated_at?: string;
@@ -53,6 +55,7 @@ export type Database = {
           gestor_email?: string | null;
           gestor_nome?: string | null;
           id?: string;
+          prazo_pagamento?: string | null;
           solicitacao_id?: string;
           status?: Database["public"]["Enums"]["aprovacao_status"];
           updated_at?: string;
