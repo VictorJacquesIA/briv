@@ -30,6 +30,10 @@ export const viewport: Viewport = {
   // userScalable abaixo só cobre o gesto de pinça).
   maximumScale: 1,
   userScalable: false,
+  // Deixa o conteúdo desenhar por baixo do notch/home-indicator do iOS —
+  // pré-requisito pra qualquer padding com env(safe-area-inset-*) funcionar
+  // (ex: o toast fixo no rodapé).
+  viewportFit: "cover",
   // Preto puro, não #121212 do tema — bate exatamente com o fundo de
   // public/pwa.png (fonte dos ícones/splash), sem costura visível.
   themeColor: "#000000",

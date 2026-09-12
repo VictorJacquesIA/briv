@@ -249,7 +249,7 @@ export default async function ObraDetailPage({
                       key={obra.fase}
                       name="fase"
                       defaultValue={obra.fase}
-                      className="h-9 rounded-md border bg-background px-2 text-sm"
+                      className="h-9 min-w-0 flex-1 rounded-md border bg-background px-2 text-sm"
                     >
                       {Object.entries(FASE_LABELS).map(([value, label]) => (
                         <option key={value} value={value}>
@@ -277,7 +277,7 @@ export default async function ObraDetailPage({
                       key={obraGestor?.user_id ?? "sem-gestor"}
                       name="gestor_id"
                       defaultValue={obraGestor?.user_id ?? ""}
-                      className="h-9 rounded-md border bg-background px-2 text-sm"
+                      className="h-9 min-w-0 flex-1 rounded-md border bg-background px-2 text-sm"
                     >
                       <option value="">Sem gestor</option>
                       {gestores.map((gestor: any) => (

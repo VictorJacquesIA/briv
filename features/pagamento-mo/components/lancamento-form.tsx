@@ -244,7 +244,7 @@ export function LancamentoForm({
                   </PopoverAnchor>
                   <PopoverContent
                     align="start"
-                    className="w-[320px] p-0"
+                    className="w-[min(320px,calc(100vw-2rem))] p-0"
                     onOpenAutoFocus={(event) => event.preventDefault()}
                     onInteractOutside={(event) => {
                       if (
@@ -278,15 +278,17 @@ export function LancamentoForm({
                 </Popover>
                 {isGestor ? (
                   <div className="space-y-2">
-                    <button
+                    <Button
                       type="button"
-                      className="text-sm text-primary underline"
+                      variant="ghost"
+                      size="sm"
+                      className="h-auto px-2 py-1"
                       onClick={() => setShowNovoPrestador((prev) => !prev)}
                     >
                       {showNovoPrestador
                         ? "Cancelar"
                         : "Cadastrar novo prestador"}
-                    </button>
+                    </Button>
                     {showNovoPrestador ? (
                       <div className="space-y-2 rounded-md border p-3">
                         <Input
@@ -569,24 +571,28 @@ export function LancamentoForm({
                   </div>
                   <div className="flex items-end">
                     {linhasRateio.length > 2 ? (
-                      <button
+                      <Button
                         type="button"
-                        className="text-sm text-destructive underline"
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto px-2 py-1 text-destructive hover:text-destructive"
                         onClick={() => removeLinhaRateio(index)}
                       >
                         Remover
-                      </button>
+                      </Button>
                     ) : null}
                   </div>
                 </div>
               ))}
-              <button
+              <Button
                 type="button"
-                className="text-sm text-primary underline"
+                variant="ghost"
+                size="sm"
+                className="h-auto px-2 py-1"
                 onClick={addLinhaRateio}
               >
                 + Adicionar obra
-              </button>
+              </Button>
             </div>
           )}
           <div className="space-y-2 lg:col-span-2">

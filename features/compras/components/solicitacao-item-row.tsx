@@ -81,13 +81,9 @@ export function SolicitacaoItemRow({
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold">Insumo {index + 1}</h2>
         {onRemove ? (
-          <button
-            type="button"
-            className="text-sm text-muted-foreground underline"
-            onClick={onRemove}
-          >
+          <Button type="button" variant="ghost" size="sm" onClick={onRemove}>
             Remover
-          </button>
+          </Button>
         ) : null}
       </div>
 
@@ -112,7 +108,7 @@ export function SolicitacaoItemRow({
           </PopoverAnchor>
           <PopoverContent
             align="start"
-            className="w-[320px] p-0"
+            className="w-[min(320px,calc(100vw-2rem))] p-0"
             onOpenAutoFocus={(event) => event.preventDefault()}
             onInteractOutside={(event) => {
               if (
@@ -149,13 +145,15 @@ export function SolicitacaoItemRow({
                 <p className="text-sm text-muted-foreground">
                   Nenhum insumo encontrado.
                 </p>
-                <button
+                <Button
                   type="button"
-                  className="text-sm text-primary underline"
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto px-2 py-1"
                   onClick={() => setShowRegistrar((prev) => !prev)}
                 >
                   {showRegistrar ? "Cancelar" : "Registrar insumo"}
-                </button>
+                </Button>
                 {showRegistrar ? (
                   <div className="space-y-2 rounded-md border p-2">
                     <input

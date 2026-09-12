@@ -214,13 +214,15 @@ export function AprovacaoDecisao({
                         ({quantidadeLabel(item)})
                       </span>
                     </span>
-                    <button
+                    <Button
                       type="button"
-                      className="text-primary underline"
+                      variant="ghost"
+                      size="sm"
+                      className="h-auto shrink-0 px-2 py-1 text-xs"
                       onClick={() => removerAtribuicao(item.id)}
                     >
                       remover
-                    </button>
+                    </Button>
                   </li>
                 ))}
               </ul>
@@ -275,6 +277,7 @@ export function AprovacaoDecisao({
                   <span className="flex items-center gap-2">
                     <input
                       type="checkbox"
+                      className="size-5 shrink-0"
                       checked={!!roundChecked[item.id]}
                       onChange={(event) =>
                         setRoundChecked((prev) => ({

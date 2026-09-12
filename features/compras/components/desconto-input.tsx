@@ -64,7 +64,7 @@ export function DescontoInput({
   }, [subtotal]);
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:max-w-xs">
+    <div className="grid grid-cols-1 gap-2 sm:max-w-xs sm:grid-cols-2">
       <div>
         <Label
           htmlFor="desconto_percentual"

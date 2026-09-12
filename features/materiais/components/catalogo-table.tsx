@@ -181,7 +181,10 @@ export function CatalogoTable({
             </Button>
           </form>
 
-          <form action={bulkUpdateAction} className="flex items-center gap-2">
+          <form
+            action={bulkUpdateAction}
+            className="flex flex-wrap items-center gap-2"
+          >
             <SelectedIdsFields ids={selectedIdsList} />
             <Input
               name="unidade_nome"
@@ -189,7 +192,7 @@ export function CatalogoTable({
               placeholder="Alterar unidade para..."
               value={bulkUnidadeNome}
               onChange={(event) => setBulkUnidadeNome(event.target.value)}
-              className="h-9 w-44"
+              className="h-9 w-full sm:w-44"
             />
             <Button
               type="submit"

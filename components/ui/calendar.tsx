@@ -29,9 +29,9 @@ function Calendar({ className, classNames, ...props }: CalendarProps) {
         weekdays: "flex",
         weekday: "w-9 text-xs font-normal text-muted-foreground",
         week: "flex w-full",
-        day: "size-9 p-0 text-center text-sm",
+        day: "size-10 p-0 text-center text-sm",
         day_button:
-          "size-9 rounded-md text-sm font-normal text-foreground transition-colors hover:bg-secondary aria-selected:opacity-100",
+          "size-10 rounded-md text-sm font-normal text-foreground transition-colors hover:bg-secondary aria-selected:opacity-100",
         selected:
           "[&>button]:bg-primary [&>button]:text-primary-foreground [&>button]:hover:bg-primary-hover",
         today: "[&>button]:border [&>button]:border-primary/50",

@@ -87,6 +87,19 @@
     @apply focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring;
   }
 
+  /* iOS dá zoom automático ao focar um campo com font-size < 16px — como o
+     viewport trava o pinch-zoom (userScalable: false), isso prende o campo
+     ampliado sem jeito fácil de voltar. text-sm (14px) é o padrão do design
+     system pra inputs; sobe só nesse breakpoint, sem mudar a escala visual
+     em telas maiores. */
+  @media (max-width: 640px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
+
   ::selection {
     background: hsl(var(--primary) / 0.35);
     color: hsl(var(--foreground));

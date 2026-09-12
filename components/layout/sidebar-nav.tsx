@@ -192,7 +192,7 @@ const linkClassName =
 const disabledClassName =
   "flex h-11 cursor-not-allowed items-center gap-3 rounded-md px-3 text-sm font-medium text-muted-foreground/50";
 const childLinkClassName =
-  "flex h-9 items-center rounded-md pl-11 pr-3 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground";
+  "flex h-11 items-center rounded-md pl-11 pr-3 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground";
 
 // Estilos do rail recolhido do desktop — cada item é um quadrado só com
 // ícone; o rótulo (ou a lista de filhos) some/aparece num flyout

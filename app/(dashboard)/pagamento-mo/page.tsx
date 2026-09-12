@@ -142,12 +142,15 @@ export default async function PagamentoMoPage({
     }
 
     return (
-      <form action={darBaixaVale} className="flex flex-wrap items-center gap-2">
+      <form
+        action={darBaixaVale}
+        className="flex flex-col gap-2 sm:flex-row sm:items-center"
+      >
         <input type="hidden" name="id" value={vale.id} />
         <select
           name="pagamento_id"
           required
-          className="h-9 rounded-md border bg-background px-2 text-sm"
+          className="h-9 min-w-0 rounded-md border bg-background px-2 text-sm"
         >
           <option value="">Vincular a pagamento</option>
           {opcoes.map((opcao) => (
@@ -156,7 +159,12 @@ export default async function PagamentoMoPage({
             </option>
           ))}
         </select>
-        <Button type="submit" size="sm" variant="outline">
+        <Button
+          type="submit"
+          size="sm"
+          variant="outline"
+          className="w-full sm:w-auto"
+        >
           Dar baixa
         </Button>
       </form>
@@ -169,7 +177,7 @@ export default async function PagamentoMoPage({
     return (
       <form
         action={confirmarLancamento}
-        className="flex flex-wrap items-center gap-2"
+        className="flex flex-col gap-2 sm:flex-row sm:items-center"
       >
         <input type="hidden" name="id" value={lancamento.id} />
         {lancamento.valor == null ? (
@@ -178,7 +186,7 @@ export default async function PagamentoMoPage({
             inputMode="decimal"
             placeholder="Valor da diária"
             required
-            className="h-9 w-32"
+            className="h-9 w-full sm:w-32"
           />
         ) : (
           <Input
@@ -186,14 +194,14 @@ export default async function PagamentoMoPage({
             inputMode="decimal"
             defaultValue={String(lancamento.valor)}
             title="Valor a liberar — pode ser diferente do solicitado"
-            className="h-9 w-28"
+            className="h-9 w-full sm:w-28"
           />
         )}
         {lancamento.tipo === "solicitacao" && !lancamento.orcamento_item_id ? (
           <select
             name="orcamento_item_id"
             required
-            className="h-9 rounded-md border bg-background px-2 text-sm"
+            className="h-9 min-w-0 rounded-md border bg-background px-2 text-sm"
           >
             <option value="">Centro de custo</option>
             {(orcamentoItensByObra[lancamento.obra?.id] ?? []).map((item) => (
@@ -203,7 +211,12 @@ export default async function PagamentoMoPage({
             ))}
           </select>
         ) : null}
-        <Button type="submit" size="sm" variant="outline">
+        <Button
+          type="submit"
+          size="sm"
+          variant="outline"
+          className="w-full sm:w-auto"
+        >
           Confirmar pagamento
         </Button>
       </form>
