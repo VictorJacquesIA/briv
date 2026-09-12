@@ -23,7 +23,7 @@ export function BrandLogo({ className, size = "default" }: BrandLogoProps) {
       <div className={cn("relative overflow-hidden", logoSizeClass)}>
         <Image
           src="/una_logo.png"
-          alt="UNA Compras"
+          alt="UNA Flow"
           fill
           sizes={logoSizes}
           className="object-contain"

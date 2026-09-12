@@ -6,12 +6,12 @@ import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "UNA Compras",
+  title: "UNA Flow",
   description: "Painel interno de compras para construtoras.",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "UNA Compras",
+    title: "UNA Flow",
     // Splash do iOS ao abrir o app instalado (public/pwa.png) — sem media
     // query, então serve como fallback genérico pra qualquer tamanho de tela.
     startupImage: "/apple-splash.png",

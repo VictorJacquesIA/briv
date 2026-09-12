@@ -3,8 +3,8 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
-    name: "UNA Compras",
-    short_name: "UNA Compras",
+    name: "UNA Flow",
+    short_name: "UNA Flow",
     description: "Painel interno de compras para construtoras.",
     start_url: "/",
     scope: "/",

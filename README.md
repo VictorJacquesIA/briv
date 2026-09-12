@@ -1,6 +1,6 @@
-# UNA Compras
+# UNA Flow
 
-Base profissional para o UNA Compras, um painel interno de compras para construtora preparado para evoluir para SaaS.
+Base profissional para o UNA Flow, um painel interno de compras para construtora preparado para evoluir para SaaS.
 
 ## Stack
 

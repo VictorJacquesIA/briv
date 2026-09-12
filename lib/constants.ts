@@ -1,1 +1,1 @@
-export const APP_NAME = "UNA Compras";
+export const APP_NAME = "UNA Flow";

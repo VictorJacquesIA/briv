@@ -1,4 +1,4 @@
-# UNA Compras — Descritivo do Sistema
+# UNA Flow — Descritivo do Sistema
 
 > Atualizado em 2026-07-21 a partir do estado real do código e do banco de dados (projeto Supabase `iguixokrvatlyajnldqv`). Reflete o que está **construído e funcionando**, não o roadmap. Substitui a versão de 2026-07-09, que ficou desatualizada assim que os módulos de estoque/almoxarifado, ferramentas, contratos de mão de obra, serviços de obra e o papel `almox` foram adicionados (10–18/07), seguidos do CRUD de Fornecedores (21/07).
 
