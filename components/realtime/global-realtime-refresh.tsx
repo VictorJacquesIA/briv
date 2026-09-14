@@ -44,9 +44,12 @@ const TABELAS = [
   "items",
   "unidades",
   "profiles",
-  // Auditoria
-  "historico",
 ] as const;
+// "historico" foi deliberadamente removida: recebe uma linha em praticamente
+// toda ação do sistema, então já é coberta pelo refresh disparado pela
+// tabela de negócio que a ação realmente mudou (solicitacoes, cacambas...).
+// Mantê-la aqui só multiplicava refreshes pro sistema inteiro sem nenhum
+// ganho de atualização — piorava lentidão sem deixar nada "mais ao vivo".
 
 // Montado uma única vez no layout do painel (não em cada página) pra existir
 // só um canal Realtime por sessão, cobrindo o sistema inteiro. RLS de cada
