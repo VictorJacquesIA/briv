@@ -2,16 +2,71 @@
 
 > Relatório técnico do estado atual do projeto, gerado a partir de análise completa do
 > código-fonte, estrutura de pastas, dependências, migrations e histórico de commits.
-> Análise original: 2026-07-20. Reauditoria completa: 2026-09-12 (esta versão) — cobriu
-> integralmente os ~44 commits e as 35 migrations novas produzidas entre 2026-07-28 e
-> 2026-09-11, além do working tree no momento da auditoria. Todo o documento (seções 0-8)
-> foi reescrito nesta data para refletir o estado real; não há mais necessidade de tratar
-> as seções 1-8 como desatualizadas por padrão — só ficam defasadas a partir de mudanças
-> feitas **depois** de 2026-09-12 e ainda não registradas aqui.
+> Análise original: 2026-07-20. Reauditoria completa: 2026-09-12 — cobriu integralmente os
+> ~44 commits e as 35 migrations novas produzidas entre 2026-07-28 e 2026-09-11, além do
+> working tree no momento da auditoria; todo o documento (seções 0-8) foi reescrito
+> naquela data para refletir o estado real. Em 2026-09-14, mais uma sessão relevante
+> (renomeação para "UNA Flow" + correção de bug de cotação + correção de lentidão) foi
+> registrada na Seção 0 abaixo, sem reescrever o resto do documento — seções 1-8 seguem
+> confiáveis a partir de 2026-09-12, com pequenos ajustes pontuais já refletidos onde
+> relevante (ex.: RLS otimizada, seção 4.3).
 
 ---
 
-## 0. Estado da sessão (2026-09-12) — LER PRIMEIRO ao continuar em nova conversa
+## 0. Estado da sessão (2026-09-14) — LER PRIMEIRO ao continuar em nova conversa
+
+### Sessão de 2026-09-14 — rename, bugfix de cotação e correção de lentidão
+
+- **Rename "UNA Compras" → "UNA Flow"**: título/metadata (`app/layout.tsx`), manifest do
+  PWA (`app/manifest.ts`), `package.json`/`package-lock.json` (`una-flow`),
+  `lib/constants.ts` (`APP_NAME`), alt da logo (`components/brand-logo.tsx`), health check
+  (`app/api/health/route.ts`), `README.md`, `docs/SISTEMA.md`. Nome do cliente real ("UNA
+  Reforma e Construção") não muda — é um tenant, não o produto.
+- **Bug de cotação com item sem preço** (`features/compras/actions/purchase-actions.ts`,
+  `features/compras/components/valor-unitario-total-input.tsx`): o campo "Total" do par
+  Unitário/Total nunca é enviado ao servidor sozinho — só recalcula e escreve no campo
+  Unitário via JS a cada tecla. Se esse recálculo falhasse por qualquer motivo, ou o
+  usuário confundisse "Total" (valor da linha = Qtd × Unitário) com "preço por unidade",
+  o item era salvo silenciosamente com preço nulo e total R$0,00, sem nenhum aviso.
+  `salvarCotacao`/`validarCotacao` agora recusam salvar se algum item incluído (e não
+  marcado "Não cotado") ficar sem preço > 0, com mensagem clara. Adicionada dica no
+  formulário: "Total = Qtd. × Unitário".
+- **Correção de lentidão geral do sistema** — dois achados reais, confirmados via
+  advisors do Supabase (MCP) e leitura do código:
+  1. **RLS reavaliando `auth.uid()` por linha** (advisor WARN "Auth RLS Initialization
+     Plan", 19 policies) — corrigido envolvendo em `(select auth.uid())` nas policies que
+     chamavam a função diretamente (a maioria delas do fluxo `gestor_obra` com
+     `EXISTS (... obra_usuarios ...)`, adicionado em 2026-09-10). Fica mais caro conforme
+     as tabelas crescem — provável causa raiz da lentidão percebida.
+  2. **Policies permissivas duplicadas** (advisor WARN "Multiple Permissive Policies", 70
+     casos em 12 tabelas) — várias tabelas tinham uma policy `FOR ALL` administrativa e
+     uma policy de `SELECT` separada mais ampla que já cobria tudo; Postgres avaliava as
+     duas em todo SELECT. Dividido cada `FOR ALL` em policies de `insert`/`update`/
+     `delete` (Postgres não aceita mais de um comando explícito por policy). Em
+     `colaboradores` e `profiles` havia sobreposição real (não redundância) de
+     `INSERT`/`UPDATE` entre grupos de role diferentes — mescladas numa única policy por
+     comando com `OR`, preservando o mesmo acesso combinado.
+  3. **Canal global de Realtime** (`components/realtime/global-realtime-refresh.tsx`)
+     ouvia a tabela `historico`, que recebe uma linha em praticamente toda ação do
+     sistema — cada ação disparava `router.refresh()` pra todo mundo conectado sem
+     necessidade, já que a tabela de negócio que a ação realmente mudou já dispara o
+     mesmo refresh sozinha. `historico` removida da lista de tabelas observadas.
+  - Migration `supabase/migrations/202609140001_optimize_rls_performance.sql` **já
+    aplicada no banco real** via MCP (`apply_migration`), confirmada com
+    `get_advisors(type=performance)`: os dois WARNs resolvidos, restam só INFOs
+    pré-existentes (FK sem índice, índice não usado — não são a causa da lentidão,
+    ficaram de fora desta rodada por serem infraestrutura de queries específicas, não
+    RLS). `get_advisors(type=security)` confirmado sem regressão (mesmos avisos
+    pré-existentes de antes da migration, nenhum novo).
+  - Nenhuma regra de acesso mudou nessa correção — é reorganização de como o Postgres
+    calcula o mesmo resultado, não mudança de permissão.
+- Commits: `Bloqueia cotação com item incluído sem preço registrado`,
+  `Corrige lentidão: otimiza RLS e reduz refresh global do Realtime` — ambos já no
+  `origin/main`.
+
+---
+
+## 0-B. Estado da sessão (2026-09-12) — reauditoria completa anterior
 
 ### Reauditoria completa desta sessão
 
@@ -415,8 +470,9 @@ para o histórico completo (7 casos documentados até agora, o mais recente em 2
 ## 4. Banco de dados / Modelos de dados
 
 Banco Postgres via Supabase, sem ORM. Schema definido inteiramente em SQL em
-`supabase/migrations/` (**67 arquivos**, de `202606290001` a `202609110001` — este último
-ainda não commitado no momento desta auditoria). Project ref: `iguixokrvatlyajnldqv`.
+`supabase/migrations/` (**68 arquivos**, de `202606290001` a `202609140001` — a mais
+recente otimiza performance de RLS, ver Seção 0, 2026-09-14). Project ref:
+`iguixokrvatlyajnldqv`.
 
 ### 4.1 Tabelas (34 no total — 4 novas desde jul/2026)
 
@@ -445,7 +501,7 @@ Total de tabelas de negócio hoje: as 30 já documentadas em jul/2026 + estas 4 
 | `cacambas`              | `orcamento_item_id`, `valor`, `fornecedor_id`, `mensagem_enviada_em`, `data_prevista` (default `'pendente'` no status)                                              |
 | `ferramentas`           | `fornecedor_id`, `valor_locacao`, `data_prevista_devolucao`, `mensagem_enviada_em`, `entregue_em`                                                                   |
 | `cotacoes`              | `desconto_percentual`                                                                                                                                               |
-| `aprovacoes`            | `prazo_pagamento` (migration `202609110001`, **ainda não aplicada no banco** no momento desta auditoria — ver Seção 0)                                              |
+| `aprovacoes`            | `prazo_pagamento` (migration `202609110001`, aplicada e commitada em 2026-09-11)                                                                                    |
 
 ### 4.2 Views
 
@@ -594,11 +650,12 @@ repositório com um único cron (`/api/cron/cleanup-pdfs`, `0 3 * * *` = 03:00 U
 
 ### 6.2 Dívida a resolver (atualizado)
 
-- **Aplicar a migration `202609110001_aprovacoes_prazo_pagamento.sql` no banco real** e
-  commitá-la junto com o código já pronto (ver Seção 0) — é a única pendência de banco em
-  aberto no momento desta auditoria.
-- **Dividir o working tree atual em commits separados** (prazo de pagamento / polimento
-  mobile), seguindo a preferência já registrada do usuário de commits pequenos por tema.
+- ~~Aplicar a migration `202609110001_aprovacoes_prazo_pagamento.sql` no banco real~~ —
+  **resolvido** em 2026-09-11 (aplicada e commitada).
+- ~~Dividir o working tree em commits separados~~ — **resolvido** em 2026-09-11/14.
+- ~~Otimizar policies de RLS com re-avaliação de `auth.uid()` por linha e policies
+  permissivas duplicadas~~ — **resolvido** em 2026-09-14 (migration
+  `202609140001_optimize_rls_performance.sql`, ver Seção 0).
 - **Atualizar `docs/SISTEMA.md`** — segue desatualizado (não foi reauditado nesta sessão,
   que focou neste PROJECT_STATUS.md); não reflete nenhum dos módulos criados desde jul/2026
   (locação de ferramentas, caçamba com fornecedor, despesas manuais, links curtos, rate
@@ -612,8 +669,8 @@ repositório com um único cron (`/api/cron/cleanup-pdfs`, `0 3 * * *` = 03:00 U
 
 ### 6.3 Próximos passos lógicos sugeridos (revisado)
 
-1. Commitar o trabalho pendente do working tree (prazo de pagamento + polimento mobile),
-   em commits separados, e aplicar a migration `202609110001` no banco.
+1. ~~Commitar o trabalho pendente do working tree e aplicar a migration `202609110001`~~
+   — feito.
 2. Atualizar `docs/SISTEMA.md` para refletir a arquitetura atual (é a maior lacuna de
    documentação hoje, dado o volume de módulos novos desde a última vez que foi tocado).
 3. Adicionar tela de histórico de ferramentas (aproveitando `listMovimentacoesFerramenta`,
