@@ -184,6 +184,18 @@ function parseCotacaoItens(formData: FormData): CotacaoItemInput[] {
     .filter((item): item is CotacaoItemInput => item !== null);
 }
 
+// Item incluído e não marcado "não cotado" mas sem preço (>0) some
+// silenciosamente do orçamento do fornecedor com valor_total = 0 — quase
+// sempre é erro de digitação (ex: preencheu o campo errado). Bloqueia o
+// salvamento em vez de aceitar um item cotado a R$0,00 sem avisar ninguém.
+function itensSemPreco(itens: CotacaoItemInput[]) {
+  return itens.filter(
+    (item) =>
+      !item.item_nao_cotado &&
+      !(item.preco_unitario && item.preco_unitario > 0),
+  );
+}
+
 function calcularTotalFornecedor(itens: CotacaoItemInput[]) {
   const totalItens = itens.reduce(
     (sum, item) => sum + Number(item.valor_total ?? 0),
@@ -823,6 +835,16 @@ export async function salvarCotacao(
       };
     }
 
+    const semPreco = itensSemPreco(itensBrutos);
+    if (semPreco.length > 0) {
+      return {
+        message:
+          semPreco.length === 1
+            ? 'Um item está incluído mas sem preço. Informe o valor unitário ou marque como "Não cotado".'
+            : `${semPreco.length} itens estão incluídos mas sem preço. Informe o valor unitário de cada um ou marque como "Não cotado".`,
+      };
+    }
+
     const descontoPercentual = money(formData.get("desconto_percentual")) ?? 0;
     if (descontoPercentual < 0 || descontoPercentual > 100) {
       return { message: "Desconto deve estar entre 0 e 100%." };
@@ -1262,6 +1284,16 @@ export async function validarCotacao(
 
     if (itensBrutos.length === 0) {
       return { message: "Informe ao menos um item cotado." };
+    }
+
+    const semPreco = itensSemPreco(itensBrutos);
+    if (semPreco.length > 0) {
+      return {
+        message:
+          semPreco.length === 1
+            ? 'Um item está sem preço. Informe o valor unitário ou marque como "Não cotado".'
+            : `${semPreco.length} itens estão sem preço. Informe o valor unitário de cada um ou marque como "Não cotado".`,
+      };
     }
 
     const descontoPercentual = money(formData.get("desconto_percentual")) ?? 0;

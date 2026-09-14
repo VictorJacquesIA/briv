@@ -77,39 +77,46 @@ export function ValorUnitarioTotalInput({
       : "";
 
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-      <div>
-        <Label htmlFor={id} className="text-xs text-muted-foreground">
-          Unitário
-        </Label>
-        <Input
-          id={id}
-          name={name}
-          inputMode="decimal"
-          placeholder="0,00"
-          disabled={disabled}
-          defaultValue={defaultUnitarioStr}
-          ref={unitarioRef}
-          onChange={handleUnitarioChange}
-        />
+    <div className="space-y-1">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div>
+          <Label htmlFor={id} className="text-xs text-muted-foreground">
+            Unitário
+          </Label>
+          <Input
+            id={id}
+            name={name}
+            inputMode="decimal"
+            placeholder="0,00"
+            disabled={disabled}
+            defaultValue={defaultUnitarioStr}
+            ref={unitarioRef}
+            onChange={handleUnitarioChange}
+          />
+        </div>
+        <div>
+          <Label
+            htmlFor={`${id}_total`}
+            className="text-xs text-muted-foreground"
+          >
+            Total
+          </Label>
+          <Input
+            id={`${id}_total`}
+            inputMode="decimal"
+            placeholder="0,00"
+            disabled={disabled}
+            defaultValue={defaultTotalStr}
+            ref={totalRef}
+            onChange={handleTotalChange}
+          />
+        </div>
       </div>
-      <div>
-        <Label
-          htmlFor={`${id}_total`}
-          className="text-xs text-muted-foreground"
-        >
-          Total
-        </Label>
-        <Input
-          id={`${id}_total`}
-          inputMode="decimal"
-          placeholder="0,00"
-          disabled={disabled}
-          defaultValue={defaultTotalStr}
-          ref={totalRef}
-          onChange={handleTotalChange}
-        />
-      </div>
+      {!disabled && quantidade > 1 ? (
+        <p className="text-xs text-muted-foreground">
+          Preencha um dos dois — Total = Qtd. ({quantidade}) × Unitário.
+        </p>
+      ) : null}
     </div>
   );
 }
