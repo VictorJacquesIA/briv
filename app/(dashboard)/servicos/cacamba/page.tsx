@@ -210,23 +210,30 @@ export default async function CacambaPage({
           </div>
         ) : null}
 
+        {cacamba.status === "solicitada" && canConfirm ? (
+          cacamba.mensagem_enviada_em ? (
+            <form action={confirmarEntregaCacamba}>
+              <input type="hidden" name="cacamba_id" value={cacamba.id} />
+              <button
+                type="submit"
+                className="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-secondary"
+              >
+                Confirmar entrega
+              </button>
+            </form>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Envie a mensagem de WhatsApp pro fornecedor pra liberar a
+              confirmação de entrega.
+            </p>
+          )
+        ) : null}
+
         {cacamba.status === "pendente" && canConfirm ? (
           <p className="text-xs text-muted-foreground">
             Envie a mensagem de WhatsApp pro fornecedor pra liberar a
             confirmação de entrega.
           </p>
-        ) : null}
-
-        {cacamba.status === "solicitada" && canConfirm ? (
-          <form action={confirmarEntregaCacamba}>
-            <input type="hidden" name="cacamba_id" value={cacamba.id} />
-            <button
-              type="submit"
-              className="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-secondary"
-            >
-              Confirmar entrega
-            </button>
-          </form>
         ) : null}
 
         {cacamba.status === "ativa" &&

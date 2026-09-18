@@ -191,6 +191,18 @@ export async function escolherFornecedorCacamba(
       })
       .eq("id", cacambaId);
 
+    // Se ainda estava "solicitada" (ciclo de entrega inicial), volta pra
+    // "pendente" — senão o botão "Confirmar entrega" continuava aparecendo
+    // (ele só olha o status) mesmo sem mensagem_enviada_em, e confirmar
+    // quebrava a página com um erro não tratado em inserirEventoCacamba.
+    if (!error) {
+      await supabase
+        .from("cacambas")
+        .update({ status: "pendente" })
+        .eq("id", cacambaId)
+        .eq("status", "solicitada");
+    }
+
     if (error) {
       return {
         message: friendlyErrorMessage(
@@ -368,31 +380,50 @@ export async function solicitarDevolucaoCacamba(formData: FormData) {
 
 // entrega/troca_confirmada/devolucao_confirmada: sempre "o administrativo
 // resolvendo" — mesma permissão de confirmar.
+// Esses três botões chamam a action direto como `<form action={fn}>`, sem
+// useActionState — não tem como devolver uma mensagem de erro pra tela.
+// Se inserirEventoCacamba lançar (ex: mensagem ainda não enviada por causa
+// de algum estado inconsistente), capturar aqui e só revalidar evita a
+// página inteira quebrar com "Application error" — o pior caso vira "nada
+// visível aconteceu" em vez de crash, e a tela recarrega já mostrando o
+// estado real (inclusive o aviso de "envie a mensagem antes").
 export async function confirmarEntregaCacamba(formData: FormData) {
-  await inserirEventoCacamba(
-    "cacamba.confirm",
-    "entrega",
-    formData,
-    "Não foi possível confirmar a entrega.",
-  );
+  try {
+    await inserirEventoCacamba(
+      "cacamba.confirm",
+      "entrega",
+      formData,
+      "Não foi possível confirmar a entrega.",
+    );
+  } catch {
+    revalidatePath("/servicos/cacamba");
+  }
 }
 
 export async function confirmarTrocaCacamba(formData: FormData) {
-  await inserirEventoCacamba(
-    "cacamba.confirm",
-    "troca_confirmada",
-    formData,
-    "Não foi possível confirmar a troca.",
-  );
+  try {
+    await inserirEventoCacamba(
+      "cacamba.confirm",
+      "troca_confirmada",
+      formData,
+      "Não foi possível confirmar a troca.",
+    );
+  } catch {
+    revalidatePath("/servicos/cacamba");
+  }
 }
 
 export async function confirmarDevolucaoCacamba(formData: FormData) {
-  await inserirEventoCacamba(
-    "cacamba.confirm",
-    "devolucao_confirmada",
-    formData,
-    "Não foi possível confirmar a devolução.",
-  );
+  try {
+    await inserirEventoCacamba(
+      "cacamba.confirm",
+      "devolucao_confirmada",
+      formData,
+      "Não foi possível confirmar a devolução.",
+    );
+  } catch {
+    revalidatePath("/servicos/cacamba");
+  }
 }
 
 // --- Desmobilização ----------------------------------------------------
