@@ -286,38 +286,59 @@ export async function generateCotacaoRequestPdf(input: {
   }>;
 }) {
   const pdf = await PDFDocument.create();
-  const page = pdf.addPage([595, 842]);
+  let page = pdf.addPage([595, 842]);
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const logo = await embedLogo(pdf);
+  let y = 800;
+
+  const drawColumnHeaders = () => {
+    page.drawText("Descricao", { x: 48, y, size: 9, font: bold });
+    page.drawText("Qtd", { x: 340, y, size: 9, font: bold });
+    page.drawText("Unidade", { x: 390, y, size: 9, font: bold });
+    page.drawText("Observacao", { x: 460, y, size: 9, font: bold });
+    y -= 18;
+  };
 
   // Documento genérico — o mesmo PDF é enviado pra todos os fornecedores
   // escolhidos, sem personalizar por destinatário (só a mensagem do
   // WhatsApp que acompanha o link é personalizada).
-  let y = drawHeader(page, { regular, bold }, logo, "SOLICITAÇÃO DE COTAÇÃO", [
-    `Solicitação: ${line(input.solicitacao.codigo)}`,
-    `Cliente: ${line(input.solicitacao.contratanteNome)} — CPF/CNPJ: ${line(input.solicitacao.contratanteDocumento)}`,
-    `Obra: ${line(input.solicitacao.obra)}`,
-    `Endereço: ${line(input.solicitacao.obraEndereco)}`,
-    `Data: ${new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}`,
-  ]);
+  const renderHeader = () => {
+    y = drawHeader(page, { regular, bold }, logo, "SOLICITAÇÃO DE COTAÇÃO", [
+      `Solicitação: ${line(input.solicitacao.codigo)}`,
+      `Cliente: ${line(input.solicitacao.contratanteNome)} — CPF/CNPJ: ${line(input.solicitacao.contratanteDocumento)}`,
+      `Obra: ${line(input.solicitacao.obra)}`,
+      `Endereço: ${line(input.solicitacao.obraEndereco)}`,
+      `Data: ${new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}`,
+    ]);
 
-  page.drawText("Por favor, informe o valor unitário de cada item.", {
-    x: 48,
-    y,
-    size: 9,
-    font: regular,
-    color: TEXT_MUTED,
-  });
-  y -= 22;
+    page.drawText("Por favor, informe o valor unitário de cada item.", {
+      x: 48,
+      y,
+      size: 9,
+      font: regular,
+      color: TEXT_MUTED,
+    });
+    y -= 22;
+    drawColumnHeaders();
+  };
 
-  page.drawText("Descricao", { x: 48, y, size: 9, font: bold });
-  page.drawText("Qtd", { x: 340, y, size: 9, font: bold });
-  page.drawText("Unidade", { x: 390, y, size: 9, font: bold });
-  page.drawText("Observacao", { x: 460, y, size: 9, font: bold });
-  y -= 18;
+  // Pedidos com muitos itens (ex: reforma completa de hidráulica) não
+  // cabiam numa página só — o loop original dava `break` no primeiro item
+  // que não coubesse, descartando o resto em silêncio. Agora abre página
+  // nova e repete o cabeçalho de colunas em vez de cortar a lista.
+  const newPage = () => {
+    page = pdf.addPage([595, 842]);
+    y = 800;
+    drawColumnHeaders();
+  };
+
+  renderHeader();
 
   for (const item of input.itens) {
+    if (y < 60) {
+      newPage();
+    }
     page.drawText(line(item.descricao).slice(0, 55), {
       x: 48,
       y,
@@ -343,9 +364,6 @@ export async function generateCotacaoRequestPdf(input: {
       font: regular,
     });
     y -= 14;
-    if (y < 60) {
-      break;
-    }
   }
 
   return pdf.save();
