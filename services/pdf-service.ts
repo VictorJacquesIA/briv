@@ -140,7 +140,7 @@ export async function generatePedidoCompraPdf(input: {
   responsavelNome?: string | null;
 }) {
   const pdf = await PDFDocument.create();
-  const page = pdf.addPage([595, 842]);
+  let page = pdf.addPage([595, 842]);
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const logo = await embedLogo(pdf);
@@ -155,6 +155,20 @@ export async function generatePedidoCompraPdf(input: {
       color: TEXT_DARK,
     });
     y -= size + 8;
+  };
+
+  // Pedidos com muitos itens não cabiam numa página só — o loop original
+  // dava `break` no primeiro item que não coubesse, descartando o resto em
+  // silêncio (mesmo bug de generateCotacaoRequestPdf). Abre página nova e
+  // repete o cabeçalho de colunas em vez de cortar a lista.
+  const newPage = () => {
+    page = pdf.addPage([595, 842]);
+    y = 800;
+    page.drawText("Descricao", { x: 48, y, size: 9, font: bold });
+    page.drawText("Qtd", { x: 300, y, size: 9, font: bold });
+    page.drawText("Unit.", { x: 360, y, size: 9, font: bold });
+    page.drawText("Total", { x: 455, y, size: 9, font: bold });
+    y -= 18;
   };
 
   y = drawHeader(page, { regular, bold }, logo, "PEDIDO DE COMPRA", [
@@ -217,6 +231,9 @@ export async function generatePedidoCompraPdf(input: {
   y -= 18;
 
   for (const item of input.solicitacao.itens ?? []) {
+    if (y < 140) {
+      newPage();
+    }
     const cotacaoItem = (input.cotacao.itens ?? []).find(
       (candidate: any) => candidate.solicitacao_item_id === item.id,
     );
@@ -245,9 +262,10 @@ export async function generatePedidoCompraPdf(input: {
       font: regular,
     });
     y -= 14;
-    if (y < 140) {
-      break;
-    }
+  }
+
+  if (y < 100) {
+    newPage();
   }
 
   y -= 8;
