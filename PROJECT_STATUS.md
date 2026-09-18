@@ -5,15 +5,36 @@
 > Análise original: 2026-07-20. Reauditoria completa: 2026-09-12 — cobriu integralmente os
 > ~44 commits e as 35 migrations novas produzidas entre 2026-07-28 e 2026-09-11, além do
 > working tree no momento da auditoria; todo o documento (seções 0-8) foi reescrito
-> naquela data para refletir o estado real. Em 2026-09-14, mais uma sessão relevante
-> (renomeação para "UNA Flow" + correção de bug de cotação + correção de lentidão) foi
-> registrada na Seção 0 abaixo, sem reescrever o resto do documento — seções 1-8 seguem
-> confiáveis a partir de 2026-09-12, com pequenos ajustes pontuais já refletidos onde
-> relevante (ex.: RLS otimizada, seção 4.3).
+> naquela data para refletir o estado real. Em 2026-09-14 e 2026-09-16, sessões
+> subsequentes (renomeação para "UNA Flow", correção de bug de cotação, correção de
+> lentidão, correção de crash em caçamba) foram registradas na Seção 0 abaixo, sem
+> reescrever o resto do documento — seções 1-8 seguem confiáveis a partir de 2026-09-12,
+> com pequenos ajustes pontuais já refletidos onde relevante (ex.: RLS otimizada, seção
+> 4.3). O restante de 2026-09-16 a 2026-09-18 nesta sessão foi majoritariamente **uso do
+> sistema** (dezenas de solicitações de compra lançadas via script direto no banco,
+> correção de dados de cotações) — não é mudança de código e não está documentado aqui.
 
 ---
 
-## 0. Estado da sessão (2026-09-14) — LER PRIMEIRO ao continuar em nova conversa
+## 0. Estado da sessão (2026-09-16) — LER PRIMEIRO ao continuar em nova conversa — correção de bug de caçamba
+
+- **Crash ao confirmar entrega de caçamba com estado inconsistente**
+  (`features/servicos-obra/actions.ts`, `app/(dashboard)/servicos/cacamba/page.tsx`) —
+  trocar/re-salvar o fornecedor de uma caçamba (`escolherFornecedorCacamba`) zerava
+  `mensagem_enviada_em` mas não revertia o `status` de `"solicitada"` pra `"pendente"`; o
+  botão "Confirmar entrega" continuava aparecendo (só olha o status) mesmo sem poder ser
+  confirmado, e clicar nele lançava um erro não tratado dentro de `inserirEventoCacamba`
+  que derrubava a página inteira com "Application error: a server-side exception has
+  occurred". Corrigido em três camadas: `escolherFornecedorCacamba` agora volta o status
+  pra `"pendente"` junto (elimina a causa raiz); a tela passa a checar
+  `mensagem_enviada_em` antes de mostrar "Confirmar entrega" (mesmo padrão já usado por
+  "Confirmar troca"); as 3 actions de confirmação (entrega/troca/devolução) não derrubam
+  mais a página em erro inesperado, só revalidam. A caçamba da obra Heloisa que já estava
+  presa nesse estado foi corrigida direto no banco durante o diagnóstico. Commit `400617b`.
+
+---
+
+## 0-B. Estado da sessão (2026-09-14)
 
 ### Sessão de 2026-09-14 — rename, bugfix de cotação e correção de lentidão
 
@@ -66,7 +87,7 @@
 
 ---
 
-## 0-B. Estado da sessão (2026-09-12) — reauditoria completa anterior
+## 0-C. Estado da sessão (2026-09-12) — reauditoria completa anterior
 
 ### Reauditoria completa desta sessão
 
