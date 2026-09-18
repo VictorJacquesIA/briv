@@ -314,7 +314,6 @@ export async function generateCotacaoRequestPdf(input: {
     page.drawText("Descricao", { x: 48, y, size: 9, font: bold });
     page.drawText("Qtd", { x: 340, y, size: 9, font: bold });
     page.drawText("Unidade", { x: 390, y, size: 9, font: bold });
-    page.drawText("Observacao", { x: 460, y, size: 9, font: bold });
     y -= 18;
   };
 
@@ -354,7 +353,12 @@ export async function generateCotacaoRequestPdf(input: {
   renderHeader();
 
   for (const item of input.itens) {
-    if (y < 60) {
+    // Observação em coluna estreita (20 caracteres) cortava qualquer nota
+    // mais longa no meio da palavra e ficava ilegível. Agora vai numa
+    // segunda linha, indentada, com bem mais espaço pra caber por inteiro.
+    const observacao = line(item.observacao, "").trim();
+    const linhasNecessarias = observacao ? 2 : 1;
+    if (y < 60 + (linhasNecessarias - 1) * 12) {
       newPage();
     }
     page.drawText(line(item.descricao).slice(0, 55), {
@@ -375,13 +379,18 @@ export async function generateCotacaoRequestPdf(input: {
       size: 8,
       font: regular,
     });
-    page.drawText(line(item.observacao, "").slice(0, 20), {
-      x: 460,
-      y,
-      size: 8,
-      font: regular,
-    });
-    y -= 14;
+    y -= 12;
+    if (observacao) {
+      page.drawText(`Obs: ${observacao.slice(0, 95)}`, {
+        x: 58,
+        y,
+        size: 7.5,
+        font: regular,
+        color: TEXT_MUTED,
+      });
+      y -= 12;
+    }
+    y -= 2;
   }
 
   return pdf.save();
