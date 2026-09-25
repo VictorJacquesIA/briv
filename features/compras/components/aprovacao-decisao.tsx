@@ -89,6 +89,11 @@ export function AprovacaoDecisao({
 
   const restantes = itensAssignaveis.filter((item) => !assignments[item.id]);
   const completo = restantes.length === 0 && itensAssignaveis.length > 0;
+  const temAlgumaAtribuicao = Object.keys(assignments).length > 0;
+  // Aprovação parcial: com pelo menos 1 item atribuído já dá pra autorizar —
+  // o resto (não atribuído + sem cotação de ninguém) vira uma solicitação
+  // nova em cotação, em vez de travar a aprovação inteira.
+  const totalNaoAprovado = restantes.length + itensSemCotacao.length;
 
   const fornecedoresDisponiveis = cotacoes.filter((cotacao) =>
     restantes.some((item) => cotacaoItemValido(cotacao, item.id)),
@@ -183,9 +188,9 @@ export function AprovacaoDecisao({
           {itensSemCotacao.length > 1 ? "itens" : "item"} sem cotação válida de
           nenhum fornecedor:{" "}
           {itensSemCotacao.map((item) => item.descricao).join(", ")}.{" "}
-          {itensSemCotacao.length > 1 ? "Eles" : "Ele"} não poder
-          {itensSemCotacao.length > 1 ? "ão" : "á"} ser incluíd
-          {itensSemCotacao.length > 1 ? "os" : "o"} no pedido.
+          {itensSemCotacao.length > 1 ? "Eles" : "Ele"} ir
+          {itensSemCotacao.length > 1 ? "ão" : "á"} automaticamente para uma
+          nova solicitação em cotação ao autorizar.
         </div>
       ) : null}
 
@@ -238,6 +243,15 @@ export function AprovacaoDecisao({
             {itensAssignaveis.length > 1 ? "itens restam" : "item resta"} para
             atribuir
           </p>
+          {temAlgumaAtribuicao ? (
+            <p className="text-xs text-muted-foreground">
+              Pode autorizar só o que já foi atribuído — os {restantes.length}{" "}
+              {restantes.length > 1
+                ? "itens restantes vão"
+                : "item restante vai"}{" "}
+              para uma solicitação nova em cotação.
+            </p>
+          ) : null}
           {fornecedoresDisponiveis.length > 0 ? (
             <>
               <p className="text-sm text-muted-foreground">
@@ -341,17 +355,31 @@ export function AprovacaoDecisao({
         className="min-h-24 w-full rounded-md border bg-background px-3 py-2 text-sm"
         placeholder="Comentario"
       />
+      {!completo && temAlgumaAtribuicao ? (
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+          Autorizando agora, {totalNaoAprovado}{" "}
+          {totalNaoAprovado > 1 ? "itens vão" : "item vai"} para uma solicitação
+          nova em cotação (não entram neste pedido).
+        </div>
+      ) : null}
+
       <div className="flex flex-col gap-3 sm:flex-row">
         <ConfirmSubmitButton
           type="submit"
           name="decisao"
           value="autorizar"
-          message="Confirmar autorização desta compra?"
-          disabled={!completo}
+          message={
+            completo
+              ? "Confirmar autorização desta compra?"
+              : `Autorizar só os itens já atribuídos? ${totalNaoAprovado} ${totalNaoAprovado > 1 ? "itens vão" : "item vai"} para uma solicitação nova em cotação.`
+          }
+          disabled={!temAlgumaAtribuicao}
         >
-          {resumoPorFornecedor.length > 1
-            ? "Autorizar fornecedores"
-            : "Autorizar fornecedor"}
+          {!completo
+            ? "Autorizar parcialmente"
+            : resumoPorFornecedor.length > 1
+              ? "Autorizar fornecedores"
+              : "Autorizar fornecedor"}
         </ConfirmSubmitButton>
         <ConfirmSubmitButton
           type="submit"

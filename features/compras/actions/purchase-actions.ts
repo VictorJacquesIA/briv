@@ -1885,7 +1885,7 @@ export async function registrarDecisaoPublica(formData: FormData) {
           typeof a?.fornecedor_id !== "string",
       )
     ) {
-      throw new Error("Selecione o fornecedor de cada item.");
+      throw new Error("Selecione pelo menos um item para aprovar.");
     }
   }
 
@@ -1929,39 +1929,36 @@ export async function registrarDecisaoPublica(formData: FormData) {
 
   // Grupos: fornecedor_id -> ids dos itens aprovados para ele.
   const grupos = new Map<string, Set<string>>();
+  // Itens que precisam ser comprados mas o gestor não atribuiu fornecedor
+  // nesta rodada (aprovação parcial) — viram uma solicitação nova em cotação.
+  let itensNaoAprovados: Array<{
+    id: string;
+    item_id: string | null;
+    descricao: string;
+    unidade: string;
+    quantidade: number;
+    quantidade_estoque: number | null;
+    orcamento_item_id: string | null;
+    observacao: string | null;
+  }> = [];
 
   if (decisao === "autorizar") {
-    // Item cotado de verdade por pelo menos um fornecedor — mesmo critério
-    // de cotacaoItemValido em aprovacao-decisao.tsx.
-    const temCotacaoValida = (itemId: string) =>
-      (solicitacao.cotacoes ?? []).some((cotacao: any) =>
-        (cotacao.itens ?? []).some(
-          (ci: any) =>
-            ci.solicitacao_item_id === itemId &&
-            !ci.item_nao_cotado &&
-            ci.preco_unitario != null,
-        ),
-      );
-
-    // Só itens que realmente precisam ser comprados (quantidade além do que
-    // o estoque já cobre) E que algum fornecedor de fato cotou exigem
-    // fornecedor escolhido — os demais nunca aparecem na tela de decisão
-    // (mesmo filtro do Comparativo/AprovacaoDecisao) e não entram no pedido.
-    const itensParaComprar = (solicitacao.itens ?? []).filter(
+    // Itens que realmente precisam ser comprados (quantidade além do que o
+    // estoque já cobre). A aprovação pode ser parcial: o gestor escolhe
+    // fornecedor só para os itens que quer liberar agora — o resto (sem
+    // atribuição, incluindo os sem cotação válida de ninguém) vira uma nova
+    // solicitação em cotação em vez de travar a aprovação inteira.
+    const itensQuePrecisamComprar = (solicitacao.itens ?? []).filter(
       (item: {
         id: string;
         quantidade: number;
         quantidade_estoque: number | null;
-      }) =>
-        Number(item.quantidade) - Number(item.quantidade_estoque ?? 0) > 0 &&
-        temCotacaoValida(item.id),
+      }) => Number(item.quantidade) - Number(item.quantidade_estoque ?? 0) > 0,
     );
-
-    for (const item of itensParaComprar) {
-      if (!assignments.some((a) => a.solicitacao_item_id === item.id)) {
-        throw new Error("Todos os itens precisam ter um fornecedor escolhido.");
-      }
-    }
+    const idsAprovados = new Set(assignments.map((a) => a.solicitacao_item_id));
+    itensNaoAprovados = itensQuePrecisamComprar.filter(
+      (item: { id: string }) => !idsAprovados.has(item.id),
+    );
 
     for (const atribuicao of assignments) {
       if (!itensDaSolicitacao.has(atribuicao.solicitacao_item_id)) {
@@ -1986,6 +1983,80 @@ export async function registrarDecisaoPublica(formData: FormData) {
       grupo.add(atribuicao.solicitacao_item_id);
       grupos.set(atribuicao.fornecedor_id, grupo);
     }
+  }
+
+  // Aprovação parcial: os itens não atribuídos nesta rodada saem da
+  // solicitação atual e viram uma solicitação nova em "em_cotacao", em vez
+  // de ficarem perdidos ou travarem a aprovação do restante.
+  let novaSolicitacaoCodigo: string | null = null;
+  if (decisao === "autorizar" && itensNaoAprovados.length > 0) {
+    novaSolicitacaoCodigo = `SC-${Date.now().toString(36).toUpperCase()}`;
+    const { data: novaSolicitacao, error: novaSolicitacaoError } =
+      await supabase
+        .from("solicitacoes")
+        .insert({
+          cliente_id: clienteId,
+          obra_id: solicitacao.obra_id,
+          solicitante_id: solicitacao.solicitante_id,
+          responsavel_obra_id: solicitacao.responsavel_obra_id,
+          status: "em_cotacao",
+          prioridade: solicitacao.prioridade,
+          data_necessidade: solicitacao.data_necessidade,
+          codigo: novaSolicitacaoCodigo,
+        })
+        .select("id")
+        .single();
+    if (novaSolicitacaoError || !novaSolicitacao) {
+      throw new Error("Não foi possível separar os itens não aprovados.");
+    }
+
+    await supabase.from("solicitacao_itens").insert(
+      itensNaoAprovados.map((item) => ({
+        solicitacao_id: novaSolicitacao.id,
+        item_id: item.item_id,
+        descricao: item.descricao,
+        unidade: item.unidade,
+        quantidade: item.quantidade,
+        orcamento_item_id: item.orcamento_item_id,
+        observacao: item.observacao,
+      })),
+    );
+
+    const idsMovidos = itensNaoAprovados.map((item) => item.id);
+    await supabase
+      .from("cotacao_itens")
+      .delete()
+      .in("solicitacao_item_id", idsMovidos);
+    await supabase.from("solicitacao_itens").delete().in("id", idsMovidos);
+
+    await supabase.from("historico").insert({
+      cliente_id: clienteId,
+      actor_id: null,
+      entidade: "solicitacao",
+      entidade_id: novaSolicitacao.id,
+      acao: "solicitacao_criada",
+      status_anterior: null,
+      status_novo: "em_cotacao",
+      dados: {
+        codigo: novaSolicitacaoCodigo,
+        origem: `Separado de ${solicitacao.codigo} na aprovação parcial por ${gestorNome}`,
+        itens: itensNaoAprovados.map((item) => item.descricao),
+      },
+    });
+
+    await supabase.from("historico").insert({
+      cliente_id: clienteId,
+      actor_id: null,
+      entidade: "solicitacao",
+      entidade_id: solicitacaoId,
+      acao: "itens_movidos_aprovacao_parcial",
+      ip: context.ip,
+      user_agent: context.userAgent,
+      dados: {
+        itens: itensNaoAprovados.map((item) => item.descricao),
+        nova_solicitacao_codigo: novaSolicitacaoCodigo,
+      },
+    });
   }
 
   const fornecedoresAprovados = [...grupos.keys()];
@@ -2116,6 +2187,7 @@ export async function registrarDecisaoPublica(formData: FormData) {
       comentario,
       gestor_nome: gestorNome,
       gestor_email: gestorEmail,
+      nova_solicitacao_codigo: novaSolicitacaoCodigo,
     },
   });
 
@@ -2163,10 +2235,17 @@ export async function avancarFluxo(formData: FormData) {
     .eq("id", solicitacaoId)
     .single();
 
+  // adm_geral não fica preso ao mapa de transições — pode forçar qualquer
+  // status a partir de qualquer status atual, pra destravar solicitações
+  // manualmente quando necessário. Os outros papéis seguem restritos ao
+  // FLOW_TRANSITIONS de sempre.
+  const podeForcarQualquerStatus = normalizeRole(profile.role) === "adm_geral";
+
   if (
     !current ||
     !etapa ||
-    !FLOW_TRANSITIONS[current.status]?.includes(etapa)
+    (!podeForcarQualquerStatus &&
+      !FLOW_TRANSITIONS[current.status]?.includes(etapa))
   ) {
     throw new Error("Transição de status inválida.");
   }
