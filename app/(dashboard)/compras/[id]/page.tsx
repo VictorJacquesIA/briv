@@ -472,6 +472,12 @@ export default async function CompraDetailPage({
                       {item.unidade}
                     </span>
                   </div>
+                  <div className="text-muted-foreground">
+                    Centro de custo:{" "}
+                    <span className="text-foreground">
+                      {item.orcamento_item?.descricao ?? "não definido"}
+                    </span>
+                  </div>
                   {item.observacao ? (
                     <div className="text-muted-foreground">
                       Observação:{" "}

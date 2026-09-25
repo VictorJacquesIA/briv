@@ -252,7 +252,7 @@ export async function getSolicitacaoDetail(id: string) {
       solicitante:profiles!solicitacoes_solicitante_id_fkey(id,nome,role),
       responsavel_obra:profiles!solicitacoes_responsavel_obra_id_fkey(id,nome,role,telefone,whatsapp),
       fornecedor_aprovado:fornecedores!solicitacoes_fornecedor_aprovado_id_fkey(id,razao_social,nome_fantasia),
-      itens:solicitacao_itens(*),
+      itens:solicitacao_itens(*, orcamento_item:obra_orcamento_itens(descricao,tipo)),
       anexos:solicitacao_anexos(*),
       cotacoes:cotacoes(*, fornecedor:fornecedores(*), itens:cotacao_itens(*)),
       aprovacoes:aprovacoes(*, aprovador:profiles(id,nome)),
