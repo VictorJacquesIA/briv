@@ -288,6 +288,36 @@ export async function generatePedidoCompraPdf(input: {
 // PDF de PEDIDO de cotação — sem preços, é o que vai pro fornecedor decidir
 // quanto cobrar. Não confundir com generatePedidoCompraPdf (o pedido final,
 // já com fornecedor escolhido e preços fechados).
+// Quebra um texto em várias linhas que cabem em maxWidth, sem cortar
+// palavras — a coluna Descrição tem itens que passam fácil de 100
+// caracteres (ex.: barramentos de distribuição com código de fixação), e
+// truncar numa linha só cortava informação relevante no meio da palavra.
+function wrapTextLines(
+  text: string,
+  font: PDFFont,
+  size: number,
+  maxWidth: number,
+) {
+  const words = text.split(" ").filter(Boolean);
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (font.widthOfTextAtSize(candidate, size) <= maxWidth) {
+      current = candidate;
+    } else {
+      if (current) {
+        lines.push(current);
+      }
+      current = word;
+    }
+  }
+  if (current) {
+    lines.push(current);
+  }
+  return lines.length > 0 ? lines : [""];
+}
+
 export async function generateCotacaoRequestPdf(input: {
   solicitacao: {
     codigo: string | null;
@@ -352,20 +382,32 @@ export async function generateCotacaoRequestPdf(input: {
 
   renderHeader();
 
+  const descSize = 8;
+  const descLineHeight = 11;
+  const descMaxWidth = 340 - 48 - 8;
+
   for (const item of input.itens) {
+    const descLines = wrapTextLines(
+      line(item.descricao),
+      regular,
+      descSize,
+      descMaxWidth,
+    );
     // Observação em coluna estreita (20 caracteres) cortava qualquer nota
     // mais longa no meio da palavra e ficava ilegível. Agora vai numa
     // segunda linha, indentada, com bem mais espaço pra caber por inteiro.
     const observacao = line(item.observacao, "").trim();
-    const linhasNecessarias = observacao ? 2 : 1;
-    if (y < 60 + (linhasNecessarias - 1) * 12) {
+    const rowHeight = descLines.length * descLineHeight + (observacao ? 12 : 0);
+    if (y - rowHeight < 60) {
       newPage();
     }
-    page.drawText(line(item.descricao).slice(0, 55), {
-      x: 48,
-      y,
-      size: 8,
-      font: regular,
+    descLines.forEach((descLine, i) => {
+      page.drawText(descLine, {
+        x: 48,
+        y: y - i * descLineHeight,
+        size: descSize,
+        font: regular,
+      });
     });
     page.drawText(money(item.quantidade), {
       x: 340,
@@ -379,7 +421,7 @@ export async function generateCotacaoRequestPdf(input: {
       size: 8,
       font: regular,
     });
-    y -= 12;
+    y -= descLines.length * descLineHeight;
     if (observacao) {
       page.drawText(`Obs: ${observacao.slice(0, 95)}`, {
         x: 58,
