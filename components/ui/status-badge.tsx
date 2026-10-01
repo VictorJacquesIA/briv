@@ -18,6 +18,7 @@ const statusClasses: Record<string, string> = {
   "grupo-nova_solicitacao":
     "border-destructive/60 bg-destructive/10 text-destructive",
   "grupo-em_cotacao": "border-warning/60 bg-warning/10 text-warning",
+  "grupo-aguardando_aprovacao": "border-warning/60 bg-warning/10 text-warning",
   "grupo-pedido_aprovado":
     "border-emerald-500/60 bg-emerald-500/10 text-emerald-500",
   "grupo-finalizado":

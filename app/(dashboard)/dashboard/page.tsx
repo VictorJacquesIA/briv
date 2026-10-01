@@ -6,6 +6,7 @@ import {
   ClipboardCheck,
   FileClock,
   FileText,
+  Hourglass,
   PackageSearch,
   Send,
   Trash2,
@@ -293,6 +294,12 @@ export default async function DashboardPage({
       value: statusCounts.emCotacao,
       icon: Clock,
       href: "/compras?status=em_cotacao",
+    },
+    {
+      label: "Aguardando aprovação",
+      value: statusCounts.aguardandoAprovacao,
+      icon: Hourglass,
+      href: "/compras?status=aguardando_aprovacao",
     },
     {
       label: "Pedido aprovado",

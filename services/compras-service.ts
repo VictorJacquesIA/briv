@@ -52,13 +52,8 @@ export const STATUSES_TERMINAIS = ["finalizada", "cancelada"];
 // disponíveis dependem da etapa exata).
 export const STATUS_GROUPS: Record<string, SolicitacaoStatus[]> = {
   nova_solicitacao: ["rascunho", "aberta"],
-  em_cotacao: [
-    "em_cotacao",
-    "cotacao_recebida",
-    "validado",
-    "aguardando_aprovacao",
-    "aprovacao",
-  ],
+  em_cotacao: ["em_cotacao", "cotacao_recebida"],
+  aguardando_aprovacao: ["validado", "aguardando_aprovacao", "aprovacao"],
   pedido_aprovado: [
     "aprovada",
     "autorizada",
@@ -73,6 +68,7 @@ export const STATUS_GROUPS: Record<string, SolicitacaoStatus[]> = {
 export const STATUS_GROUP_LABELS: Record<string, string> = {
   nova_solicitacao: "Nova Solicitação",
   em_cotacao: "Em Cotação",
+  aguardando_aprovacao: "Aguardando Aprovação",
   pedido_aprovado: "Pedido Aprovado",
   finalizado: "Finalizado",
   cancelada: "Cancelada",
@@ -323,6 +319,7 @@ export function cotacaoPendencias(cotacao: any) {
 const DASHBOARD_STATUS_GROUPS = [
   "nova_solicitacao",
   "em_cotacao",
+  "aguardando_aprovacao",
   "pedido_aprovado",
   "finalizado",
 ] as const;
@@ -349,8 +346,9 @@ export async function getPurchaseStatusCounts(input?: {
   return {
     novaSolicitacao: counts[0].count ?? 0,
     emCotacao: counts[1].count ?? 0,
-    pedidoAprovado: counts[2].count ?? 0,
-    finalizado: counts[3].count ?? 0,
+    aguardandoAprovacao: counts[2].count ?? 0,
+    pedidoAprovado: counts[3].count ?? 0,
+    finalizado: counts[4].count ?? 0,
   };
 }
 
