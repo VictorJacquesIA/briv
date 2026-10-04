@@ -212,9 +212,9 @@ actor_id = null` como parte do cascade). Só dá pra contornar desabilitando os 
   deixando regenerar, ou (caso do `COMMIT_EDITMSG`) rodando
   `attrib -H -A .git\COMMIT_EDITMSG` via PowerShell antes de tentar de novo.
   `next.config.ts` já desabilita o cache do webpack em dev por causa disso (ver seção 7).
-- **Login de teste real**: `victorjbinello@gmail.com` / `121298` (fornecido
-  explicitamente pelo usuário pra testes com Playwright). Playwright + Chromium já estão
-  instalados como devDependency. Vitest também está configurado (`npm run test`).
+- **Login de teste**: credenciais ficam fora do repositório (guardar localmente ou em
+  gerenciador de senhas, nunca neste arquivo). Playwright + Chromium já estão instalados
+  como devDependency. Vitest também está configurado (`npm run test`).
 - **Ao acumular várias features sem commit**, o padrão preferido pelo usuário é dividir
   em vários commits pequenos por feature/tema (não um commit gigante) — ver
   `git log --oneline` pra exemplos de mensagens no estilo certo (em português, no
