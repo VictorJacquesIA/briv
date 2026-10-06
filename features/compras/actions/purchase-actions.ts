@@ -1826,7 +1826,7 @@ export async function enviarParaAprovacao(
     const [{ data: todosItens }, { data: itensCotados }] = await Promise.all([
       supabase
         .from("solicitacao_itens")
-        .select("id")
+        .select("id,quantidade,quantidade_estoque")
         .eq("solicitacao_id", solicitacaoId),
       supabase
         .from("cotacao_itens")
@@ -1837,14 +1837,20 @@ export async function enviarParaAprovacao(
     const cobertos = new Set(
       (itensCotados ?? []).map((item: any) => item.solicitacao_item_id),
     );
-    const semCotacao = (todosItens ?? []).filter(
+    // Só conta o que ainda precisa de compra: o que já saiu do estoque não
+    // precisa de cotação nem pode virar outra solicitação.
+    const itensQueComprar = (todosItens ?? []).filter(
+      (item: any) =>
+        Number(item.quantidade) - Number(item.quantidade_estoque ?? 0) > 0,
+    );
+    const semCotacao = itensQueComprar.filter(
       (item: any) => !cobertos.has(item.id),
     );
 
     // Itens sem cotação validada não travam o envio: saem desta solicitação e
     // viram uma solicitação nova em "em_cotacao", para serem cotados depois.
     if (semCotacao.length > 0) {
-      if (semCotacao.length === (todosItens ?? []).length) {
+      if (semCotacao.length === itensQueComprar.length) {
         return {
           message:
             "Nenhum item tem cotação validada. Registre um orçamento antes de enviar para aprovação.",
@@ -1864,7 +1870,7 @@ export async function enviarParaAprovacao(
         supabase
           .from("solicitacao_itens")
           .select(
-            "item_id,descricao,unidade,quantidade,orcamento_item_id,observacao",
+            "id,item_id,descricao,unidade,quantidade,quantidade_estoque,orcamento_item_id,observacao",
           )
           .in("id", idsSemCotacao),
       ]);
@@ -1895,10 +1901,18 @@ export async function enviarParaAprovacao(
         };
       }
 
+      // Vai para a nova solicitação só a quantidade que falta comprar; a parte
+      // que já saiu do estoque fica na solicitação original.
       await supabase.from("solicitacao_itens").insert(
         (itensSemCotacao ?? []).map((item: any) => ({
-          ...item,
           solicitacao_id: novaSolicitacao.id,
+          item_id: item.item_id,
+          descricao: item.descricao,
+          unidade: item.unidade,
+          quantidade:
+            Number(item.quantidade) - Number(item.quantidade_estoque ?? 0),
+          orcamento_item_id: item.orcamento_item_id,
+          observacao: item.observacao,
         })),
       );
 
@@ -1906,7 +1920,23 @@ export async function enviarParaAprovacao(
         .from("cotacao_itens")
         .delete()
         .in("solicitacao_item_id", idsSemCotacao);
-      await supabase.from("solicitacao_itens").delete().in("id", idsSemCotacao);
+
+      const parciais = (itensSemCotacao ?? []).filter(
+        (item: any) => Number(item.quantidade_estoque ?? 0) > 0,
+      );
+      for (const parcial of parciais) {
+        await supabase
+          .from("solicitacao_itens")
+          .update({ quantidade: parcial.quantidade_estoque })
+          .eq("id", parcial.id);
+      }
+
+      const idsQueSaem = (itensSemCotacao ?? [])
+        .filter((item: any) => Number(item.quantidade_estoque ?? 0) === 0)
+        .map((item: any) => item.id);
+      if (idsQueSaem.length > 0) {
+        await supabase.from("solicitacao_itens").delete().in("id", idsQueSaem);
+      }
 
       await registrarHistorico({
         clienteId: profile.cliente_id,
