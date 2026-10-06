@@ -1841,10 +1841,100 @@ export async function enviarParaAprovacao(
       (item: any) => !cobertos.has(item.id),
     );
 
+    // Itens sem cotação validada não travam o envio: saem desta solicitação e
+    // viram uma solicitação nova em "em_cotacao", para serem cotados depois.
     if (semCotacao.length > 0) {
-      return {
-        message: `${semCotacao.length} ite${semCotacao.length > 1 ? "ns" : "m"} da solicitação ainda ${semCotacao.length > 1 ? "não têm" : "não tem"} cotação de nenhum fornecedor.`,
-      };
+      if (semCotacao.length === (todosItens ?? []).length) {
+        return {
+          message:
+            "Nenhum item tem cotação validada. Registre um orçamento antes de enviar para aprovação.",
+        };
+      }
+
+      const idsSemCotacao = semCotacao.map((item: any) => item.id);
+
+      const [{ data: origem }, { data: itensSemCotacao }] = await Promise.all([
+        supabase
+          .from("solicitacoes")
+          .select(
+            "cliente_id,obra_id,solicitante_id,responsavel_obra_id,prioridade,data_necessidade,codigo",
+          )
+          .eq("id", solicitacaoId)
+          .single(),
+        supabase
+          .from("solicitacao_itens")
+          .select(
+            "item_id,descricao,unidade,quantidade,orcamento_item_id,observacao",
+          )
+          .in("id", idsSemCotacao),
+      ]);
+
+      if (!origem) {
+        return { message: "Não foi possível localizar a solicitação." };
+      }
+
+      const novoCodigo = `SC-${Date.now().toString(36).toUpperCase()}`;
+      const { data: novaSolicitacao, error: erroNova } = await supabase
+        .from("solicitacoes")
+        .insert({
+          cliente_id: origem.cliente_id,
+          obra_id: origem.obra_id,
+          solicitante_id: origem.solicitante_id,
+          responsavel_obra_id: origem.responsavel_obra_id,
+          status: "em_cotacao",
+          prioridade: origem.prioridade,
+          data_necessidade: origem.data_necessidade,
+          codigo: novoCodigo,
+        })
+        .select("id")
+        .single();
+
+      if (erroNova || !novaSolicitacao) {
+        return {
+          message: "Não foi possível separar os itens sem cotação.",
+        };
+      }
+
+      await supabase.from("solicitacao_itens").insert(
+        (itensSemCotacao ?? []).map((item: any) => ({
+          ...item,
+          solicitacao_id: novaSolicitacao.id,
+        })),
+      );
+
+      await supabase
+        .from("cotacao_itens")
+        .delete()
+        .in("solicitacao_item_id", idsSemCotacao);
+      await supabase.from("solicitacao_itens").delete().in("id", idsSemCotacao);
+
+      await registrarHistorico({
+        clienteId: profile.cliente_id,
+        actorId: user.id,
+        entidade: "solicitacao",
+        entidadeId: novaSolicitacao.id,
+        acao: "solicitacao_criada",
+        statusNovo: "em_cotacao",
+        dados: {
+          codigo: novoCodigo,
+          origem: `Separado de ${origem.codigo} no envio para aprovação`,
+          itens: (itensSemCotacao ?? []).map((item: any) => item.descricao),
+        },
+      });
+
+      await registrarHistorico({
+        clienteId: profile.cliente_id,
+        actorId: user.id,
+        entidade: "solicitacao",
+        entidadeId: solicitacaoId,
+        acao: "itens_movidos_envio_aprovacao",
+        ip: context.ip,
+        userAgent: context.userAgent,
+        dados: {
+          itens: (itensSemCotacao ?? []).map((item: any) => item.descricao),
+          nova_solicitacao_codigo: novoCodigo,
+        },
+      });
     }
 
     // 6 bytes (8 caracteres em base64url) — curto o suficiente pra caber
