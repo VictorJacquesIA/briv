@@ -818,12 +818,18 @@ export async function salvarCotacao(
 
     const { data: existing } = await supabase
       .from("cotacoes")
-      .select("id")
+      .select("id,status,arquivo_path")
       .eq("solicitacao_id", solicitacaoId)
       .eq("fornecedor_id", fornecedorId)
       .maybeSingle();
 
-    if (existing) {
+    // Rascunho sem arquivo (pedido de cotação feito ao fornecedor, sem preço
+    // ainda) é completado no mesmo registro. Orçamento já respondido ou com
+    // arquivo não é sobrescrito.
+    const rascunhoSemArquivo =
+      existing?.status === "rascunho" && !existing.arquivo_path;
+
+    if (existing && !rascunhoSemArquivo) {
       return { message: "Este fornecedor ja possui orcamento registrado." };
     }
 
@@ -853,35 +859,87 @@ export async function salvarCotacao(
     const itens = aplicarDesconto(itensBrutos, descontoPercentual);
     const totalFornecedor = calcularTotalFornecedor(itens);
 
-    const { data: cotacao, error } = await supabase
-      .from("cotacoes")
-      .insert({
-        cliente_id: profile.cliente_id,
-        solicitacao_id: solicitacaoId,
-        fornecedor_id: fornecedorId,
-        status: "respondida",
-        observacoes_gerais: text(formData, "observacoes_gerais"),
-        observacao: text(formData, "observacoes_gerais"),
-        total_fornecedor: totalFornecedor,
-        desconto_percentual: descontoPercentual || null,
-        validado_por: user.id,
-        validado_at: new Date().toISOString(),
-      })
-      .select("id")
-      .single();
+    const dadosCotacao = {
+      status: "respondida" as const,
+      observacoes_gerais: text(formData, "observacoes_gerais"),
+      observacao: text(formData, "observacoes_gerais"),
+      total_fornecedor: totalFornecedor,
+      desconto_percentual: descontoPercentual || null,
+      validado_por: user.id,
+      validado_at: new Date().toISOString(),
+    };
 
-    if (error || !cotacao) {
-      return {
-        message: friendlyErrorMessage(
-          error,
-          "Não foi possível salvar o orçamento.",
-        ),
-      };
+    let cotacaoId: string;
+
+    if (existing && rascunhoSemArquivo) {
+      const { error: erroAtualizar } = await supabase
+        .from("cotacoes")
+        .update(dadosCotacao)
+        .eq("id", existing.id);
+
+      if (erroAtualizar) {
+        return {
+          message: friendlyErrorMessage(
+            erroAtualizar,
+            "Não foi possível salvar o orçamento.",
+          ),
+        };
+      }
+
+      cotacaoId = existing.id;
+
+      // Linhas placeholder de itens que saíram deste orçamento não podem ficar
+      // sem preço, senão aparecem como cotadas a R$ 0,00.
+      await supabase
+        .from("cotacao_itens")
+        .delete()
+        .eq("cotacao_id", cotacaoId)
+        .not(
+          "solicitacao_item_id",
+          "in",
+          `(${itens.map((item) => item.solicitacao_item_id).join(",")})`,
+        );
+
+      const { error: erroItens } = await supabase.from("cotacao_itens").upsert(
+        itens.map((item) => ({ ...item, cotacao_id: cotacaoId })),
+        { onConflict: "cotacao_id,solicitacao_item_id" },
+      );
+
+      if (erroItens) {
+        return {
+          message: friendlyErrorMessage(
+            erroItens,
+            "Não foi possível salvar os itens do orçamento.",
+          ),
+        };
+      }
+    } else {
+      const { data: cotacao, error } = await supabase
+        .from("cotacoes")
+        .insert({
+          cliente_id: profile.cliente_id,
+          solicitacao_id: solicitacaoId,
+          fornecedor_id: fornecedorId,
+          ...dadosCotacao,
+        })
+        .select("id")
+        .single();
+
+      if (error || !cotacao) {
+        return {
+          message: friendlyErrorMessage(
+            error,
+            "Não foi possível salvar o orçamento.",
+          ),
+        };
+      }
+
+      cotacaoId = cotacao.id;
+
+      await supabase
+        .from("cotacao_itens")
+        .insert(itens.map((item) => ({ ...item, cotacao_id: cotacaoId })));
     }
-
-    await supabase
-      .from("cotacao_itens")
-      .insert(itens.map((item) => ({ ...item, cotacao_id: cotacao.id })));
 
     // Só avança pra "em_cotacao" se ainda não passou dessa etapa — sem essa
     // checagem, cadastrar mais um fornecedor manualmente depois de já ter
