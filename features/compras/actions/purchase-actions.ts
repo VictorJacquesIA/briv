@@ -1838,7 +1838,7 @@ export async function enviarParaAprovacao(
       (itensCotados ?? []).map((item: any) => item.solicitacao_item_id),
     );
     // Só conta o que ainda precisa de compra: o que já saiu do estoque não
-    // precisa de cotação nem pode virar outra solicitação.
+    // precisa de cotação.
     const itensQueComprar = (todosItens ?? []).filter(
       (item: any) =>
         Number(item.quantidade) - Number(item.quantidade_estoque ?? 0) > 0,
@@ -1847,124 +1847,17 @@ export async function enviarParaAprovacao(
       (item: any) => !cobertos.has(item.id),
     );
 
-    // Itens sem cotação validada não travam o envio: saem desta solicitação e
-    // viram uma solicitação nova em "em_cotacao", para serem cotados depois.
-    if (semCotacao.length > 0) {
-      if (semCotacao.length === itensQueComprar.length) {
-        return {
-          message:
-            "Nenhum item tem cotação validada. Registre um orçamento antes de enviar para aprovação.",
-        };
-      }
-
-      const idsSemCotacao = semCotacao.map((item: any) => item.id);
-
-      const [{ data: origem }, { data: itensSemCotacao }] = await Promise.all([
-        supabase
-          .from("solicitacoes")
-          .select(
-            "cliente_id,obra_id,solicitante_id,responsavel_obra_id,prioridade,data_necessidade,codigo",
-          )
-          .eq("id", solicitacaoId)
-          .single(),
-        supabase
-          .from("solicitacao_itens")
-          .select(
-            "id,item_id,descricao,unidade,quantidade,quantidade_estoque,orcamento_item_id,observacao",
-          )
-          .in("id", idsSemCotacao),
-      ]);
-
-      if (!origem) {
-        return { message: "Não foi possível localizar a solicitação." };
-      }
-
-      const novoCodigo = `SC-${Date.now().toString(36).toUpperCase()}`;
-      const { data: novaSolicitacao, error: erroNova } = await supabase
-        .from("solicitacoes")
-        .insert({
-          cliente_id: origem.cliente_id,
-          obra_id: origem.obra_id,
-          solicitante_id: origem.solicitante_id,
-          responsavel_obra_id: origem.responsavel_obra_id,
-          status: "em_cotacao",
-          prioridade: origem.prioridade,
-          data_necessidade: origem.data_necessidade,
-          codigo: novoCodigo,
-        })
-        .select("id")
-        .single();
-
-      if (erroNova || !novaSolicitacao) {
-        return {
-          message: "Não foi possível separar os itens sem cotação.",
-        };
-      }
-
-      // Vai para a nova solicitação só a quantidade que falta comprar; a parte
-      // que já saiu do estoque fica na solicitação original.
-      await supabase.from("solicitacao_itens").insert(
-        (itensSemCotacao ?? []).map((item: any) => ({
-          solicitacao_id: novaSolicitacao.id,
-          item_id: item.item_id,
-          descricao: item.descricao,
-          unidade: item.unidade,
-          quantidade:
-            Number(item.quantidade) - Number(item.quantidade_estoque ?? 0),
-          orcamento_item_id: item.orcamento_item_id,
-          observacao: item.observacao,
-        })),
-      );
-
-      await supabase
-        .from("cotacao_itens")
-        .delete()
-        .in("solicitacao_item_id", idsSemCotacao);
-
-      const parciais = (itensSemCotacao ?? []).filter(
-        (item: any) => Number(item.quantidade_estoque ?? 0) > 0,
-      );
-      for (const parcial of parciais) {
-        await supabase
-          .from("solicitacao_itens")
-          .update({ quantidade: parcial.quantidade_estoque })
-          .eq("id", parcial.id);
-      }
-
-      const idsQueSaem = (itensSemCotacao ?? [])
-        .filter((item: any) => Number(item.quantidade_estoque ?? 0) === 0)
-        .map((item: any) => item.id);
-      if (idsQueSaem.length > 0) {
-        await supabase.from("solicitacao_itens").delete().in("id", idsQueSaem);
-      }
-
-      await registrarHistorico({
-        clienteId: profile.cliente_id,
-        actorId: user.id,
-        entidade: "solicitacao",
-        entidadeId: novaSolicitacao.id,
-        acao: "solicitacao_criada",
-        statusNovo: "em_cotacao",
-        dados: {
-          codigo: novoCodigo,
-          origem: `Separado de ${origem.codigo} no envio para aprovação`,
-          itens: (itensSemCotacao ?? []).map((item: any) => item.descricao),
-        },
-      });
-
-      await registrarHistorico({
-        clienteId: profile.cliente_id,
-        actorId: user.id,
-        entidade: "solicitacao",
-        entidadeId: solicitacaoId,
-        acao: "itens_movidos_envio_aprovacao",
-        ip: context.ip,
-        userAgent: context.userAgent,
-        dados: {
-          itens: (itensSemCotacao ?? []).map((item: any) => item.descricao),
-          nova_solicitacao_codigo: novoCodigo,
-        },
-      });
+    // Itens sem cotação não travam o envio: na decisão do gestor, os que não
+    // forem autorizados viram uma solicitação nova em cotação
+    // (registrarDecisaoPublica). Só bloqueia quando nenhum item tem cotação.
+    if (
+      itensQueComprar.length > 0 &&
+      semCotacao.length === itensQueComprar.length
+    ) {
+      return {
+        message:
+          "Nenhum item tem cotação validada. Registre um orçamento antes de enviar para aprovação.",
+      };
     }
 
     // 6 bytes (8 caracteres em base64url) — curto o suficiente pra caber
