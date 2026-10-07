@@ -8,10 +8,12 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import {
   avancarFluxo,
   iniciarCotacao,
+  STATUSES_BLOQUEIAM_EDICAO_COTACAO,
 } from "@/features/compras/actions/purchase-actions";
 import { ApprovalForm } from "@/features/compras/components/approval-form";
 import { Comparativo } from "@/features/compras/components/comparativo";
 import { ConfirmarRecebimentoForm } from "@/features/compras/components/confirmar-recebimento-form";
+import { CotacaoEditForm } from "@/features/compras/components/cotacao-edit-form";
 import { CotacaoForm } from "@/features/compras/components/cotacao-form";
 import { CotacaoRequestForm } from "@/features/compras/components/cotacao-request-form";
 import { CotacaoReviewForm } from "@/features/compras/components/cotacao-review-form";
@@ -93,6 +95,12 @@ export default async function CompraDetailPage({
       "finalizada",
       "cancelada",
     ].includes(solicitacao.status);
+  // Corrigir cotação só vale antes de a solicitação sair para o cliente (link
+  // de aprovação, PDF ou pedido) — depois disso o documento já enviado
+  // ficaria desatualizado.
+  const podeEditarCotacoes = !STATUSES_BLOQUEIAM_EDICAO_COTACAO.includes(
+    solicitacao.status,
+  );
   const ultimaRecusa =
     solicitacao.status === "rejeitada"
       ? [...(solicitacao.aprovacoes ?? [])]
@@ -563,6 +571,41 @@ export default async function CompraDetailPage({
               <Comparativo solicitacao={solicitacao} />
             </CardContent>
           </Card>
+
+          {podeEditarCotacoes && (solicitacao.cotacoes ?? []).length > 0 ? (
+            <div className="space-y-3">
+              <h2 className="text-lg font-semibold tracking-tight">
+                Corrigir cotação
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Encontrou um valor errado em uma cotação já salva? Corrija aqui,
+                sem precisar lançar tudo de novo.
+              </p>
+              {(solicitacao.cotacoes ?? []).map((cotacao: any) => (
+                <details
+                  key={cotacao.id}
+                  className="rounded-lg border border-border"
+                >
+                  <summary className="cursor-pointer select-none p-3 text-sm font-medium">
+                    {cotacao.fornecedor?.nome_fantasia ??
+                      cotacao.fornecedor?.razao_social}
+                  </summary>
+                  <div className="p-3 pt-0">
+                    <CotacaoEditForm
+                      solicitacaoId={solicitacao.id}
+                      cotacao={cotacao}
+                      itens={(solicitacao.itens ?? []).filter((item: any) =>
+                        (cotacao.itens ?? []).some(
+                          (cotacaoItem: any) =>
+                            cotacaoItem.solicitacao_item_id === item.id,
+                        ),
+                      )}
+                    />
+                  </div>
+                </details>
+              ))}
+            </div>
+          ) : null}
         </>
       ) : null}
 
