@@ -5,6 +5,7 @@ import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { STATUSES_BLOQUEIAM_EDICAO_COTACAO } from "@/features/compras/constants";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { friendlyErrorMessage } from "@/lib/error-message";
@@ -1436,25 +1437,6 @@ export async function validarCotacao(
     };
   }
 }
-
-// A partir daqui a solicitação já saiu para o cliente (link de aprovação,
-// PDF ou pedido) — corrigir a cotação por baixo deixaria o documento já
-// enviado desatualizado. Editar só é permitido antes disso.
-export const STATUSES_BLOQUEIAM_EDICAO_COTACAO = [
-  // "aguardando_aprovacao" fica de fora de propósito: a página pública lê a
-  // cotação ao vivo do banco (getPublicApprovalByToken), sem nada fixado
-  // nessa etapa — corrigir aqui só atualiza o que o cliente vai ver da
-  // próxima vez que abrir o link. O bloqueio começa quando ele já decidiu.
-  "aprovacao",
-  "aprovada",
-  "autorizada",
-  "rejeitada",
-  "pdf_gerado",
-  "pedido_programado",
-  "pedido_enviado",
-  "finalizada",
-  "cancelada",
-];
 
 // Corrige uma cotação já salva — inclusive validada — direto pela tela, sem
 // precisar recriar do zero nem mexer no banco por fora. Único jeito de

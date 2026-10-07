@@ -8,9 +8,9 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import {
   avancarFluxo,
   iniciarCotacao,
-  STATUSES_BLOQUEIAM_EDICAO_COTACAO,
 } from "@/features/compras/actions/purchase-actions";
 import { ApprovalForm } from "@/features/compras/components/approval-form";
+import { STATUSES_BLOQUEIAM_EDICAO_COTACAO } from "@/features/compras/constants";
 import { Comparativo } from "@/features/compras/components/comparativo";
 import { ConfirmarRecebimentoForm } from "@/features/compras/components/confirmar-recebimento-form";
 import { CotacaoEditForm } from "@/features/compras/components/cotacao-edit-form";
