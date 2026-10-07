@@ -1437,6 +1437,147 @@ export async function validarCotacao(
   }
 }
 
+// A partir daqui a solicitação já saiu para o cliente (link de aprovação,
+// PDF ou pedido) — corrigir a cotação por baixo deixaria o documento já
+// enviado desatualizado. Editar só é permitido antes disso.
+export const STATUSES_BLOQUEIAM_EDICAO_COTACAO = [
+  "aguardando_aprovacao",
+  "aprovacao",
+  "aprovada",
+  "autorizada",
+  "rejeitada",
+  "pdf_gerado",
+  "pedido_programado",
+  "pedido_enviado",
+  "finalizada",
+  "cancelada",
+];
+
+// Corrige uma cotação já salva — inclusive validada — direto pela tela, sem
+// precisar recriar do zero nem mexer no banco por fora. Único jeito de
+// consertar erro de digitação (ex: valor lido errado de uma foto, ou alguém
+// confundindo o campo Total com o Unitário). Não adiciona nem remove item da
+// cotação, só corrige preço, "não cotado" e observação dos que já estão nela.
+export async function editarItensCotacao(
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  try {
+    const { supabase, user, profile } = await getActor();
+    const permissions = await getPermissionsForUser(profile.id);
+    await assertPermission(profile.role, permissions, "cotacoes.edit");
+    const context = await getRequestContext();
+    const solicitacaoId = text(formData, "solicitacao_id");
+    const cotacaoId = text(formData, "cotacao_id");
+
+    if (!solicitacaoId || !cotacaoId) {
+      return { message: "Dados inválidos." };
+    }
+
+    const { data: solicitacao } = await supabase
+      .from("solicitacoes")
+      .select("status")
+      .eq("id", solicitacaoId)
+      .single();
+
+    if (
+      !solicitacao ||
+      STATUSES_BLOQUEIAM_EDICAO_COTACAO.includes(solicitacao.status)
+    ) {
+      return {
+        message:
+          "Esta solicitação já avançou para aprovação ou pedido — a cotação não pode mais ser editada.",
+      };
+    }
+
+    const { data: cotacaoAtual } = await supabase
+      .from("cotacoes")
+      .select("id")
+      .eq("id", cotacaoId)
+      .eq("solicitacao_id", solicitacaoId)
+      .maybeSingle();
+
+    if (!cotacaoAtual) {
+      return { message: "Cotação não encontrada." };
+    }
+
+    const itensBrutos = parseCotacaoItens(formData);
+
+    if (itensBrutos.length === 0) {
+      return { message: "Informe ao menos um item." };
+    }
+
+    const semPreco = itensSemPreco(itensBrutos);
+    if (semPreco.length > 0) {
+      return {
+        message:
+          semPreco.length === 1
+            ? 'Um item está sem preço. Informe o valor unitário ou marque como "Não cotado".'
+            : `${semPreco.length} itens estão sem preço. Informe o valor unitário de cada um ou marque como "Não cotado".`,
+      };
+    }
+
+    const descontoPercentual = money(formData.get("desconto_percentual")) ?? 0;
+    if (descontoPercentual < 0 || descontoPercentual > 100) {
+      return { message: "Desconto deve estar entre 0 e 100%." };
+    }
+
+    const itens = aplicarDesconto(itensBrutos, descontoPercentual);
+    const totalFornecedor = calcularTotalFornecedor(itens);
+
+    const { error: erroItens } = await supabase.from("cotacao_itens").upsert(
+      itens.map((item) => ({ ...item, cotacao_id: cotacaoId })),
+      { onConflict: "cotacao_id,solicitacao_item_id" },
+    );
+
+    if (erroItens) {
+      return {
+        message: friendlyErrorMessage(
+          erroItens,
+          "Não foi possível salvar as correções.",
+        ),
+      };
+    }
+
+    const { error: erroCotacao } = await supabase
+      .from("cotacoes")
+      .update({
+        total_fornecedor: totalFornecedor,
+        desconto_percentual: descontoPercentual || null,
+        observacoes_gerais: text(formData, "observacoes_gerais"),
+        observacao: text(formData, "observacoes_gerais"),
+      })
+      .eq("id", cotacaoId);
+
+    if (erroCotacao) {
+      return {
+        message: friendlyErrorMessage(
+          erroCotacao,
+          "Não foi possível salvar as correções.",
+        ),
+      };
+    }
+
+    await registrarHistorico({
+      clienteId: profile.cliente_id,
+      actorId: user.id,
+      entidade: "solicitacao",
+      entidadeId: solicitacaoId,
+      acao: "cotacao_editada",
+      dados: { cotacao_id: cotacaoId, total_fornecedor: totalFornecedor },
+      ip: context.ip,
+      userAgent: context.userAgent,
+    });
+
+    revalidatePath(`/compras/${solicitacaoId}`);
+    return { message: "Cotação corrigida." };
+  } catch (error) {
+    return {
+      message: friendlyErrorMessage(error),
+    };
+  }
+}
+
 export async function programarPedido(
   _state: ActionState,
   formData: FormData,
